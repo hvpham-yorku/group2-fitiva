@@ -1,0 +1,59 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: fitiva-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: devpass
+      MYSQL_DATABASE: fitiva_db
+      MYSQL_USER: fitiva_user
+      MYSQL_PASSWORD: fitiva_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pdevpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: fitiva-backend
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: db
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: fitiva_db
+      MYSQL_USER: fitiva_user
+      MYSQL_PASSWORD: fitiva_pass
+      DEBUG: "True"
+    command: >
+      bash -lc "python manage.py migrate &&
+                python manage.py runserver 0.0.0.0:8000"
+
+  frontend:
+    build: ./frontend
+    container_name: fitiva-frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+
+volumes:
+  mysql_data:
