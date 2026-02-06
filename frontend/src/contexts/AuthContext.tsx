@@ -3,14 +3,17 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { authAPI, ApiError } from '@/library/api';
+import type { UserProfileData, TrainerProfileData } from '@/library/api';
 
-interface User {
+export interface User {
   id: number;
   username: string;
   email: string;
   first_name: string;
   last_name: string;
   is_trainer: boolean;
+  profile?: UserProfileData;
+  trainer_profile?: TrainerProfileData;
 }
 
 interface AuthContextType {

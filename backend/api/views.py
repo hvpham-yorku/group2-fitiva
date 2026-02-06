@@ -12,8 +12,11 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import UserSignupSerializer, UserLoginSerializer, UserSerializer
-from .models import UserProfile
+from .serializers import (
+    UserSignupSerializer, UserLoginSerializer, UserSerializer,
+    UserProfileSerializer, TrainerProfileSerializer, WorkoutPlanSerializer,
+)
+from .models import UserProfile, TrainerProfile, WorkoutPlan
 from .authentication import CsrfExemptSessionAuthentication
 import os
 from urllib.parse import urlencode
@@ -96,6 +99,135 @@ def me(_request):
         "authenticated": True,
         "user": UserSerializer(_request.user).data
     })
+
+# --- Profile (User fitness profile) ---
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def profile_me(request):
+    """Get or update the current user's fitness profile (age, experience, location, focus)."""
+    profile = request.user.profile
+    if request.method == "GET":
+        serializer = UserProfileSerializer(profile)
+        return Response(serializer.data)
+    # PUT - use partial=True so only sent fields are validated (no need to send read_only)
+    serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+    try:
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+    except ValidationError as e:
+        formatted = {}
+        for field, errors in e.detail.items():
+            formatted[field] = errors[0] if isinstance(errors, list) else str(errors)
+        return Response({"errors": formatted}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# --- Trainer profile ---
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def trainer_profile_me(request):
+    """Get or update the current trainer's public profile. Only for users with is_trainer=True."""
+    if not getattr(request.user, "is_trainer", False):
+        return Response({"detail": "Only trainers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+    profile = request.user.trainer_profile
+    if request.method == "GET":
+        serializer = TrainerProfileSerializer(profile)
+        return Response(serializer.data)
+    serializer = TrainerProfileSerializer(profile, data=request.data, partial=True)
+    try:
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+    except ValidationError as e:
+        formatted = {}
+        for field, errors in e.detail.items():
+            formatted[field] = errors[0] if isinstance(errors, list) else str(errors)
+        return Response({"errors": formatted}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# --- Workout programs (trainer create/publish; public list published) ---
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def program_list_published(request):
+    """List workout programs that are published (for browsing)."""
+    qs = WorkoutPlan.objects.filter(is_published=True).select_related("trainer").order_by("-updated_at")
+    serializer = WorkoutPlanSerializer(qs, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def program_list_mine(request):
+    """List current trainer's programs (for My Programs page)."""
+    if not request.user.is_trainer:
+        return Response({"detail": "Only trainers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+    qs = WorkoutPlan.objects.filter(trainer=request.user).order_by("-updated_at")
+    serializer = WorkoutPlanSerializer(qs, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
+@permission_classes([IsAuthenticated])
+def program_detail(request, pk):
+    """Get, update, or delete a workout program. Only the owning trainer can modify."""
+    if not request.user.is_trainer:
+        return Response({"detail": "Only trainers can manage programs."}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        plan = WorkoutPlan.objects.get(pk=pk, trainer=request.user)
+    except WorkoutPlan.DoesNotExist:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == "GET":
+        serializer = WorkoutPlanSerializer(plan)
+        return Response(serializer.data)
+    if request.method == "DELETE":
+        plan.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    partial = request.method == "PATCH"
+    serializer = WorkoutPlanSerializer(plan, data=request.data, partial=partial)
+    try:
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+    except ValidationError as e:
+        formatted = {}
+        for field, errors in e.detail.items():
+            formatted[field] = errors[0] if isinstance(errors, list) else str(errors)
+        return Response({"errors": formatted}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def program_create(request):
+    """Create a new workout program (trainer only)."""
+    if not request.user.is_trainer:
+        return Response({"detail": "Only trainers can create programs."}, status=status.HTTP_403_FORBIDDEN)
+    serializer = WorkoutPlanSerializer(data=request.data)
+    try:
+        serializer.is_valid(raise_exception=True)
+        serializer.save(trainer=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except ValidationError as e:
+        formatted = {}
+        for field, errors in e.detail.items():
+            formatted[field] = errors[0] if isinstance(errors, list) else str(errors)
+        return Response({"errors": formatted}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def program_publish(request, pk):
+    """Toggle or set published status. Trainer only."""
+    if not request.user.is_trainer:
+        return Response({"detail": "Only trainers can publish programs."}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        plan = WorkoutPlan.objects.get(pk=pk, trainer=request.user)
+    except WorkoutPlan.DoesNotExist:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    is_published = request.data.get("is_published", not plan.is_published)
+    plan.is_published = bool(is_published)
+    plan.save()
+    return Response(WorkoutPlanSerializer(plan).data)
+
 
 # Forgot Password (implement later)
 def build_reset_url(_request, uid, token):

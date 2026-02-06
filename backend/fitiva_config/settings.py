@@ -153,6 +153,11 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True  # This is important to have for session cookies
 
+# CSRF trusted origins (Django 4.0+ requires scheme for cross-origin requests)
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+]
+
 # Logging (useful for debugging)
 LOGGING = {
     'version': 1,

@@ -1,0 +1,229 @@
+.profile-page {
+  min-height: 100vh;
+  background-color: #f9fafb;
+  padding: 1.5rem 2rem 2rem;
+}
+
+.profile-header {
+  margin-bottom: 1.5rem;
+}
+
+.profile-back {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: #2563eb;
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+}
+
+.profile-back:hover {
+  text-decoration: underline;
+}
+
+.profile-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.profile-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.profile-tab {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.profile-tab:hover {
+  color: #111827;
+}
+
+.profile-tab.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.profile-main {
+  max-width: 32rem;
+}
+
+.profile-loading {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.profile-section h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.profile-section-desc {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+}
+
+.profile-form .form-group {
+  margin-bottom: 1.25rem;
+}
+
+.profile-form .form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.375rem;
+}
+
+.profile-form .form-label .required {
+  color: #dc2626;
+}
+
+.profile-form .form-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  color: #111827;
+  background-color: white;
+}
+
+.profile-form .form-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.profile-form .form-input.error {
+  border-color: #dc2626;
+}
+
+.profile-form .form-select {
+  cursor: pointer;
+  appearance: auto;
+}
+
+.profile-form .form-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.profile-form .form-error {
+  font-size: 0.75rem;
+  color: #dc2626;
+  margin-top: 0.25rem;
+}
+
+.profile-form .char-count {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.specialties-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.specialty-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.specialty-checkbox {
+  width: 1rem;
+  height: 1rem;
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.alert-success {
+  background-color: #ecfdf5;
+  color: #065f46;
+}
+
+.alert-error {
+  background-color: #fef2f2;
+  color: #991b1b;
+}
+
+.profile-submit {
+  margin-top: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  background-color: #2563eb;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+.profile-submit:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.profile-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-trainer-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.profile-link-button {
+  display: inline-block;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #2563eb;
+  background-color: white;
+  border: 1px solid #2563eb;
+  border-radius: 0.375rem;
+  text-decoration: none;
+}
+
+.profile-link-button:hover {
+  background-color: #eff6ff;
+}
+
+.profile-link-button.primary {
+  color: white;
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.profile-link-button.primary:hover {
+  background-color: #1d4ed8;
+}

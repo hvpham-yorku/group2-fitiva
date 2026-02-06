@@ -1,19 +1,30 @@
-from .models import CustomUser, UserProfile, TrainerProfile
+from .models import CustomUser, UserProfile, TrainerProfile, WorkoutPlan
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 import re
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    # Required when saving profile (PUT); GET can return null for new users
+    age = serializers.IntegerField(required=False, allow_null=True)
+
     class Meta:
         model = UserProfile
-        fields = ["id", "age", "experience_level", "training_location", "fitness_focus", "created_at", "updated_at"] # fields created for [US1.2]
-        read_only_fields = ["id", "created_at"]
+        fields = ["id", "age", "experience_level", "training_location", "fitness_focus", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        # When updating, require age if this is a full profile save (all key fields present)
+        if self.instance and "age" in attrs and attrs.get("age") is None:
+            raise serializers.ValidationError({"age": "Age is required."})
+        if self.instance and "age" not in attrs and getattr(self.instance, "age", None) is None:
+            raise serializers.ValidationError({"age": "Age is required."})
+        return attrs
 
     def validate_age(self, value):
-        if value < 13:
+        if value is not None and value < 13:
             raise serializers.ValidationError("You must be at least 13 years old")
-        if value > 120:
+        if value is not None and value > 120:
             raise serializers.ValidationError("Please enter a valid age")
         return value
     
@@ -66,6 +77,35 @@ class TrainerProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Please enter a valid number of years")
         return value
 
+
+class WorkoutPlanSerializer(serializers.ModelSerializer):
+    trainer_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = WorkoutPlan
+        fields = [
+            'id', 'name', 'description', 'focus', 'difficulty',
+            'weekly_frequency', 'session_length', 'is_subscription',
+            'is_published', 'trainer', 'trainer_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'trainer', 'created_at', 'updated_at']
+
+    def get_trainer_name(self, obj):
+        if obj.trainer:
+            return f"{obj.trainer.first_name} {obj.trainer.last_name}".strip() or obj.trainer.username
+        return None
+
+    def validate_focus(self, value):
+        if value not in ['strength', 'cardio', 'flexibility', 'mixed']:
+            raise serializers.ValidationError("Invalid focus.")
+        return value
+
+    def validate_difficulty(self, value):
+        if value not in ['beginner', 'intermediate', 'advanced']:
+            raise serializers.ValidationError("Invalid difficulty.")
+        return value
+
+
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
     trainer_profile = TrainerProfileSerializer(read_only=True)
@@ -79,11 +119,13 @@ class UserSerializer(serializers.ModelSerializer):
 class UserSignupSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True, min_length=8)
-    password2 = serializers.CharField(write_only=True)  # for password confirmation
+    password2 = serializers.CharField(write_only=True)
     email = serializers.EmailField(required=True)
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
-    is_trainer = serializers.BooleanField(default=False) 
+    is_trainer = serializers.BooleanField(default=False)
+    profile_data = serializers.DictField(required=False, allow_null=True)
+    trainer_data = serializers.DictField(required=False, allow_null=True) 
 
     def validate_username(self, v):
         if len(v) > 16:
@@ -127,23 +169,38 @@ class UserSignupSerializer(serializers.Serializer):
         return data
 
     def create(self, data):
-        # Remove password2 before creating user, it was only for password confirmation
         data.pop('password2', None)
-        
+        profile_data = data.pop('profile_data', None) or {}
+        trainer_data = data.pop('trainer_data', None) or {}
+
         user = CustomUser.objects.create_user(
-            username   = data["username"],
-            password   = data["password"],  # This will hash the password correctly
-            email      = data["email"],
-            first_name = data["first_name"],
-            last_name  = data["last_name"],
-            is_trainer = data.get("is_trainer", False),
+            username=data["username"],
+            password=data["password"],
+            email=data["email"],
+            first_name=data["first_name"],
+            last_name=data["last_name"],
+            is_trainer=data.get("is_trainer", False),
         )
         UserProfile.objects.create(
-            user=user, # more fields for profile might be added here later
+            user=user,
+            age=profile_data.get("age"),
+            experience_level=profile_data.get("experience_level", "beginner"),
+            training_location=profile_data.get("training_location", "home"),
+            fitness_focus=profile_data.get("fitness_focus", "mixed"),
         )
 
         if user.is_trainer:
-            TrainerProfile.objects.create(user=user)  
+            TrainerProfile.objects.create(
+                user=user,
+                bio=trainer_data.get("bio", ""),
+                years_of_experience=trainer_data.get("years_of_experience", 0),
+                specialty_strength=trainer_data.get("specialty_strength", False),
+                specialty_cardio=trainer_data.get("specialty_cardio", False),
+                specialty_flexibility=trainer_data.get("specialty_flexibility", False),
+                specialty_sports=trainer_data.get("specialty_sports", False),
+                specialty_rehabilitation=trainer_data.get("specialty_rehabilitation", False),
+                certifications=trainer_data.get("certifications", ""),
+            )
 
         return user
     

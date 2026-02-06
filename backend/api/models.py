@@ -70,6 +70,7 @@ class WorkoutPlan(models.Model):
     weekly_frequency = models.IntegerField()  # Number of workouts per week
     session_length = models.IntegerField()  # Minutes per session
     is_subscription = models.BooleanField(default=False)
+    is_published = models.BooleanField(default=False, help_text="Only published programs appear in browsing.")
     trainer = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True, related_name='created_plans')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
