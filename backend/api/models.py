@@ -120,3 +120,32 @@ class WorkoutFeedback(models.Model):
 
     def __str__(self):
         return f"Feedback for {self.session}"
+    
+class TrainerProfile(models.Model):
+    """Extended profile for fitness trainers"""
+    user = models.OneToOneField(
+        CustomUser, 
+        on_delete=models.CASCADE, 
+        related_name='trainer_profile'
+    )
+    bio = models.TextField(max_length=500, blank=True)
+    years_of_experience = models.IntegerField(default=0)
+    
+    # Specialties (can select multiple via checkboxes in frontend)
+    specialty_strength = models.BooleanField(default=False)
+    specialty_cardio = models.BooleanField(default=False)
+    specialty_flexibility = models.BooleanField(default=False)
+    specialty_sports = models.BooleanField(default=False)
+    specialty_rehabilitation = models.BooleanField(default=False)
+    
+    certifications = models.TextField(max_length=300, blank=True, help_text="Comma-separated certifications")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'trainer_profiles'
+    
+    def __str__(self):
+        return f"Trainer Profile: {self.user.username}"
+
