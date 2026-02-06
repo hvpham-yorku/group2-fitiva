@@ -1,10 +1,11 @@
+@import url('./colors.css');
+@import "tailwindcss";
+
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
-
-@import "tailwindcss";
 
 :root {
   --background: #ffffff;

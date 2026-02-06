@@ -7,8 +7,8 @@
 /* Header */
 .dashboard-header {
   background-color: white;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 1rem 2rem;
+  border-bottom: 1.5px solid var(--border-light);
+  padding: 0.75rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -18,7 +18,10 @@
 .dashboard-logo {
   font-size: 1.5rem;
   font-weight: 800;
-  color: #2563eb;
+  background: var(--gradient-red-orange);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .dashboard-nav {
@@ -37,7 +40,7 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-red-orange);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -69,14 +72,14 @@
   font-size: 0.625rem;
   font-weight: 600;
   text-transform: uppercase;
-  background-color: #dbeafe;
-  color: #1e40af;
+  background-color: #FEF2F2;
+  color: var(--fitiva-red-dark);
   margin-top: 0.25rem;
 }
 
 .user-badge.trainer {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: #FFF7ED;
+  color: var(--fitiva-orange-dark);
 }
 
 /* Main Content */
@@ -109,13 +112,14 @@
 }
 
 .welcome-message {
-  padding: 1rem;
-  background-color: #eff6ff;
-  border-left: 4px solid #2563eb;
-  border-radius: 0.25rem;
-  color: #1e40af;
   font-size: 0.875rem;
   line-height: 1.5;
+  background: linear-gradient(135deg, rgba(239, 62, 54, 0.9) 0%, rgba(255, 146, 52, 0.9) 100%);
+  border-left: 4px solid var(--fitiva-red-darker);
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  color: white;
 }
 
 /* Stats Grid */
@@ -150,6 +154,11 @@
   margin-bottom: 1rem;
 }
 
+.stat-icon.red {
+  background-color: #FEF2F2;
+  color: var(--fitiva-red);
+}
+
 .stat-icon.blue {
   background-color: #dbeafe;
   color: #2563eb;
@@ -166,8 +175,8 @@
 }
 
 .stat-icon.orange {
-  background-color: #fed7aa;
-  color: #ea580c;
+  background-color: #FFF7ED;
+  color: var(--fitiva-orange);
 }
 
 .stat-label {
@@ -222,8 +231,8 @@
 }
 
 .action-button:hover {
-  border-color: #2563eb;
-  background-color: #eff6ff;
+  border-color: var(--fitiva-red-dark);
+  background-color: #fae6d5;
   transform: translateY(-2px);
 }
 
@@ -377,7 +386,7 @@
   color: #dc2626;
 }
 
-.menu-item-icon {
+.menu-item-icon { /* to be used for icons */
   width: 1.25rem;
   height: 1.25rem;
   display: flex;
