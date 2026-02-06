@@ -1,0 +1,45 @@
+:root {
+  /* Primary Brand Colors */
+  --fitiva-red: #EF3E36;
+  --fitiva-red-dark: #D32F2F;
+  --fitiva-red-darker: #B71C1C;
+  --fitiva-red-light: #F87171;
+  
+  --fitiva-orange: #FF9234;
+  --fitiva-orange-light: #FFB74D;
+  --fitiva-orange-dark: #F57C00;
+  
+  --fitiva-black: #1A1A1A;
+  --fitiva-black-light: #2A2A2A;
+  
+  /* Backgrounds */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F9FAFB;
+  --bg-tertiary: #F3F4F6;
+  
+  /* Text Colors */
+  --text-primary: #1A1A1A;
+  --text-secondary: #6B7280;
+  --text-tertiary: #9CA3AF;
+  --text-inverse: #FFFFFF;
+  
+  /* Borders */
+  --border-light: #E5E7EB;
+  --border-medium: #D1D5DB;
+  --border-dark: #9CA3AF;
+  
+  /* Status Colors */
+  --success: #10B981;
+  --error: #EF3E36;
+  --warning: #F59E0B;
+  --info: #3B82F6;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  
+  /* Gradients */
+  --gradient-red-orange: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  --gradient-orange-light: linear-gradient(135deg, #FF9234 0%, #FFB74D 100%);
+}

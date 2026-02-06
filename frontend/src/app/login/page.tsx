@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import Alert from '@/components/ui/Alert';
+import Logo from '@/components/ui/Logo';
 import { ApiError } from '@/library/api';
 import './login.css';
 
@@ -44,49 +42,84 @@ export default function LoginPage() {
 
   return (
     <div className="login-container">
-      <div className="login-box">
-        <div className="login-header">
-          <h2 className="login-title">Sign in to your account</h2>
-          <p className="login-subtitle">
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" className="login-link">
-              Sign up
-            </Link>
-          </p>
+      {/* Left Side - Gym Image with Diagonal Overlay */}
+      <div className="login-left">
+        <div className="gym-image"></div>
+        <div className="diagonal-overlay"></div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="login-right">
+        <div className="login-box">
+          {/* Logo */}
+          <div className="logo-container">
+            <Logo variant="full" size="md" />
+          </div>
+
+          {/* Header */}
+          <div className="login-header">
+            <h2 className="login-title">Sign in to your account</h2>
+            <p className="login-subtitle">
+              Don&apos;t have an account?{' '}
+              <Link href="/signup" className="login-link">
+                Sign up
+              </Link>
+            </p>
+          </div>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="alert alert-error">
+              <p className="alert-text">{error}</p>
+            </div>
+          )}
+
+          {/* Form */}
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="login" className="form-label">
+                Username or Email<span className="required-asterisk">*</span>
+              </label>
+              <input
+                id="login"
+                name="login"
+                type="text"
+                required
+                value={formData.login}
+                onChange={handleChange}
+                className="form-input"
+                placeholder="Enter your username or email"
+                autoComplete="username"
+              />
+              <p className="form-helper">You can use either your username or email address</p>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password" className="form-label">
+                Password<span className="required-asterisk">*</span>
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="form-input"
+                placeholder="Enter your password"
+                autoComplete="current-password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="submit-button"
+            >
+              {isLoading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
         </div>
-
-        {error && <Alert type="error" message={error} onClose={() => setError('')} />}
-
-        <form className="login-form" onSubmit={handleSubmit}>
-          <Input
-            id="login"
-            name="login"
-            type="text"
-            label="Username or Email"
-            required
-            value={formData.login}
-            onChange={handleChange}
-            placeholder="Enter your username or email"
-            autoComplete="username"
-            helperText="You can use either your username or email address"
-          />
-
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            label="Password"
-            required
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="Enter your password"
-            autoComplete="current-password"
-          />
-
-          <Button type="submit" disabled={isLoading} fullWidth>
-            {isLoading ? 'Signing in...' : 'Sign in'}
-          </Button>
-        </form>
       </div>
     </div>
   );

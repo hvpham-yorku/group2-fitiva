@@ -1,53 +1,130 @@
-/* CSS CODE GENERATED VIA CLAUDE SONNET 4.5 AFTER DESIGNING THE FRONTEND USING FIGMA
-
-/* Container */
+/* Split-screen container */
 .signup-container {
-  min-height: 100vh;
   display: flex;
-  align-items: center;
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Left Side - Gym Image (50% width) */
+.signup-left {
+  position: relative;
+  flex: 1;
+  background-color: #1a1a1a;
+  overflow: hidden;
+  min-height: 100vh;
+  max-height: 100vh;
+}
+
+.gym-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('/resources/gym_vertical.png');
+  background-size: cover;
+  background-position: center;
+  z-index: 1;
+}
+
+/* Diagonal overlay shade */
+.diagonal-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(239, 62, 54, 0.75) 0%, rgba(255, 146, 52, 0.75) 100%);
+  clip-path: polygon(30% 0, 100% 0, 100% 100%, 0% 100%);
+  z-index: 2;
+}
+
+/* Text overlay on left side */
+.left-content {
+  position: absolute;
+  top: 50%;
+  left: 10%;
+  transform: translateY(-50%);
+  z-index: 3;
+}
+
+.left-title {
+  font-size: 3rem;
+  font-weight: 800;
+  color: white;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.5rem;
+  text-transform: uppercase;
+}
+
+/* Right Side - Form (50% width) - ULTRA MICRO */
+.signup-right {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
   justify-content: center;
-  background-color: #f9fafb;
-  padding: 3rem 1rem;
+  background-color: white;
+  padding: 0.25rem 1.5rem;
+  overflow-y: auto;
+  max-height: 100vh;
+  scroll-behavior: smooth;
 }
 
 .signup-box {
-  max-width: 28rem;
+  max-width: 380px;
   width: 100%;
+  padding-bottom: 7.8rem;
 }
 
-/* Header */
+/* Logo - TINY */
+.logo-container {
+  margin-bottom: 0.25rem;
+  text-align: center;
+  margin-left: 7.5rem;
+  padding-top: 1rem;
+}
+
+/* Header - TINY */
 .signup-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 0.4rem;
+  margin-top: 1rem;
 }
 
+/* Gradient title - TINY */
 .signup-title {
-  font-size: 1.875rem;
+  background: linear-gradient(90deg, #EF3E36 0%, #FF9234 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 1.7rem;
   font-weight: 800;
-  color: #111827;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.15rem;
 }
 
 .signup-subtitle {
-  font-size: 0.875rem;
-  color: #6b7280;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 
 .signup-link {
-  color: #2563eb;
-  font-weight: 500;
+  color: var(--fitiva-red);
+  font-weight: 600;
   text-decoration: none;
 }
 
 .signup-link:hover {
-  color: #1d4ed8;
+  color: var(--fitiva-red-dark);
+  text-decoration: underline;
 }
 
-/* Alerts */
+/* Alerts - TINY */
 .alert {
-  padding: 1rem;
-  border-radius: 0.375rem;
-  margin-bottom: 1.5rem;
+  padding: 0.35rem;
+  border-radius: 0.3rem;
+  margin-bottom: 0.4rem;
 }
 
 .alert-success {
@@ -61,145 +138,157 @@
 }
 
 .alert-text {
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   font-weight: 500;
 }
 
-/* Form */
+/* Form - ULTRA MICRO */
 .signup-form {
-  margin-top: 2rem;
+  margin-top: 0.3rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin-bottom: 0.3rem;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.3rem;
 }
 
 .form-label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   font-weight: 500;
-  color: #374151;
-  margin-bottom: 0.375rem;
+  color: var(--text-primary);
+  margin-bottom: 0.05rem;
+}
+
+.required-asterisk {
+  color: var(--fitiva-red);
+  margin-left: 0.1rem;
 }
 
 .form-input {
   width: 100%;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  color: #111827;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-primary);
   background-color: white;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  line-height: 1.2;
 }
 
 .form-input::placeholder {
-  color: #9ca3af;
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--fitiva-red);
+  box-shadow: 0 0 0 2px rgba(239, 62, 54, 0.1);
 }
 
 .form-input.error {
-  border-color: #dc2626;
+  border-color: var(--error);
 }
 
 .form-error {
-  margin-top: 0.375rem;
-  font-size: 0.875rem;
-  color: #dc2626;
+  margin-top: 0.15rem;
+  font-size: 0.65rem;
+  color: var(--error);
 }
 
-/* Checkbox */
-.checkbox-group {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.form-checkbox {
-  width: 1rem;
-  height: 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.25rem;
-  color: #2563eb;
-  cursor: pointer;
-}
-
-.form-checkbox:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.checkbox-label {
-  margin-left: 0.5rem;
-  font-size: 0.875rem;
-  color: #111827;
-  cursor: pointer;
-}
-
-/* Submit Button */
-.submit-button {
-  width: 100%;
-  padding: 0.625rem 1rem;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: white;
-  background-color: #2563eb;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.submit-button:hover {
-  background-color: #1d4ed8;
-}
-
-.submit-button:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
-}
-
-.submit-button:disabled {
-  background-color: #9ca3af;
-  cursor: not-allowed;
-}
-
-.required-asterisk {
-  color: #dc2626;
-  margin-left: 0.25rem;
-  font-weight: 600;
-}
-
-/* Password field wrapper for relative positioning */
+/* Password field wrapper */
 .password-field-wrapper {
   position: relative;
 }
 
-/* Trainer fields section */
+/* Checkbox - TINY */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.3rem;
+  margin-top: 0.15rem;
+}
+
+.form-checkbox {
+  accent-color: var(--fitiva-red-dark);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.checkbox-label {
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+/* Trainer fields - TINY */
 .trainer-fields {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--border-light);
+  max-width: 100%;
 }
 
 .trainer-fields-title {
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: #374151;
-  margin-bottom: 1rem;
+  color: var(--text-primary);
+  margin-bottom: 0.3rem;
 }
 
-/* Specialties checkboxes grid */
+.form-textarea {
+  width: 100%;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  background-color: white;
+  resize: vertical;
+  min-height: 2.5rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  line-height: 1.3;
+  margin-bottom: -0.5rem;
+}
+
+.form-textarea::placeholder {
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--fitiva-red);
+  box-shadow: 0 0 0 2px rgba(239, 62, 54, 0.1);
+}
+
+.form-textarea.error {
+  border-color: var(--error);
+}
+
+.character-counter {
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+  text-align: right;
+  margin-top: 0.1rem;
+}
+
+/* Specialties grid - TINY */
 .specialties-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  gap: 0.25rem;
 }
 
 .specialty-item {
@@ -208,54 +297,183 @@
 }
 
 .specialty-checkbox {
-  width: 1rem;
-  height: 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.25rem;
-  color: #2563eb;
+  accent-color: var(--fitiva-red-dark);
+  width: 12px;
+  height: 12px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .specialty-label {
-  margin-left: 0.5rem;
-  font-size: 0.875rem;
-  color: #374151;
+  margin-left: 0.3rem;
+  font-size: 0.7rem;
+  color: var(--text-primary);
   cursor: pointer;
+  line-height: 1.2;
 }
 
-/* Textarea for bio */
-.form-textarea {
+/* Submit button - TINY */
+.submit-button {
   width: 100%;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  color: #111827;
-  background-color: white;
-  resize: vertical;
-  min-height: 5rem;
-  font-family: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.form-textarea::placeholder {
-  color: #9ca3af;
-}
-
-.form-textarea:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.form-textarea.error {
-  border-color: #dc2626;
-}
-
-/* Character counter */
-.character-counter {
+  padding: 0.45rem;
+  border: none;
+  border-radius: 0.3rem;
   font-size: 0.75rem;
-  color: #6b7280;
-  text-align: right;
-  margin-top: 0.25rem;
+  font-weight: 600;
+  background-color: var(--fitiva-red);
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 0.4rem;
+}
+
+.submit-button:hover:not(:disabled) {
+  background-color: var(--fitiva-red-dark);
+}
+
+.submit-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(239, 62, 54, 0.3);
+}
+
+.submit-button:disabled {
+  background-color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+/* Certifications Multi-Select Styles */
+.cert-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.4rem;
+  max-height: 120px;  /* Limit chip container height */
+  overflow-y: auto;    /* Allow scrolling if too many chips */
+  padding: 0.2rem;
+}
+
+.cert-chip {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.65rem;
+  gap: 0.25rem;
+}
+
+.cert-chip-text {
+  line-height: 1;
+}
+
+.cert-chip-remove {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.15rem;
+  font-weight: bold;
+}
+
+.cert-chip-remove:hover {
+  color: #ffdddd;
+}
+
+.cert-dropdown-wrapper {
+  position: relative;
+}
+
+.cert-dropdown-button {
+  width: 100%;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  background-color: white;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: border-color 0.2s;
+}
+
+.cert-dropdown-button:hover {
+  border-color: var(--fitiva-red);
+}
+
+.dropdown-arrow {
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+}
+
+.cert-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 150px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid var(--border-medium);
+  border-radius: 0.3rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  margin-top: 0.2rem;
+}
+
+.cert-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.7rem;
+  transition: background-color 0.15s;
+}
+
+.cert-dropdown-item:hover {
+  background-color: #f9fafb;
+}
+
+.cert-checkbox {
+  margin-right: 0.4rem;
+  cursor: pointer;
+  accent-color: var(--fitiva-red-dark);
+}
+
+.cert-name {
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+  .signup-container {
+    flex-direction: column;
+  }
+
+  .signup-left {
+    min-height: 200px;
+    max-height: 200px;
+    flex: 0 0 200px;
+  }
+
+  .left-title {
+    font-size: 1.75rem;
+    letter-spacing: 0.3rem;
+  }
+
+  .signup-right {
+    flex: 1;
+    max-height: none;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }

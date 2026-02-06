@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import './dashboard.css';
+import Logo from '@/components/ui/Logo';
 
 export default function DashboardPage() {
   const { user, logout, isLoading } = useAuth();
@@ -56,7 +57,9 @@ export default function DashboardPage() {
     <div className="dashboard-container">
       {/* Header */}
       <header className="dashboard-header">
-        <div className="dashboard-logo">Fitiva</div>
+        <div className="dashboard-logo">
+            <Logo variant="text" size="sm" />
+        </div>
         <nav className="dashboard-nav">
           {/* User Menu with Dropdown */}
           <div className="user-menu" ref={dropdownRef}>
@@ -103,7 +106,6 @@ export default function DashboardPage() {
                     className="dropdown-menu-item"
                     onClick={() => setIsDropdownOpen(false)}
                   >
-                    <span className="menu-item-icon">👤</span>
                     <span>Profile</span>
                   </Link>
                 </li>
@@ -113,7 +115,6 @@ export default function DashboardPage() {
                     className="dropdown-menu-item"
                     onClick={() => setIsDropdownOpen(false)}
                   >
-                    <span className="menu-item-icon">⚙️</span>
                     <span>Settings</span>
                   </Link>
                 </li>
@@ -136,7 +137,6 @@ export default function DashboardPage() {
                     disabled={isLoggingOut}
                     className="dropdown-menu-item danger"
                   >
-                    <span className="menu-item-icon">🚪</span>
                     <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
                   </button>
                 </li>
@@ -161,12 +161,14 @@ export default function DashboardPage() {
           <div className="welcome-message">
             {user.is_trainer ? (
               <>
-                <strong>🎯 Trainer Dashboard:</strong> Manage your workout programs, track client progress, 
+                <span style={{ fontSize: '1.25rem', marginRight: '0.25rem' }}>🎯</span>
+                <strong>Trainer Journey:</strong> Manage your workout programs, track client progress, 
                 and share your expertise with the Fitiva community.
               </>
             ) : (
               <>
-                <strong>🎯 Your Fitness Journey:</strong> Complete your profile to get personalized workout 
+                <span style={{ fontSize: '1.25rem', marginRight: '0.25rem' }}>🎯</span>
+                <strong>Your Fitness Journey:</strong> Complete your profile to get personalized workout 
                 recommendations tailored to your goals and experience level.
               </>
             )}
