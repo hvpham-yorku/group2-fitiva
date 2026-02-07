@@ -11,4 +11,7 @@ urlpatterns = [
     path("auth/me/", views.me, name="me"),
     #path("auth/password-reset/", views.password_reset), 
     #path("auth/password-reset-confirm/", views.password_reset_confirm),
+    path("profile/", views.create_profile_view, name="create_profile"),
+    path("profile/me/", views.profile_me_view, name="profile_me"),
+
 ]

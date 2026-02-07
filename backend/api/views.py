@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import UserSignupSerializer, UserLoginSerializer, UserSerializer
+from .serializers import UserSignupSerializer, UserLoginSerializer, UserSerializer, UserProfileSerializer
 from .models import UserProfile
 from .authentication import CsrfExemptSessionAuthentication
 import os
@@ -97,6 +97,92 @@ def me(_request):
         "user": UserSerializer(_request.user).data
     })
 
+# Create fitness profile
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+
+def create_profile_view(_request):
+    if UserProfile.objects.filter(user=_request.user).exists():
+        return Response({"detail": "Profile already exists. Use update endpoint instead."}, status= status.HTTP_400_BAD_REQUEST)
+    serializer = UserProfileSerializer(data = _request.data)
+
+    try:
+        serializer.is_valid(raise_exception = True)
+
+        profile = UserProfile.objects.create(
+            user = _request.user,
+            age = serializer.validated_data.get("age"),
+            experience_level = serializer.validated_data.get("experience_level"),
+            training_location = serializer.validated_data.get("training_location"),
+            fitness_focus = serializer.validated_data.get("fitness_focus"),
+        )
+        
+        return Response(
+            UserProfileSerializer(profile).data,
+            status = status.HTTP_201_CREATED
+        )
+    except ValidationError as e:
+        formatted_errors= {}
+        if isinstance(e.detail, dict):
+            for field, errors in e.detail.items():
+                if isinstance(errors, list):
+                    formatted_errors[field] = errors[0]
+                else:
+                    formatted_errors[field] = str(errors)
+            else:
+                formatted_errors["detail"] = str (e.detail)
+            return Response({"errors": formatted_errors}, status = status.HTTP_400_BAD_REQUEST)
+        
+
+# Get or update current user's profile
+@api_view(["GET","PUT"])
+@permission_classes([IsAuthenticated])
+
+def profile_me_view(_request):
+    profile = UserProfile.objects.filter(user = _request.user).first()
+
+    if _request.method == "GET":
+        if not profile:
+            return Response({"detail": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(UserProfileSerializer(profile).data, status=status.HTTP_200_OK)
+
+    # PUT
+    if not profile:
+        return Response({"detail": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = UserProfileSerializer(data = _request.data)
+
+    try:
+        serializer.is_valid(raise_exception=True)
+
+        profile.age = serializer.validated_data.get("age")
+        profile.experience_level = serializer.validated_data.get("experience_level")
+        profile.training_location = serializer.validated_data.get("training_location")
+        profile.fitness_focus = serializer.validated_data.get("fitness_focus")
+        profile.save()
+
+        return Response(
+            UserProfileSerializer(profile).data,
+            status=status.HTTP_200_OK
+        )
+    except ValidationError as e:
+        formatted_errors = {}
+        if isinstance(e.detail, dict):
+            for field, errors in e.detail.items():
+                if isinstance(errors, list):
+                    formatted_errors[field] = errors[0]
+                else:
+                    formatted_errors[field] = str(errors)
+        else:
+            formatted_errors["detail"] = str(e.detail)
+
+        return Response(
+            {"errors": formatted_errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+
 # Forgot Password (implement later)
 def build_reset_url(_request, uid, token):
     base = os.environ.get("FRONTEND_BASE_URL") 
@@ -135,6 +221,7 @@ def password_reset(_request):
 
 
     # code to be added here later if we want it implemented
+
 
 
     return Response({"ok": True})

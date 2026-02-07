@@ -40,6 +40,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 f"Invalid fitness focus. Choose from: {', '.join(valid_choices)}"
             )
         return value
+    # This method validates multiple fields together, if needed for interdependent validation
+    def validate(self, data):
+        if data.get('age') is not None and data.get('age') < 0:
+            raise serializers.ValidationError({'age': 'Age is required'})
+        if not data.get('experience_level'):
+            raise serializers.ValidationError({'experience_level': 'Experience level is required'})
+        if not data.get('training_location'):
+            raise serializers.ValidationError({'training_location': 'Training location is required'})
+        if not data.get('fitness_focus'):
+            raise serializers.ValidationError({'fitness_focus': 'Fitness focus is required'})   
+        return data
+    
     
 class TrainerProfileSerializer(serializers.ModelSerializer):
     class Meta:
