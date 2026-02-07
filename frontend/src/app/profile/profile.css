@@ -1,0 +1,140 @@
+.profile-container {
+  min-height: 100vh;
+  background-color: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.profile-card {
+  width: 100%;
+  max-width: 520px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08);
+  padding: 2rem;
+}
+
+.profile-header {
+  margin-bottom: 1.25rem;
+}
+
+.profile-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #111827;
+  margin: 0 0 0.25rem 0;
+}
+
+.profile-subtitle {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0 0 0.75rem 0;
+}
+
+.profile-back {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.profile-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.profile-input,
+.profile-select {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.95rem;
+  background-color: white;
+}
+
+.profile-input:focus,
+.profile-select:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.profile-error {
+  font-size: 0.8rem;
+  color: #dc2626;
+}
+
+.profile-button {
+  margin-top: 0.5rem;
+  width: 100%;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.8rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  background-color: #2563eb;
+  color: white;
+  cursor: pointer;
+}
+
+.profile-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-alert {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.profile-alert.success {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.profile-alert.error {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.profile-loading {
+  min-height: 100vh;
+  background-color: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 4px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

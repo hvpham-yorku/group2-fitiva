@@ -1,7 +1,22 @@
 // API Base URL from environment variable
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// CSRF token helper (if needed for non-JSON requests) 
+async function getCSRFToken() {
+  await fetch(`${API_BASE_URL}/api/auth/csrf/`, {
+    credentials: 'include',
+  });
+}
 
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null;
+
+  const match = document.cookie.match(
+    new RegExp('(^| )' + name + '=([^;]+)')
+  );
+
+  return match ? match[2] : null;
+}
 // define types for API Responses
 interface ApiResponse<T = unknown> {
   [key: string]: unknown;
@@ -78,14 +93,17 @@ async function fetchAPI<T = unknown>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const config: RequestInit = {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    credentials: 'include', // Important for session cookies
-  };
+  const csrftoken = getCookie('csrftoken');
+
+const config: RequestInit = {
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...(csrftoken ? { 'X-CSRFToken': csrftoken } : {}),
+    ...options.headers,
+  },
+  credentials: 'include',
+};
 
   try {
     const response = await fetch(url, config);
@@ -213,3 +231,4 @@ export const api = {
   delete: <T = unknown>(endpoint: string): Promise<T> => 
     fetchAPI<T>(endpoint, { method: 'DELETE' }),
 };
+
