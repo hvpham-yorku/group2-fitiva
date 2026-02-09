@@ -1,24 +1,26 @@
 /* Container */
 .dashboard-container {
   min-height: 100vh;
-  background-color: #f9fafb;
+  background-color: var(--bg-secondary);
+  transition: background-color 0.3s ease;
 }
 
 /* Header */
 .dashboard-header {
-  background-color: white;
+  background-color: var(--bg-primary);
   border-bottom: 1.5px solid var(--border-light);
   padding: 0.75rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .dashboard-logo {
   font-size: 1.5rem;
   font-weight: 800;
-  background: var(--gradient-red-orange);
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -40,7 +42,7 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 50%;
-  background: var(--gradient-red-orange);
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -57,12 +59,14 @@
 .user-name {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
 }
 
 .user-email {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .user-badge {
@@ -72,14 +76,14 @@
   font-size: 0.625rem;
   font-weight: 600;
   text-transform: uppercase;
-  background-color: #FEF2F2;
-  color: var(--fitiva-red-dark);
+  background-color: rgba(239, 62, 54, 0.1);
+  color: var(--fitiva-red);
   margin-top: 0.25rem;
 }
 
 .user-badge.trainer {
-  background-color: #FFF7ED;
-  color: var(--fitiva-orange-dark);
+  background-color: rgba(255, 146, 52, 0.1);
+  color: var(--fitiva-orange);
 }
 
 /* Main Content */
@@ -91,31 +95,35 @@
 
 /* Welcome Section */
 .welcome-section {
-  background-color: white;
+  background-color: var(--bg-primary);
   border-radius: 0.5rem;
   padding: 2rem;
   margin-bottom: 2rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-medium);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .welcome-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
+  transition: color 0.3s ease;
 }
 
 .welcome-subtitle {
   font-size: 1rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 1.5rem;
+  transition: color 0.3s ease;
 }
 
 .welcome-message {
   font-size: 0.875rem;
   line-height: 1.5;
   background: linear-gradient(135deg, rgba(239, 62, 54, 0.9) 0%, rgba(255, 146, 52, 0.9) 100%);
-  border-left: 4px solid var(--fitiva-red-darker);
+  border-left: 4px solid var(--fitiva-red);
   padding: 1rem 1.5rem;
   border-radius: 0.5rem;
   font-weight: bold;
@@ -131,11 +139,12 @@
 }
 
 .stat-card {
-  background-color: white;
+  background-color: var(--bg-primary);
   border-radius: 0.5rem;
   padding: 1.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid var(--border-medium);
+  transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .stat-card:hover {
@@ -155,61 +164,67 @@
 }
 
 .stat-icon.red {
-  background-color: #FEF2F2;
+  background-color: rgba(239, 62, 54, 0.1);
   color: var(--fitiva-red);
 }
 
 .stat-icon.blue {
-  background-color: #dbeafe;
+  background-color: rgba(37, 99, 235, 0.1);
   color: #2563eb;
 }
 
 .stat-icon.green {
-  background-color: #d1fae5;
+  background-color: rgba(16, 185, 129, 0.1);
   color: #059669;
 }
 
 .stat-icon.purple {
-  background-color: #e9d5ff;
+  background-color: rgba(124, 58, 237, 0.1);
   color: #7c3aed;
 }
 
 .stat-icon.orange {
-  background-color: #FFF7ED;
+  background-color: rgba(255, 146, 52, 0.1);
   color: var(--fitiva-orange);
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 0.25rem;
+  transition: color 0.3s ease;
 }
 
 .stat-value {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
 }
 
 .stat-subtext {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   margin-top: 0.25rem;
+  transition: color 0.3s ease;
 }
 
 /* Quick Actions */
 .quick-actions {
-  background-color: white;
+  background-color: var(--bg-primary);
   border-radius: 0.5rem;
   padding: 2rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-medium);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .section-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin-bottom: 1rem;
+  transition: color 0.3s ease;
 }
 
 .action-buttons {
@@ -220,9 +235,9 @@
 
 .action-button {
   padding: 1rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--border-medium);
   border-radius: 0.5rem;
-  background-color: white;
+  background-color: var(--bg-primary);
   cursor: pointer;
   text-align: left;
   transition: all 0.2s;
@@ -231,8 +246,8 @@
 }
 
 .action-button:hover {
-  border-color: var(--fitiva-red-dark);
-  background-color: #fae6d5;
+  border-color: var(--fitiva-red);
+  background-color: var(--bg-tertiary);
   transform: translateY(-2px);
 }
 
@@ -244,13 +259,15 @@
 .action-button-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
+  transition: color 0.3s ease;
 }
 
 .action-button-description {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 /* Loading Spinner */
@@ -259,14 +276,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f9fafb;
+  background-color: var(--bg-secondary);
+  transition: background-color 0.3s ease;
 }
 
 .loading-spinner {
   width: 3rem;
   height: 3rem;
-  border: 4px solid #e5e7eb;
-  border-top-color: #2563eb;
+  border: 4px solid var(--border-medium);
+  border-top-color: var(--fitiva-red);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -295,19 +313,19 @@
 }
 
 .user-menu-trigger:hover {
-  background-color: #f3f4f6;
+  background-color: var(--bg-tertiary);
 }
 
 .user-menu-trigger:focus {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--fitiva-red);
   outline-offset: 2px;
 }
 
 .dropdown-icon {
   width: 1rem;
   height: 1rem;
-  color: #6b7280;
-  transition: transform 0.2s;
+  color: var(--text-secondary);
+  transition: transform 0.2s, color 0.3s ease;
 }
 
 .dropdown-icon.open {
@@ -319,8 +337,8 @@
   top: calc(100% + 0.5rem);
   right: 0;
   min-width: 12rem;
-  background-color: white;
-  border: 1px solid #e5e7eb;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-medium);
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   padding: 0.5rem 0;
@@ -328,7 +346,7 @@
   opacity: 0;
   transform: translateY(-10px);
   pointer-events: none;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: opacity 0.2s, transform 0.2s, background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .user-menu-dropdown.open {
@@ -339,20 +357,23 @@
 
 .dropdown-header {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-medium);
   margin-bottom: 0.5rem;
+  transition: border-color 0.3s ease;
 }
 
 .dropdown-user-name {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin-bottom: 0.125rem;
+  transition: color 0.3s ease;
 }
 
 .dropdown-user-email {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .dropdown-menu-items {
@@ -371,22 +392,22 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: #374151;
+  color: var(--text-primary);
   font-size: 0.875rem;
-  transition: background-color 0.15s;
+  transition: background-color 0.15s, color 0.3s ease;
   text-decoration: none;
 }
 
 .dropdown-menu-item:hover {
-  background-color: #f3f4f6;
+  background-color: var(--bg-tertiary);
 }
 
 .dropdown-menu-item.danger:hover {
-  background-color: #fef2f2;
-  color: #dc2626;
+  background-color: rgba(220, 38, 38, 0.1);
+  color: var(--error);
 }
 
-.menu-item-icon { /* to be used for icons */
+.menu-item-icon {
   width: 1.25rem;
   height: 1.25rem;
   display: flex;
@@ -396,8 +417,9 @@
 
 .dropdown-divider {
   height: 1px;
-  background-color: #e5e7eb;
+  background-color: var(--border-medium);
   margin: 0.5rem 0;
+  transition: background-color 0.3s ease;
 }
 
 /* Responsive */

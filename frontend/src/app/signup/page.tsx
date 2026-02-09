@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '@/components/ui/Logo';
-import PasswordRequirements from './PasswordRequirements';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 import './signup.css';
+import PasswordRequirements from './PasswordRequirements';
 
 interface SignupData {
   username: string;
@@ -251,6 +252,7 @@ export default function SignupPage() {
 
       {/* Right Side - Sign Up Form */}
       <div className="signup-right">
+        <ThemeToggle />
         <div className="signup-box">
           {/* Logo */}
           <div className="logo-container">
