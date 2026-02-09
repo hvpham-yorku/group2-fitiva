@@ -63,13 +63,15 @@
 .signup-right {
   flex: 1;
   display: flex;
+  position: relative;
   align-items: flex-start;
   justify-content: center;
-  background-color: white;
+  background-color: var(--bg-primary);
   padding: 0.25rem 1.5rem;
   overflow-y: auto;
   max-height: 100vh;
   scroll-behavior: smooth;
+  transition: background-color 0.3s ease;
 }
 
 .signup-box {
@@ -107,6 +109,7 @@
 .signup-subtitle {
   font-size: 0.8rem;
   color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .signup-link {
@@ -128,13 +131,13 @@
 }
 
 .alert-success {
-  background-color: #ecfdf5;
-  color: #065f46;
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success);
 }
 
 .alert-error {
-  background-color: #fef2f2;
-  color: #991b1b;
+  background-color: rgba(220, 38, 38, 0.1);
+  color: var(--error);
 }
 
 .alert-text {
@@ -164,6 +167,7 @@
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: 0.05rem;
+  transition: color 0.3s ease;
 }
 
 .required-asterisk {
@@ -178,8 +182,8 @@
   border-radius: 0.3rem;
   font-size: 0.75rem;
   color: var(--text-primary);
-  background-color: white;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  background-color: var(--bg-primary);
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.3s ease, color 0.3s ease;
   line-height: 1.2;
 }
 
@@ -229,6 +233,7 @@
   font-size: 0.75rem;
   color: var(--text-primary);
   cursor: pointer;
+  transition: color 0.3s ease;
 }
 
 /* Trainer fields - TINY */
@@ -244,6 +249,7 @@
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 0.3rem;
+  transition: color 0.3s ease;
 }
 
 .form-textarea {
@@ -253,11 +259,11 @@
   border-radius: 0.3rem;
   font-size: 0.75rem;
   color: var(--text-primary);
-  background-color: white;
+  background-color: var(--bg-primary);
   resize: vertical;
   min-height: 2.5rem;
   font-family: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.3s ease, color 0.3s ease;
   line-height: 1.3;
   margin-bottom: -0.5rem;
 }
@@ -282,6 +288,7 @@
   color: var(--text-secondary);
   text-align: right;
   margin-top: 0.1rem;
+  transition: color 0.3s ease;
 }
 
 /* Specialties grid - TINY */
@@ -310,6 +317,7 @@
   color: var(--text-primary);
   cursor: pointer;
   line-height: 1.2;
+  transition: color 0.3s ease;
 }
 
 /* Submit button - TINY */
@@ -347,8 +355,8 @@
   flex-wrap: wrap;
   gap: 0.25rem;
   margin-bottom: 0.4rem;
-  max-height: 120px;  /* Limit chip container height */
-  overflow-y: auto;    /* Allow scrolling if too many chips */
+  max-height: 120px;
+  overflow-y: auto;
   padding: 0.2rem;
 }
 
@@ -394,13 +402,13 @@
   border-radius: 0.3rem;
   font-size: 0.75rem;
   color: var(--text-primary);
-  background-color: white;
+  background-color: var(--bg-primary);
   text-align: left;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background-color 0.3s ease, color 0.3s ease;
 }
 
 .cert-dropdown-button:hover {
@@ -410,6 +418,7 @@
 .dropdown-arrow {
   font-size: 0.6rem;
   color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .cert-dropdown-menu {
@@ -419,12 +428,13 @@
   right: 0;
   max-height: 150px;
   overflow-y: auto;
-  background: white;
+  background: var(--bg-primary);
   border: 1px solid var(--border-medium);
   border-radius: 0.3rem;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   z-index: 1000;
   margin-top: 0.2rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .cert-dropdown-item {
@@ -437,7 +447,7 @@
 }
 
 .cert-dropdown-item:hover {
-  background-color: #f9fafb;
+  background-color: var(--bg-tertiary);
 }
 
 .cert-checkbox {
@@ -449,6 +459,7 @@
 .cert-name {
   line-height: 1.3;
   color: var(--text-primary);
+  transition: color 0.3s ease;
 }
 
 /* Responsive */

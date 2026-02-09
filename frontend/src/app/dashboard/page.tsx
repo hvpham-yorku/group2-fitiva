@@ -6,22 +6,22 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import './dashboard.css';
 import Logo from '@/components/ui/Logo';
+import SettingsModal from '@/components/ui/SettingsModal';
 
 export default function DashboardPage() {
   const { user, logout, isLoading } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [hasCompletedProfile, setHasCompletedProfile] = useState(false);
-  const [profileLoading, setProfileLoading ] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-
-  // Check profile to see if its completed, useful for changing things based on if the user's profile is complete
+  // Check profile to see if its completed
   useEffect(() => {
     const checkProfile = async () => {
       try {
         const profile = await profileAPI.getProfile();
-        // Profile is complete if age is set
         setHasCompletedProfile(!!profile.age);
       } catch {
         setHasCompletedProfile(false);
@@ -60,6 +60,11 @@ export default function DashboardPage() {
     await logout();
   };
 
+  const openSettings = () => {
+    setIsDropdownOpen(false);
+    setIsSettingsOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -79,7 +84,7 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="dashboard-header">
         <div className="dashboard-logo">
-            <Logo variant="text" size="sm" />
+          <Logo variant="text" size="sm" />
         </div>
         <nav className="dashboard-nav">
           {/* User Menu with Dropdown */}
@@ -131,13 +136,12 @@ export default function DashboardPage() {
                   </Link>
                 </li>
                 <li>
-                  <Link 
-                    href="/settings" 
+                  <button 
                     className="dropdown-menu-item"
-                    onClick={() => setIsDropdownOpen(false)}
+                    onClick={openSettings}
                   >
                     <span>Settings</span>
-                  </Link>
+                  </button>
                 </li>
                 {user.is_trainer && (
                   <li>
@@ -146,7 +150,6 @@ export default function DashboardPage() {
                       className="dropdown-menu-item"
                       onClick={() => setIsDropdownOpen(false)}
                     >
-                      <span className="menu-item-icon">📋</span>
                       <span>My Programs</span>
                     </Link>
                   </li>
@@ -237,7 +240,7 @@ export default function DashboardPage() {
                 {hasCompletedProfile 
                 ? 'Edit your profile' 
                 : 'Complete Profile'}
-                </div>
+              </div>
               <div className="action-button-description">
                 {hasCompletedProfile 
                 ? 'Change your fitness details to customize for your new preferences'
@@ -273,6 +276,12 @@ export default function DashboardPage() {
           </div>
         </section>
       </main>
+
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
     </div>
   );
 }
