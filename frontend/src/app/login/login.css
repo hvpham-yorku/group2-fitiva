@@ -1,3 +1,5 @@
+/* ALL CSS CODE IS GEN AI FROM CLAUDE SONNET 4.5 AFTER GIVING IT A FIGMA/HAND-DRAWN DESIGN SKETCH */
+
 /* Split-screen container */
 .login-container {
   display: flex;
@@ -6,7 +8,7 @@
   overflow: hidden;
 }
 
-/* Left Side - Gym Image (50% width) */
+/* Left Side - Gym Image */
 .login-left {
   position: relative;
   flex: 1;
@@ -40,16 +42,18 @@
   z-index: 2;
 }
 
-/* Right Side - Form (50% width) */
+/* Right Side - Form */
 .login-right {
   flex: 1;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: white;
+  background-color: var(--bg-primary);
   padding: 2rem 1.5rem;
   overflow-y: auto;
   max-height: 100vh;
+  transition: background-color 0.3s ease;
 }
 
 .login-box {
@@ -84,6 +88,7 @@
 .login-subtitle {
   font-size: 0.875rem;
   color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .login-link {
@@ -105,8 +110,8 @@
 }
 
 .alert-error {
-  background-color: #fef2f2;
-  color: #991b1b;
+  background-color: rgba(220, 38, 38, 0.1);
+  color: var(--error);
 }
 
 .alert-text {
@@ -129,6 +134,7 @@
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: 0.5rem;
+  transition: color 0.3s ease;
 }
 
 .required-asterisk {
@@ -143,8 +149,8 @@
   border-radius: 0.5rem;
   font-size: 0.875rem;
   color: var(--text-primary);
-  background-color: white;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  background-color: var(--bg-primary);
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.3s ease, color 0.3s ease;
 }
 
 .form-input::placeholder {
@@ -165,6 +171,7 @@
   margin-top: 0.375rem;
   font-size: 0.75rem;
   color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .form-error {

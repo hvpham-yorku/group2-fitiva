@@ -1,0 +1,40 @@
+/* ALL CSS CODE IS GEN AI FROM CLAUDE SONNET 4.5 AFTER GIVING IT A FIGMA/HAND-DRAWN DESIGN SKETCH */
+
+.theme-toggle-button {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 2px solid var(--border-medium);
+  background-color: var(--bg-primary);
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.theme-toggle-button:hover {
+  transform: scale(1.1);
+  border-color: var(--fitiva-red);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.theme-toggle-button:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 968px) {
+  .theme-toggle-button {
+    top: 1rem;
+    right: 1rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1rem;
+  }
+}

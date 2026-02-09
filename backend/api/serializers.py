@@ -50,6 +50,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 f"Invalid fitness focus. Choose from: {', '.join(valid_choices)}"
             )
         return value
+    # This method validates multiple fields together, if needed for interdependent validation
+    def validate(self, data):
+        if data.get('age') is not None and data.get('age') < 0:
+            raise serializers.ValidationError({'age': 'Age is required'})
+        if not data.get('experience_level'):
+            raise serializers.ValidationError({'experience_level': 'Experience level is required'})
+        if not data.get('training_location'):
+            raise serializers.ValidationError({'training_location': 'Training location is required'})
+        if not data.get('fitness_focus'):
+            raise serializers.ValidationError({'fitness_focus': 'Fitness focus is required'})   
+        return data
+    
     
 class TrainerProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -93,7 +105,10 @@ class UserSignupSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
-    is_trainer = serializers.BooleanField(default=False) 
+    is_trainer = serializers.BooleanField(default=False)
+    
+    # NEW: Accept trainer_data as a dictionary field
+    trainer_data = serializers.JSONField(required=False, allow_null=True)
 
     def validate_username(self, v):
         if len(v) > 16:
@@ -102,13 +117,11 @@ class UserSignupSerializer(serializers.Serializer):
             raise serializers.ValidationError("Username already taken")
         return v
 
-
     def validate_email(self, v):
         v_norm = v.strip().lower()
         if CustomUser.objects.filter(email__iexact=v_norm).exists():
-           raise serializers.ValidationError("Email already in use")
+            raise serializers.ValidationError("Email already in use")
         return v_norm
-    
 
     def validate_password(self, v):
         # Check minimum length
@@ -129,36 +142,117 @@ class UserSignupSerializer(serializers.Serializer):
         
         return v
     
-    
     def validate(self, data):
         # Check if passwords match
         if data.get('password') != data.get('password2'):
             raise serializers.ValidationError({"password2": "Passwords do not match"})
+        
+        # Validate trainer_data if is_trainer is True
+        if data.get('is_trainer') and data.get('trainer_data'):
+            trainer_data = data['trainer_data']
+    
+            # Ensure trainer_data is a dictionary
+            if not isinstance(trainer_data, dict):
+                raise serializers.ValidationError({"trainer_data": "Invalid trainer data format"})
+            
+            # Check at least one specialty is selected
+            has_specialty = (
+                trainer_data.get('specialty_strength') or
+                trainer_data.get('specialty_cardio') or
+                trainer_data.get('specialty_flexibility') or
+                trainer_data.get('specialty_sports') or
+                trainer_data.get('specialty_rehabilitation')
+            )
+            
+            print("DEBUG - has_specialty:", has_specialty)
+            
+            if not has_specialty:
+                raise serializers.ValidationError({"trainer_data": "At least one specialty must be selected"})
+        
         return data
 
-    def create(self, data):
-        # Remove password2 before creating user, it was only for password confirmation
-        data.pop('password2', None)
+
+    def create(self, validated_data):
+        # Remove password2 before creating user
+        validated_data.pop('password2', None)
         
+        # Extract trainer_data if present
+        trainer_data = validated_data.pop('trainer_data', None)
+        
+        # Create user
+        user = CustomUser.objects.create_user(
+            username=validated_data["username"],
+            password=validated_data["password"],
+            email=validated_data["email"],
+            first_name=validated_data["first_name"],
+            last_name=validated_data["last_name"],
+            is_trainer=validated_data.get("is_trainer", False),
+        )
+        
+        # Create UserProfile with default values
+        UserProfile.objects.create(user=user)
+
+        # Create TrainerProfile with data if user is a trainer
+        if user.is_trainer:
+            if trainer_data:
+                # Convert string booleans to actual booleans
+                TrainerProfile.objects.create(
+                    user=user,
+                    bio=trainer_data.get('bio', ''),
+                    years_of_experience=int(trainer_data.get('years_of_experience', 0)),
+                    specialty_strength=trainer_data.get('specialty_strength') == 'true' or trainer_data.get('specialty_strength') is True,
+                    specialty_cardio=trainer_data.get('specialty_cardio') == 'true' or trainer_data.get('specialty_cardio') is True,
+                    specialty_flexibility=trainer_data.get('specialty_flexibility') == 'true' or trainer_data.get('specialty_flexibility') is True,
+                    specialty_sports=trainer_data.get('specialty_sports') == 'true' or trainer_data.get('specialty_sports') is True,
+                    specialty_rehabilitation=trainer_data.get('specialty_rehabilitation') == 'true' or trainer_data.get('specialty_rehabilitation') is True,
+                    certifications=trainer_data.get('certifications', ''),
+                )
+            else:
+                # Create empty trainer profile if no data provided
+                TrainerProfile.objects.create(user=user)
+
+        return user
+
+
+    def create(self, data):
+        # Remove password2 before creating user
+        data.pop('password2', None)
+    
+        # Extract trainer_data if present
+        trainer_data = data.pop('trainer_data', None)
+    
         user = CustomUser.objects.create_user(
             username   = data["username"],
-            password   = data["password"],  # This will hash the password correctly
+            password   = data["password"],
             email      = data["email"],
             first_name = data["first_name"],
             last_name  = data["last_name"],
             is_trainer = data.get("is_trainer", False),
         )
-        UserProfile.objects.create(
-            user=user, # more fields for profile might be added here later
-        )
+    
+        # Create UserProfile
+        UserProfile.objects.create(user=user)
 
-        if user.is_trainer:
-            TrainerProfile.objects.create(user=user)  
+        # Create TrainerProfile with data if user is a trainer
+        if user.is_trainer and trainer_data:
+            TrainerProfile.objects.create(
+                user=user,
+                bio=trainer_data.get('bio', ''),
+                years_of_experience=trainer_data.get('years_of_experience', 0),
+                specialty_strength=trainer_data.get('specialty_strength', False),
+                specialty_cardio=trainer_data.get('specialty_cardio', False),
+                specialty_flexibility=trainer_data.get('specialty_flexibility', False),
+                specialty_sports=trainer_data.get('specialty_sports', False),
+                specialty_rehabilitation=trainer_data.get('specialty_rehabilitation', False),
+                certifications=trainer_data.get('certifications', ''),
+            )
+        elif user.is_trainer: # if no trainer info is entered but it shouldn't be possible anyways because of validators
+            TrainerProfile.objects.create(user=user)
 
         return user
     
 class UserLoginSerializer(serializers.Serializer):
-    login = serializers.CharField()  # Can be username or email
+    login = serializers.CharField()
     password = serializers.CharField(write_only=True)
     
     def validate(self, data):
@@ -168,25 +262,22 @@ class UserLoginSerializer(serializers.Serializer):
         if not login or not password:
             raise serializers.ValidationError("Login and password are required")
         
-        # Check if login is an email format
+        # Login format username or email check
         if '@' in login:
-            # Try to find user by email
             try:
                 user = CustomUser.objects.get(email__iexact=login.strip().lower())
             except CustomUser.DoesNotExist:
                 raise serializers.ValidationError("Invalid credentials")
         else:
-            # Try to find user by username
             try:
                 user = CustomUser.objects.get(username=login)
             except CustomUser.DoesNotExist:
                 raise serializers.ValidationError("Invalid credentials")
-        
-        # Verify password
+            
+        # password checker
         if not user.check_password(password):
             raise serializers.ValidationError("Invalid credentials")
         
-        # Attach user to validated data for use in the view
         data['user'] = user
         return data
 

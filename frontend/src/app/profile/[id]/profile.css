@@ -1,0 +1,516 @@
+/* ALL CSS CODE IS GEN AI FROM CLAUDE SONNET 4.5 AFTER GIVING IT A FIGMA/HAND-DRAWN DESIGN SKETCH */
+
+.profile-page-container {
+  min-height: 100vh;
+  padding: 2rem;
+  background-color: var(--bg-secondary);
+  transition: background-color 0.3s ease;
+}
+
+.profile-view-card {
+  max-width: 800px;
+  margin: 0 auto;
+  background: var(--bg-primary);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  border: 1px solid var(--border-medium);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.profile-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border-medium);
+  transition: border-color 0.3s ease;
+}
+
+.profile-view-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  transition: color 0.3s ease;
+}
+
+.profile-view-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.edit-profile-button {
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.edit-profile-button:hover {
+  opacity: 0.9;
+}
+
+.profile-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.profile-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile-info-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: color 0.3s ease;
+}
+
+.profile-info-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+.profile-empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.profile-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-secondary);
+  transition: background-color 0.3s ease;
+}
+
+.profile-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-medium);
+  border-top-color: #EF3E36;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Setup Page Styles */
+.profile-setup-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-secondary);
+  padding: 2rem;
+  transition: background-color 0.3s ease;
+}
+
+.profile-setup-card {
+  max-width: 600px;
+  width: 100%;
+  background: var(--bg-primary);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem;
+  border: 1px solid var(--border-medium);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.profile-setup-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.profile-setup-title {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.profile-setup-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.profile-setup-form {
+  margin-top: 1.5rem;
+}
+
+.setup-field {
+  margin-bottom: 1.5rem;
+}
+
+.setup-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  transition: color 0.3s ease;
+}
+
+.setup-input,
+.setup-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.3s ease, color 0.3s ease;
+}
+
+.setup-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.setup-input:focus,
+.setup-select:focus {
+  outline: none;
+  border-color: #EF3E36;
+  box-shadow: 0 0 0 3px rgba(239, 62, 54, 0.1);
+}
+
+.setup-select option {
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+.setup-error {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--error);
+}
+
+.setup-alert {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.setup-alert.error {
+  background-color: rgba(220, 38, 38, 0.1);
+  color: var(--error);
+}
+
+.setup-button {
+  width: 100%;
+  padding: 0.875rem;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: opacity 0.2s;
+}
+
+.setup-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.setup-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Profile Header with Avatar */
+.profile-header-info {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.trainer-badge {
+  display: inline-block;
+  padding: 0.375rem 0.875rem;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Sections */
+.profile-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border-medium);
+  transition: border-color 0.3s ease;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+.edit-section-button {
+  padding: 0.5rem 1rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.edit-section-button:hover {
+  background: var(--bg-tertiary);
+}
+
+.create-program-button {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.create-program-button:hover {
+  opacity: 0.9;
+}
+
+/* Trainer Info Grid */
+.trainer-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.info-card {
+  background: var(--bg-secondary);
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-medium);
+  transition: all 0.3s ease;
+}
+
+.info-card.full-width {
+  grid-column: 1 / -1;
+}
+
+.info-label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.info-value {
+  display: block;
+  font-size: 1.125rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.info-text {
+  font-size: 1rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+/* Specialty Tags */
+.specialty-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.specialty-tag {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Programs Grid */
+.programs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.program-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.program-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #EF3E36;
+}
+
+.program-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem 0;
+  transition: color 0.3s ease;
+}
+
+.program-description {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 1rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color 0.3s ease;
+}
+
+.program-meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.program-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  transition: all 0.3s ease;
+}
+
+.program-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-medium);
+  transition: all 0.3s ease;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.empty-state-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .profile-header-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .programs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trainer-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Certification Display Chips */
+.cert-display-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.cert-display-chip {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}

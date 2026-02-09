@@ -144,6 +144,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
 }
+# CSRF settings (allow frontend to access CSRF cookie and send it back in requests)
+CSRF_TRUSTED_ORIGINS = [ "http://localhost:3000", ]
 
 # CORS settings (allow frontend requests)
 CORS_ALLOWED_ORIGINS = [

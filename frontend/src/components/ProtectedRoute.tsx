@@ -18,7 +18,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Show loading spinner while checking authentication
+  // Shows a loading spinner while checking authentication
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -27,7 +27,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // Don't render children if not authenticated
+  // Don't render children if the user is not authenticated
   if (!isAuthenticated) {
     return null;
   }

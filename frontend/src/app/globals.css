@@ -1,3 +1,5 @@
+/* ALL CSS CODE IS GEN AI FROM CLAUDE SONNET 4.5 AFTER GIVING IT A FIGMA/HAND-DRAWN DESIGN SKETCH */
+
 @import url('./colors.css');
 @import "tailwindcss";
 
@@ -8,8 +10,39 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --border-light: #f3f4f6;
+  --border-medium: #e5e7eb;
+  --border-dark: #d1d5db;
+  --success: #10b981;
+  --error: #dc2626;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --border-light: #374151;
+  --border-medium: #4b5563;
+  --border-dark: #6b7280;
+  --fitiva-red: #EF3E36;
+  --fitiva-red-dark: #dc2626;
+  --fitiva-orange: #FF9234;
+  --success: #10b981;
+  --error: #dc2626;
+  --warning: #f59e0b;
+  --info: #3b82f6;
 }
 
 @theme inline {
@@ -27,9 +60,10 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .loading-container {

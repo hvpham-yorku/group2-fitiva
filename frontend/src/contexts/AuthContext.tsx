@@ -24,7 +24,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Public routes that don't require authentication
 const PUBLIC_ROUTES = ['/login', '/signup', '/'];
 
 interface AuthProviderProps {
@@ -37,10 +36,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Check authentication status
   const checkAuth = async () => {
     try {
-      // First check localStorage
       const storedUser = localStorage.getItem('user');
       
       if (!storedUser) {
@@ -54,15 +51,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const response = await authAPI.getCurrentUser();
         if (response.authenticated && response.user) {
           setUser(response.user);
-          // Update localStorage with fresh data
           localStorage.setItem('user', JSON.stringify(response.user));
         } else {
-          // Not authenticated, clear storage
           localStorage.removeItem('user');
           setUser(null);
         }
       } catch (error) {
-        // Backend validation failed, clear storage
         localStorage.removeItem('user');
         setUser(null);
       }
@@ -94,7 +88,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Logout function
   const logout = async () => {
     try {
       await authAPI.logout();
@@ -107,22 +100,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Check auth on mount and route changes
   useEffect(() => {
     checkAuth();
   }, []);
 
-  // Redirect logic
   useEffect(() => {
     if (isLoading) return;
 
     const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
     if (!user && !isPublicRoute) {
-      // Not authenticated and trying to access protected route
       router.push('/login');
     } else if (user && (pathname === '/login' || pathname === '/signup')) {
-      // Authenticated and trying to access auth pages
       router.push('/dashboard');
     }
   }, [user, isLoading, pathname]);
@@ -139,7 +128,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Custom hook to use auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/ui/Logo';
 import { ApiError } from '@/library/api';
 import './login.css';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -42,7 +43,7 @@ export default function LoginPage() {
 
   return (
     <div className="login-container">
-      {/* Left Side - Gym Image with Diagonal Overlay */}
+      {/* Left Side - Gym Image */}
       <div className="login-left">
         <div className="gym-image"></div>
         <div className="diagonal-overlay"></div>
@@ -50,6 +51,7 @@ export default function LoginPage() {
 
       {/* Right Side - Login Form */}
       <div className="login-right">
+        <ThemeToggle />
         <div className="login-box">
           {/* Logo */}
           <div className="logo-container">

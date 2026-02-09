@@ -49,7 +49,7 @@ class UserProfile(models.Model):
 
 
 class WorkoutPlan(models.Model):
-    """A workout plan (pre-designed or trainer-created)."""
+    """Default workout plan model."""
     FOCUS_CHOICES = [
         ('strength', 'Strength'),
         ('cardio', 'Cardio'),

@@ -3,6 +3,13 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from .models import CustomUser, UserProfile
+from django.urls import reverse
+from rest_framework.test import APITestCase
+from rest_framework import status
+from django.contrib.auth import get_user_model
+from .models import UserProfile
+
+User = get_user_model()
 
 # TEST CASES GENERATED WITH THE USE OF CLAUDE SONNET 4.5
 class UserSignupTests(TestCase):
@@ -290,3 +297,150 @@ class CurrentUserTests(TestCase):
         response = unauth_client.get(self.me_url)
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+# this is the test case for the user profile creation endpoint, which should automatically create a UserProfile when a new user is created. 
+# We will test that the UserProfile is created and associated with the correct user.        
+class UserProfileTests(APITestCase):
+
+    def setUp(self):
+        # Create a test user
+        self.user = User.objects.create_user(
+            username="testuser",
+            password="Testpass123!",
+            email="test@example.com"
+        )
+
+        # Log in the user (session-based auth)
+        self.client.login(username="testuser", password="Testpass123!")
+
+        self.create_profile_url = "/api/profile/create/"
+        
+    def test_create_profile_success(self):
+        data = {
+            "age": 25,
+            "experience_level": "beginner",
+            "training_location": "home",
+            "fitness_focus": "strength"
+        }
+
+        response = self.client.post(self.create_profile_url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(UserProfile.objects.count(), 1)
+
+        profile = UserProfile.objects.first()
+        self.assertEqual(profile.user, self.user)
+        self.assertEqual(profile.age, 25)
+        self.assertEqual(profile.training_location, "home")
+
+    def test_create_profile_invalid_age(self):
+        data = {
+            "age": 10,  # invalid (too young)
+            "experience_level": "beginner",
+            "training_location": "home",
+            "fitness_focus": "strength"
+        }
+
+        response = self.client.post(self.create_profile_url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("age", response.data.get("errors", {}))
+
+    def test_get_profile(self):
+        UserProfile.objects.create(
+            user=self.user,
+            age=30,
+            experience_level="intermediate",
+            training_location="gym",
+            fitness_focus="cardio"
+        )
+
+        response = self.client.get("/api/profile/me/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["age"], 30)
+        self.assertEqual(response.data["training_location"], "gym")
+    # can not have two profiles for one user
+    def test_cannot_create_duplicate_profile(self):
+        UserProfile.objects.create(
+            user=self.user,
+            age=25,
+            experience_level="beginner",
+            training_location="home",
+            fitness_focus="strength"
+        )
+
+        data = {
+            "age": 30,
+            "experience_level": "advanced",
+            "training_location": "gym",
+            "fitness_focus": "cardio"
+        }
+
+        response = self.client.post(self.create_profile_url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("detail", response.data)
+
+    # current user should be able to get their profile    
+    def test_get_profile_me(self):
+        UserProfile.objects.create(
+            user=self.user,
+            age=28,
+            experience_level="intermediate",
+            training_location="gym",
+            fitness_focus="cardio"
+        )
+
+        response = self.client.get("/api/profile/me/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["age"], 28)
+        self.assertEqual(response.data["experience_level"], "intermediate")
+
+    # update profile with PUT request
+    def test_update_profile(self):
+        profile = UserProfile.objects.create(
+            user=self.user,
+            age=20,
+            experience_level="beginner",
+            training_location="home",
+            fitness_focus="mixed"
+        )
+
+        data = {
+            "age": 35,
+            "experience_level": "advanced",
+            "training_location": "gym",
+            "fitness_focus": "strength"
+        }
+
+        response = self.client.put("/api/profile/me/", data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.age, 35)
+        self.assertEqual(profile.experience_level, "advanced")
+
+    # test that unauthenticated users cannot access profile endpoints
+    def test_unauthenticated_user_cannot_access_profile(self):
+        self.client.logout()
+
+        response = self.client.get("/api/profile/me/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    # test that invalid experience level is rejected
+    def test_invalid_experience_level(self):
+        data = {
+            "age": 25,
+            "experience_level": "expert",  # invalid
+            "training_location": "home",
+            "fitness_focus": "strength"
+        }
+
+        response = self.client.post(self.create_profile_url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("experience_level", response.data.get("errors", {}))
+
