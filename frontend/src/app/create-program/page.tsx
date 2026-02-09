@@ -36,10 +36,34 @@ function getCookie(name: string): string | null {
   return cookieValue;
 }
 
+// Helper function to format seconds to "X min Y sec"
+function formatTime(seconds: number): string {
+  if (seconds === 0) return '0 sec';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  
+  if (mins === 0) {
+    return `${secs} sec`;
+  } else if (secs === 0) {
+    return `${mins} min`;
+  } else {
+    return `${mins} min ${secs} sec`;
+  }
+}
+
 export default function CreateProgramPage() {
   const router = useRouter();
   const [currentView, setCurrentView] = useState<'main' | 'add-section' | 'add-exercise' | 'exercise-details'>('main');
+  
+  // Program details
   const [programName, setProgramName] = useState('');
+  const [programDescription, setProgramDescription] = useState('');
+  const [programFocus, setProgramFocus] = useState('');
+  const [programDifficulty, setProgramDifficulty] = useState('');
+  const [weeklyFrequency, setWeeklyFrequency] = useState<number>(3);
+  const [sessionLength, setSessionLength] = useState<number>(60);
+  const [isSubscription, setIsSubscription] = useState(false);
+  
   const [sections, setSections] = useState<Section[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -113,13 +137,13 @@ export default function CreateProgramPage() {
 
   // Check if the form is valid for saving
   const canSaveProgram = (): boolean => {
-    // Must have a program name
     if (!programName.trim()) return false;
-    
-    // Must have at least one section
+    if (!programFocus) return false;
+    if (!programDifficulty) return false;
+    if (!weeklyFrequency || weeklyFrequency < 1) return false;
+    if (!sessionLength || sessionLength < 15) return false;
     if (sections.length === 0) return false;
     
-    // Each section must have at least one exercise
     const allSectionsHaveExercises = sections.every(section => section.exercises.length > 0);
     if (!allSectionsHaveExercises) return false;
     
@@ -128,7 +152,7 @@ export default function CreateProgramPage() {
 
   const handleFinalSave = async () => {
     if (!canSaveProgram()) {
-      alert('Please ensure:\n- Program has a name\n- At least one section exists\n- Each section has at least one exercise');
+      alert('Please ensure:\n- Program has a name\n- Focus is selected\n- Difficulty is selected\n- Weekly frequency is set\n- Session length is set\n- At least one section exists\n- Each section has at least one exercise');
       return;
     }
 
@@ -151,6 +175,12 @@ export default function CreateProgramPage() {
 
     const payload = {
       name: programName,
+      description: programDescription,
+      focus: programFocus,
+      difficulty: programDifficulty,
+      weekly_frequency: weeklyFrequency,
+      session_length: sessionLength,
+      is_subscription: isSubscription,
       sections: formattedSections,
     };
 
@@ -174,7 +204,6 @@ export default function CreateProgramPage() {
 
       if (response.ok) {
         alert('Program created successfully!');
-        // Redirect to trainer programs page
         router.push('/trainer-programs');
       } else {
         console.error('Error response:', data);
@@ -201,14 +230,96 @@ export default function CreateProgramPage() {
 
         <div className="content">
           <div className="form-group">
-            <label>Program Name</label>
+            <label>Program Name *</label>
             <input
               type="text"
               value={programName}
               onChange={(e) => setProgramName(e.target.value)}
               placeholder="Enter program name"
               className="input-field"
+              required
             />
+          </div>
+
+          <div className="form-group">
+            <label>Description</label>
+            <textarea
+              value={programDescription}
+              onChange={(e) => setProgramDescription(e.target.value)}
+              placeholder="Enter program description"
+              className="input-field textarea-field"
+              rows={3}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Focus *</label>
+            <select 
+              value={programFocus} 
+              onChange={(e) => setProgramFocus(e.target.value)}
+              className="input-field"
+              required
+            >
+              <option value="">Select Focus</option>
+              <option value="strength">Strength</option>
+              <option value="cardio">Cardio</option>
+              <option value="flexibility">Flexibility</option>
+              <option value="balance">Balance</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Difficulty *</label>
+            <select 
+              value={programDifficulty} 
+              onChange={(e) => setProgramDifficulty(e.target.value)}
+              className="input-field"
+              required
+            >
+              <option value="">Select Difficulty</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Weekly Frequency (days) *</label>
+              <input
+                type="number"
+                value={weeklyFrequency}
+                onChange={(e) => setWeeklyFrequency(parseInt(e.target.value) || 0)}
+                min="1"
+                max="7"
+                className="input-field"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Session Length (minutes) *</label>
+              <input
+                type="number"
+                value={sessionLength}
+                onChange={(e) => setSessionLength(parseInt(e.target.value) || 0)}
+                min="15"
+                max="180"
+                className="input-field"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group checkbox-group">
+            <label>
+              <input
+                type="checkbox"
+                checked={isSubscription}
+                onChange={(e) => setIsSubscription(e.target.checked)}
+              />
+              <span>Subscription Required</span>
+            </label>
           </div>
 
           <div className="sections-container">
@@ -257,18 +368,15 @@ export default function CreateProgramPage() {
             {isSaving ? 'Saving...' : 'Save Program'}
           </button>
 
-          {/* Validation hints */}
-          {!canSaveProgram() && sections.length > 0 && (
-            <div style={{ 
-              marginTop: '10px', 
-              padding: '10px', 
-              backgroundColor: '#fff3cd', 
-              borderRadius: '5px',
-              fontSize: '14px',
-              color: '#856404'
-            }}>
-              ⚠️ To save: {!programName.trim() && 'Add a program name. '}
-              {sections.some(s => s.exercises.length === 0) && 'All sections need at least one exercise.'}
+          {!canSaveProgram() && (
+            <div className="validation-hint">
+              ⚠️ Required: {!programName.trim() && 'Program name. '}
+              {!programFocus && 'Focus. '}
+              {!programDifficulty && 'Difficulty. '}
+              {(!weeklyFrequency || weeklyFrequency < 1) && 'Weekly frequency. '}
+              {(!sessionLength || sessionLength < 15) && 'Session length. '}
+              {sections.length === 0 && 'At least one section. '}
+              {sections.some(s => s.exercises.length === 0) && 'All sections need exercises.'}
             </div>
           )}
         </div>
@@ -276,7 +384,7 @@ export default function CreateProgramPage() {
     );
   }
 
-  // Add Section View
+  // Add Section View - NEW CIRCULAR DESIGN
   if (currentView === 'add-section') {
     return (
       <div className="create-program-container">
@@ -290,12 +398,12 @@ export default function CreateProgramPage() {
         <div className="content">
           <div className="form-group">
             <label>Section Format</label>
-            <div className="options-grid">
+            <div className="options-grid-modal">
               {['Straight Sets', 'Superset', 'Triset', 'Giant Set', 'Circuit'].map((format) => (
                 <button
                   key={format}
                   onClick={() => setNewSection({ ...newSection, format })}
-                  className={`option-btn ${newSection.format === format ? 'active' : ''}`}
+                  className={`option-btn-modal ${newSection.format === format ? 'active-orange' : ''}`}
                 >
                   {format}
                 </button>
@@ -305,12 +413,12 @@ export default function CreateProgramPage() {
 
           <div className="form-group">
             <label>Section Type</label>
-            <div className="options-grid">
+            <div className="options-grid-modal">
               {['Warm Up', 'Working Sets', 'Drop Sets', 'Cool Down'].map((type) => (
                 <button
                   key={type}
                   onClick={() => setNewSection({ ...newSection, type })}
-                  className={`option-btn ${newSection.type === type ? 'active' : ''}`}
+                  className={`option-btn-modal ${newSection.type === type ? 'active-orange' : ''}`}
                 >
                   {type}
                 </button>
@@ -321,7 +429,7 @@ export default function CreateProgramPage() {
           <button 
             onClick={handleSectionSubmit}
             disabled={!newSection.format || !newSection.type}
-            className="btn-primary"
+            className="btn-update-orange"
           >
             Add Section
           </button>
@@ -376,47 +484,107 @@ export default function CreateProgramPage() {
 
           <div className="sets-container">
             <h3>Sets</h3>
-            <table className="sets-table">
-              <thead>
-                <tr>
-                  <th>Set</th>
-                  <th>Reps</th>
-                  <th>Time (sec)</th>
-                  <th>Rest (sec)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentExercise.sets.map((set, index) => (
-                  <tr key={index}>
-                    <td>{index + 1}</td>
-                    <td>
-                      <input
-                        type="number"
-                        value={set.reps}
-                        onChange={(e) => handleSetChange(index, 'reps', parseInt(e.target.value) || 0)}
-                        className="input-small"
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        value={set.time}
-                        onChange={(e) => handleSetChange(index, 'time', parseInt(e.target.value) || 0)}
-                        className="input-small"
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        value={set.rest}
-                        onChange={(e) => handleSetChange(index, 'rest', parseInt(e.target.value) || 0)}
-                        className="input-small"
-                      />
-                    </td>
+            <div className="table-wrapper">
+              <table className="sets-table">
+                <thead>
+                  <tr>
+                    <th>Set</th>
+                    <th>Reps</th>
+                    <th>Time</th>
+                    <th>Rest</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {currentExercise.sets.map((set, index) => (
+                    <tr key={index}>
+                      <td>{index + 1}</td>
+                      <td>
+                        <input
+                          type="number"
+                          value={set.reps || ''}
+                          onChange={(e) => handleSetChange(index, 'reps', parseInt(e.target.value) || 0)}
+                          className="input-small"
+                          placeholder="0"
+                          min="0"
+                        />
+                      </td>
+                      <td>
+                        <div className="time-input-group">
+                          <select
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value);
+                              if (value > 0) {
+                                handleSetChange(index, 'time', value);
+                              }
+                            }}
+                            className="input-small dropdown"
+                            defaultValue=""
+                          >
+                            <option value="">Quick</option>
+                            <option value="15">15s</option>
+                            <option value="30">30s</option>
+                            <option value="45">45s</option>
+                            <option value="60">1m</option>
+                            <option value="90">1m 30s</option>
+                            <option value="120">2m</option>
+                            <option value="180">3m</option>
+                            <option value="240">4m</option>
+                            <option value="300">5m</option>
+                          </select>
+                          <input
+                            type="number"
+                            value={set.time || ''}
+                            onChange={(e) => handleSetChange(index, 'time', parseInt(e.target.value) || 0)}
+                            className="input-small"
+                            placeholder="sec"
+                            min="0"
+                          />
+                          {set.time && set.time > 0 && (
+                            <span className="time-display">{formatTime(set.time)}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="time-input-group">
+                          <select
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value);
+                              if (value > 0) {
+                                handleSetChange(index, 'rest', value);
+                              }
+                            }}
+                            className="input-small dropdown"
+                            defaultValue=""
+                          >
+                            <option value="">Quick</option>
+                            <option value="15">15s</option>
+                            <option value="30">30s</option>
+                            <option value="45">45s</option>
+                            <option value="60">1m</option>
+                            <option value="90">1m 30s</option>
+                            <option value="120">2m</option>
+                            <option value="180">3m</option>
+                            <option value="240">4m</option>
+                            <option value="300">5m</option>
+                          </select>
+                          <input
+                            type="number"
+                            value={set.rest || ''}
+                            onChange={(e) => handleSetChange(index, 'rest', parseInt(e.target.value) || 0)}
+                            className="input-small"
+                            placeholder="sec"
+                            min="0"
+                          />
+                          {set.rest && set.rest > 0 && (
+                            <span className="time-display">{formatTime(set.rest)}</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             <button onClick={handleAddSet} className="btn-add-set">
               + Add Set

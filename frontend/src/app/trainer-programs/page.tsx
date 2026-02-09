@@ -8,13 +8,15 @@ import './trainer-programs.css';
 interface Program {
   id: number;
   name: string;
+  description: string;
+  focus: string;
+  difficulty: string;
+  weekly_frequency: number;
+  session_length: number;
+  is_subscription: boolean;
+  trainer: number;
   created_at: string;
-  created_by: {
-    id: number;
-    first_name: string;
-    last_name: string;
-  };
-  sections: Array<{
+  sections?: Array<{
     format: string;
     type: string;
     exercises: Array<{
@@ -38,15 +40,16 @@ export default function TrainerProgramsPage() {
 
   const fetchPrograms = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/programs/all/', {
+      const response = await fetch('http://localhost:8000/api/programs/', {
         credentials: 'include',
       });
 
       if (response.ok) {
         const data = await response.json();
         
-        const mine = data.filter((p: Program) => p.created_by?.id === user?.id);
-        const others = data.filter((p: Program) => p.created_by?.id !== user?.id);
+        // Split programs into user's and others'
+        const mine = data.filter((p: Program) => p.trainer === user?.id);
+        const others = data.filter((p: Program) => p.trainer !== user?.id);
         
         setMyPrograms(mine);
         setOtherPrograms(others);
@@ -58,27 +61,42 @@ export default function TrainerProgramsPage() {
     }
   };
 
-  const getDifficulty = (program: Program) => {
-    // Determine difficulty based on number of exercises
-    const totalExercises = program.sections.reduce((acc, section) => 
-      acc + section.exercises.length, 0
-    );
-    if (totalExercises <= 3) return 'Beginner';
-    if (totalExercises <= 6) return 'Intermediate';
-    return 'Advanced';
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty.toLowerCase()) {
+      case 'beginner':
+        return 'beginner';
+      case 'intermediate':
+        return 'intermediate';
+      case 'advanced':
+        return 'advanced';
+      default:
+        return 'beginner';
+    }
   };
 
-  const getFocusArea = (program: Program) => {
-    // Determine focus based on section types
-    const hasWarmUp = program.sections.some(s => s.type === 'Warm Up');
-    const hasWorkingSets = program.sections.some(s => s.type === 'Working Sets');
-    if (hasWarmUp && hasWorkingSets) return 'Full Body';
-    if (hasWorkingSets) return 'Strength';
-    return 'Mixed';
+  const getFocusIcon = (focus: string) => {
+    switch (focus.toLowerCase()) {
+      case 'strength':
+        return '💪';
+      case 'cardio':
+        return '🏃';
+      case 'flexibility':
+        return '🧘';
+      case 'balance':
+        return '⚖️';
+      default:
+        return '🏋️';
+    }
   };
 
-  const viewProgramDetails = (programId: number) => {
-    router.push(`/program/${programId}`);
+  const viewProgramDetails = (program: Program) => {
+    // If it's user's own program OR a free program, show full details
+    if (program.trainer === user?.id || !program.is_subscription) {
+      router.push(`/program/${program.id}`);
+    } else {
+      // If it requires subscription and user doesn't own it, show preview only
+      router.push(`/program/${program.id}/preview`);
+    }
   };
 
   if (loading) {
@@ -111,7 +129,7 @@ export default function TrainerProgramsPage() {
           className={`tab ${activeTab === 'others' ? 'active' : ''}`}
           onClick={() => setActiveTab('others')}
         >
-          Other Trainers ({otherPrograms.length > 2 ? '2+' : otherPrograms.length})
+          Other Trainers ({otherPrograms.length})
         </button>
       </div>
 
@@ -146,35 +164,48 @@ export default function TrainerProgramsPage() {
                 {myPrograms.map((program) => (
                   <div key={program.id} className="program-card my-program">
                     <div className="program-badge">Your Program</div>
-                    <h3 className="program-title">{program.name}</h3>
+                    <div className="program-header">
+                      <span className="focus-icon">{getFocusIcon(program.focus)}</span>
+                      <h3 className="program-title">{program.name}</h3>
+                    </div>
                     
+                    <p className="program-description">{program.description || 'No description provided'}</p>
+
                     <div className="program-meta">
                       <div className="meta-item">
-                        <span className="meta-label">Trainer:</span>
-                        <span className="meta-value">
-                          {program.created_by.first_name} {program.created_by.last_name}
-                        </span>
-                      </div>
-                      <div className="meta-item">
-                        <span className="meta-label">Focus Area:</span>
-                        <span className="meta-value">{getFocusArea(program)}</span>
+                        <span className="meta-label">Focus:</span>
+                        <span className="meta-value">{program.focus}</span>
                       </div>
                       <div className="meta-item">
                         <span className="meta-label">Difficulty:</span>
-                        <span className={`difficulty-badge ${getDifficulty(program).toLowerCase()}`}>
-                          {getDifficulty(program)}
+                        <span className={`difficulty-badge ${getDifficultyColor(program.difficulty)}`}>
+                          {program.difficulty}
+                        </span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Weekly Frequency:</span>
+                        <span className="meta-value">{program.weekly_frequency} days/week</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Session Length:</span>
+                        <span className="meta-value">{program.session_length} min</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Subscription:</span>
+                        <span className={`subscription-badge ${program.is_subscription ? 'required' : 'free'}`}>
+                          {program.is_subscription ? '🔒 Required' : '✓ Free'}
                         </span>
                       </div>
                     </div>
 
                     <div className="program-stats">
                       <div className="stat">
-                        <span className="stat-value">{program.sections.length}</span>
+                        <span className="stat-value">{program.sections?.length || 0}</span>
                         <span className="stat-label">Sections</span>
                       </div>
                       <div className="stat">
                         <span className="stat-value">
-                          {program.sections.reduce((acc, s) => acc + s.exercises.length, 0)}
+                          {program.sections?.reduce((acc, s) => acc + s.exercises.length, 0) || 0}
                         </span>
                         <span className="stat-label">Exercises</span>
                       </div>
@@ -182,7 +213,7 @@ export default function TrainerProgramsPage() {
 
                     <div className="program-actions">
                       <button 
-                        onClick={() => viewProgramDetails(program.id)}
+                        onClick={() => viewProgramDetails(program)}
                         className="btn-view"
                       >
                         View Details
@@ -210,108 +241,103 @@ export default function TrainerProgramsPage() {
           <section className="programs-section">
             <h2>Other Trainers' Workout Plans</h2>
             <p className="section-description">
-              Explore programs from other trainers. Subscribe to unlock unlimited access.
+              Explore programs from other trainers. Some programs require a subscription.
             </p>
 
-            <div className="programs-grid">
-              {/* Show only 2 free programs */}
-              {otherPrograms.slice(0, 2).map((program) => (
-                <div key={program.id} className="program-card">
-                  <div className="program-badge free">Free Preview</div>
-                  <h3 className="program-title">{program.name}</h3>
-                  
-                  <div className="program-meta">
-                    <div className="meta-item">
-                      <span className="meta-label">Trainer:</span>
-                      <span className="meta-value">
-                        {program.created_by.first_name} {program.created_by.last_name}
-                      </span>
-                    </div>
-                    <div className="meta-item">
-                      <span className="meta-label">Focus Area:</span>
-                      <span className="meta-value">{getFocusArea(program)}</span>
-                    </div>
-                    <div className="meta-item">
-                      <span className="meta-label">Difficulty:</span>
-                      <span className={`difficulty-badge ${getDifficulty(program).toLowerCase()}`}>
-                        {getDifficulty(program)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="program-stats">
-                    <div className="stat">
-                      <span className="stat-value">{program.sections.length}</span>
-                      <span className="stat-label">Sections</span>
-                    </div>
-                    <div className="stat">
-                      <span className="stat-value">
-                        {program.sections.reduce((acc, s) => acc + s.exercises.length, 0)}
-                      </span>
-                      <span className="stat-label">Exercises</span>
-                    </div>
-                  </div>
-
-                  <div className="program-actions">
-                    <button 
-                      onClick={() => viewProgramDetails(program.id)}
-                      className="btn-view"
-                    >
-                      View Details
-                    </button>
-                  </div>
-
-                  <p className="program-date">
-                    Created {new Date(program.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              ))}
-
-              {/* Subscription Card */}
-              <div className="program-card subscription-card">
-                <div className="lock-icon">🔒</div>
-                <h3>Premium Access</h3>
-                <p className="subscription-description">
-                  Subscribe to unlock all trainer programs and exclusive features
-                </p>
-                
-                <div className="subscription-benefits">
-                  <div className="benefit">✓ Unlimited trainer programs</div>
-                  <div className="benefit">✓ Exclusive workout content</div>
-                  <div className="benefit">✓ Progress tracking</div>
-                  <div className="benefit">✓ Personalized recommendations</div>
-                </div>
-
-                <div className="subscription-pricing">
-                  <span className="price">$9.99</span>
-                  <span className="period">/month</span>
-                </div>
-
-                <button className="btn-subscribe">
-                  Subscribe Now
-                </button>
-
-                <p className="subscription-note">
-                  Cancel anytime. No commitments.
-                </p>
+            {otherPrograms.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">🔍</div>
+                <h3>No Other Programs Available</h3>
+                <p>There are currently no programs from other trainers.</p>
               </div>
-
-              {/* Locked Programs (if there are more than 2) */}
-              {otherPrograms.length > 2 && (
-                <div className="program-card locked-card">
-                  <div className="lock-overlay">
-                    <div className="lock-icon-large">🔒</div>
-                    <p>Subscribe to unlock</p>
-                  </div>
-                  <h3 className="program-title blurred">Advanced Training Program</h3>
-                  <div className="program-meta blurred">
-                    <div className="meta-item">
-                      <span className="meta-label">More programs available</span>
+            ) : (
+              <div className="programs-grid">
+                {otherPrograms.map((program) => (
+                  <div key={program.id} className="program-card other-program">
+                    <div className={`program-badge ${program.is_subscription ? 'premium' : 'free'}`}>
+                      {program.is_subscription ? '🔒 Premium' : '✓ Free'}
                     </div>
+                    <div className="program-header">
+                      <span className="focus-icon">{getFocusIcon(program.focus)}</span>
+                      <h3 className="program-title">{program.name}</h3>
+                    </div>
+                    
+                    <p className="program-description">{program.description || 'No description provided'}</p>
+
+                    <div className="program-meta">
+                      <div className="meta-item">
+                        <span className="meta-label">Focus:</span>
+                        <span className="meta-value">{program.focus}</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Difficulty:</span>
+                        <span className={`difficulty-badge ${getDifficultyColor(program.difficulty)}`}>
+                          {program.difficulty}
+                        </span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Weekly Frequency:</span>
+                        <span className="meta-value">{program.weekly_frequency} days/week</span>
+                      </div>
+                      <div className="meta-item">
+                        <span className="meta-label">Session Length:</span>
+                        <span className="meta-value">{program.session_length} min</span>
+                      </div>
+                    </div>
+
+                    {program.is_subscription && (
+                      <div className="subscription-notice">
+                        <p>🔒 Subscribe to view full workout details</p>
+                      </div>
+                    )}
+
+                    <div className="program-actions">
+                      <button 
+                        onClick={() => viewProgramDetails(program)}
+                        className="btn-view"
+                      >
+                        {program.is_subscription ? 'Preview Program' : 'View Details'}
+                      </button>
+                    </div>
+
+                    <p className="program-date">
+                      Created {new Date(program.created_at).toLocaleDateString()}
+                    </p>
                   </div>
-                </div>
-              )}
-            </div>
+                ))}
+
+                {/* Show subscription card if there are subscription programs */}
+                {otherPrograms.some(p => p.is_subscription) && (
+                  <div className="program-card subscription-card">
+                    <div className="lock-icon">🔒</div>
+                    <h3>Premium Access</h3>
+                    <p className="subscription-description">
+                      Subscribe to unlock all premium workout programs
+                    </p>
+                    
+                    <div className="subscription-benefits">
+                      <div className="benefit">✓ Unlimited premium programs</div>
+                      <div className="benefit">✓ Full workout details</div>
+                      <div className="benefit">✓ Progress tracking</div>
+                      <div className="benefit">✓ Personalized recommendations</div>
+                    </div>
+
+                    <div className="subscription-pricing">
+                      <span className="price">$9.99</span>
+                      <span className="period">/month</span>
+                    </div>
+
+                    <button className="btn-subscribe">
+                      Subscribe Now
+                    </button>
+
+                    <p className="subscription-note">
+                      Cancel anytime. No commitments.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         )}
       </div>

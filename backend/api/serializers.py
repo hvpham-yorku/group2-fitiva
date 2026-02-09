@@ -4,6 +4,16 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 import re
 
+from rest_framework import serializers
+from .models import (
+    CustomUser, 
+    UserProfile, 
+    WorkoutPlan, 
+    WorkoutSession, 
+    WorkoutFeedback,
+    TrainerProfile
+)
+
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
@@ -179,3 +189,51 @@ class UserLoginSerializer(serializers.Serializer):
         # Attach user to validated data for use in the view
         data['user'] = user
         return data
+
+
+
+
+# Workout-related serializers
+class WorkoutPlanSerializer(serializers.ModelSerializer):
+    trainer_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = WorkoutPlan
+        fields = [
+            'id', 'name', 'description', 'focus', 'difficulty',
+            'weekly_frequency', 'session_length', 'is_subscription',
+            'trainer', 'trainer_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'trainer']
+    
+    def get_trainer_name(self, obj):
+        """Return trainer's full name"""
+        if obj.trainer:
+            return f"{obj.trainer.first_name} {obj.trainer.last_name}"
+        return "Unknown Trainer"
+
+
+class WorkoutSessionSerializer(serializers.ModelSerializer):
+    plan_name = serializers.CharField(source='plan.name', read_only=True)
+    
+    class Meta:
+        model = WorkoutSession
+        fields = [
+            'id', 'user', 'plan', 'plan_name', 'date', 
+            'duration_minutes', 'is_completed', 'notes', 'created_at'
+        ]
+        read_only_fields = ['created_at', 'user']
+    
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class WorkoutFeedbackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkoutFeedback
+        fields = [
+            'id', 'session', 'difficulty_rating', 'fatigue_level',
+            'pain_reported', 'notes', 'created_at'
+        ]
+        read_only_fields = ['created_at']

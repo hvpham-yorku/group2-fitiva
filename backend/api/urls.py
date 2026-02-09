@@ -1,6 +1,10 @@
-from django.urls import path
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+
+# Create router for ViewSets
+router = DefaultRouter()
+router.register(r'programs', views.WorkoutProgramViewSet, basename='program')
 
 # Placeholder for now - we can add actual endpoints later
 urlpatterns = [
@@ -11,4 +15,6 @@ urlpatterns = [
     path("auth/me/", views.me, name="me"),
     #path("auth/password-reset/", views.password_reset), 
     #path("auth/password-reset-confirm/", views.password_reset_confirm),
+
+    path('', include(router.urls)),
 ]

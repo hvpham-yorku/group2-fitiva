@@ -19,6 +19,17 @@ import os
 from urllib.parse import urlencode
 from rest_framework.exceptions import ValidationError
 
+from rest_framework import viewsets, permissions
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from .models import WorkoutPlan, WorkoutSession, WorkoutFeedback, UserProfile, TrainerProfile
+from .serializers import (
+    WorkoutPlanSerializer, 
+    WorkoutSessionSerializer, 
+    WorkoutFeedbackSerializer,
+    UserProfileSerializer,
+    TrainerProfileSerializer
+)
+
 
 User = get_user_model()
 
@@ -138,3 +149,59 @@ def password_reset(_request):
 
 
     return Response({"ok": True})
+
+
+
+class WorkoutProgramViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing workout plans/programs
+    """
+    serializer_class = WorkoutPlanSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """
+        Return ALL workout programs without filtering
+        """
+        # Return all programs, ordered by creation date (newest first)
+        return WorkoutPlan.objects.all().select_related('trainer').order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        """
+        Set the trainer to the current user when creating a new plan
+        """
+        print(f"Creating program for user: {self.request.user.id} - {self.request.user.username}")
+        serializer.save(trainer=self.request.user)
+    
+    def list(self, request, *args, **kwargs):
+        """
+        List all programs - with debug logging
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        print(f"Returning {len(serializer.data)} programs to user {request.user.id}")
+        return Response(serializer.data)
+
+
+# WORKOUT SESSION VIEWSET
+class WorkoutSessionViewSet(viewsets.ModelViewSet):
+    serializer_class = WorkoutSessionSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return WorkoutSession.objects.filter(user=self.request.user).order_by('-date')
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+# WORKOUT FEEDBACK VIEWSET
+class WorkoutFeedbackViewSet(viewsets.ModelViewSet):
+    serializer_class = WorkoutFeedbackSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        # Get feedback for sessions belonging to the current user
+        return WorkoutFeedback.objects.filter(
+            session__user=self.request.user
+        ).order_by('-created_at')
