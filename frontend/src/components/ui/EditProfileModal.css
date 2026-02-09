@@ -1,0 +1,132 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 0.75rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-close {
+  font-size: 1.5rem;
+  color: #6b7280;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #111827;
+}
+
+.modal-form {
+  padding: 1.5rem;
+}
+
+.modal-field {
+  margin-bottom: 1.25rem;
+}
+
+.modal-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #111827;  /* Changed from #374151 to darker */
+  margin-bottom: 0.5rem;
+}
+
+.modal-input,
+.modal-select {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  color: #111827;  /* Changed to dark black */
+  background-color: white;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.modal-input::placeholder {
+  color: #9ca3af;  /* Keep placeholder light */
+}
+
+.modal-input:focus,
+.modal-select:focus {
+  outline: none;
+  border-color: #EF3E36;
+  box-shadow: 0 0 0 3px rgba(239, 62, 54, 0.1);
+  color: #111827;  /* Ensure dark text on focus */
+}
+
+.modal-select option {
+  color: #111827;  /* Dark text for dropdown options */
+}
+
+.modal-error {
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  color: #dc2626;
+}
+
+.modal-alert {
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+.modal-alert.error {
+  background-color: #fef2f2;
+  color: #991b1b;
+}
+
+.modal-button {
+  width: 100%;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.modal-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.modal-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

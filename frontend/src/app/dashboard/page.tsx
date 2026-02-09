@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { profileAPI } from '@/library/api';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import './dashboard.css';
@@ -10,7 +11,27 @@ export default function DashboardPage() {
   const { user, logout, isLoading } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [hasCompletedProfile, setHasCompletedProfile] = useState(false);
+  const [profileLoading, setProfileLoading ] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+
+  // Check profile to see if its completed, useful for changing things based on if the user's profile is complete
+  useEffect(() => {
+    const checkProfile = async () => {
+      try {
+        const profile = await profileAPI.getProfile();
+        // Profile is complete if age is set
+        setHasCompletedProfile(!!profile.age);
+      } catch {
+        setHasCompletedProfile(false);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    checkProfile();
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -212,9 +233,15 @@ export default function DashboardPage() {
           <div className="action-buttons">
             <Link href="/profile" className="action-button">
               <div className="action-button-icon">👤</div>
-              <div className="action-button-title">Complete Profile</div>
+              <div className="action-button-title">
+                {hasCompletedProfile 
+                ? 'Edit your profile' 
+                : 'Complete Profile'}
+                </div>
               <div className="action-button-description">
-                Add your fitness details to get started
+                {hasCompletedProfile 
+                ? 'Change your fitness details to customize for your new preferences'
+                : 'Add your fitness details to get started'}
               </div>
             </Link>
 
