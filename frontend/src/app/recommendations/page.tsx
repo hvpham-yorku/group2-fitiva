@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { workoutAPI } from "@/lib/api";
+import { workoutAPI } from "@/library/api";
 
 type Workout = {
   id: number;
