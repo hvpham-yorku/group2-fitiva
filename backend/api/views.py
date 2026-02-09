@@ -22,7 +22,7 @@ from rest_framework.exceptions import ValidationError
 
 User = get_user_model()
 
-# CSRF
+# CSRF Cookie
 @ensure_csrf_cookie
 @require_GET
 def csrf(_request):
