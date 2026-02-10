@@ -1,17 +1,21 @@
+/* ============================================================================
+   TRAINER PROGRAMS PAGE - THEME-AWARE
+   ============================================================================ */
+
 .trainer-programs-container {
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background-color: var(--bg-primary);
 }
 
 .header {
-  background-color: #ffffff;
+  background-color: var(--bg-secondary);
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-medium);
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .header h1 {
-  color: #000000;
+  color: var(--text-primary);
   font-size: 2rem;
   margin: 0.5rem 0 0 0;
 }
@@ -19,7 +23,7 @@
 .back-button {
   background: none;
   border: none;
-  color: #000000;
+  color: var(--text-primary);
   font-size: 1rem;
   cursor: pointer;
   padding: 0.5rem;
@@ -28,13 +32,13 @@
 }
 
 .back-button:hover {
-  color: #ff6b35;
+  color: var(--primary);
 }
 
 /* Tabs */
 .tabs-container {
-  background: white;
-  border-bottom: 2px solid #e0e0e0;
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--border-medium);
   display: flex;
   gap: 0;
   padding: 0 2rem;
@@ -46,20 +50,20 @@
   padding: 1rem 2rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #666;
+  color: var(--text-secondary);
   cursor: pointer;
   border-bottom: 3px solid transparent;
   transition: all 0.3s;
 }
 
 .tab:hover {
-  color: #ff6b35;
-  background: #fff5f2;
+  color: var(--primary);
+  background: var(--bg-tertiary);
 }
 
 .tab.active {
-  color: #ff6b35;
-  border-bottom-color: #ff6b35;
+  color: var(--primary);
+  border-bottom-color: var(--primary);
 }
 
 .content {
@@ -80,18 +84,19 @@
 }
 
 .programs-section h2 {
-  color: #000000;
+  color: var(--text-primary);
   font-size: 1.75rem;
   margin-bottom: 0.5rem;
 }
 
 .section-description {
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 2rem;
 }
 
 .btn-create {
-  background-color: #ff6b35;
+  background-color: #ff6b35; /* Fallback */
+  background-color: var(--primary, #ff6b35); /* With fallback */
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -100,10 +105,19 @@
   font-size: 1rem;
   font-weight: 600;
   transition: background-color 0.2s;
+  box-shadow: 0 2px 4px rgba(255, 107, 53, 0.2);
 }
 
 .btn-create:hover {
-  background-color: #ff5722;
+  background-color: #ff5722; /* Fallback */
+  background-color: var(--primary-dark, #ff5722); /* With fallback */
+  box-shadow: 0 4px 8px rgba(255, 107, 53, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-create:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(255, 107, 53, 0.2);
 }
 
 /* Programs Grid */
@@ -114,8 +128,8 @@
 }
 
 .program-card {
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
   border-radius: 16px;
   padding: 2rem;
   transition: all 0.3s;
@@ -149,7 +163,7 @@
 }
 
 .program-title {
-  color: #000000;
+  color: var(--text-primary);
   font-size: 1.5rem;
   margin: 0 0 1.5rem 0;
   font-weight: 700;
@@ -164,16 +178,16 @@
   justify-content: space-between;
   margin-bottom: 0.75rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .meta-label {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
 .meta-value {
-  color: #000;
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -205,7 +219,7 @@
   gap: 2rem;
   margin: 1.5rem 0;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   border-radius: 8px;
 }
 
@@ -218,12 +232,12 @@
 .stat-value {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #ff6b35;
+  color: var(--primary);
 }
 
 .stat-label {
   font-size: 0.85rem;
-  color: #666;
+  color: var(--text-secondary);
   margin-top: 0.25rem;
 }
 
@@ -237,8 +251,8 @@
 .btn-edit {
   flex: 1;
   padding: 0.75rem;
-  border: 2px solid #e0e0e0;
-  background: white;
+  border: 2px solid var(--border-medium);
+  background: var(--bg-secondary);
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.95rem;
@@ -247,28 +261,28 @@
 }
 
 .btn-view {
-  background: #ff6b35;
+  background: var(--primary);
   color: white;
-  border-color: #ff6b35;
+  border-color: var(--primary);
 }
 
 .btn-view:hover {
-  background: #ff5722;
-  border-color: #ff5722;
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
 }
 
 .btn-edit {
-  border-color: #ff6b35;
-  color: #ff6b35;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .btn-edit:hover {
-  background-color: #ff6b35;
+  background-color: var(--primary);
   color: white;
 }
 
 .program-date {
-  color: #999;
+  color: var(--text-tertiary);
   font-size: 0.85rem;
   margin-top: 1rem;
   text-align: center;
@@ -278,9 +292,9 @@
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 16px;
-  border: 2px dashed #e0e0e0;
+  border: 2px dashed var(--border-medium);
 }
 
 .empty-icon {
@@ -289,19 +303,19 @@
 }
 
 .empty-state h3 {
-  color: #000;
+  color: var(--text-primary);
   font-size: 1.5rem;
   margin-bottom: 0.5rem;
 }
 
 .empty-state p {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 1.1rem;
   margin-bottom: 2rem;
 }
 
 .btn-primary {
-  background-color: #ff6b35;
+  background-color: var(--primary);
   color: white;
   border: none;
   padding: 1rem 2rem;
@@ -313,7 +327,7 @@
 }
 
 .btn-primary:hover {
-  background-color: #ff5722;
+  background-color: var(--primary-dark);
 }
 
 /* Subscription Card */
@@ -453,8 +467,8 @@
 }
 
 .loading-spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #ff6b35;
+  border: 4px solid var(--border-light);
+  border-top: 4px solid var(--primary);
   border-radius: 50%;
   width: 50px;
   height: 50px;
@@ -465,8 +479,6 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
-
-
 
 .program-header {
   display: flex;
@@ -480,7 +492,7 @@
 }
 
 .program-description {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.95rem;
   line-height: 1.5;
   margin-bottom: 1.5rem;

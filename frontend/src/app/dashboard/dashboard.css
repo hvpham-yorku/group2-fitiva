@@ -94,6 +94,12 @@
 }
 
 /* Welcome Section */
+
+.welcome-icon {
+  font-size: 1.25rem;
+  margin-right: 0.25rem;
+}
+
 .welcome-section {
   background-color: var(--bg-primary);
   border-radius: 0.5rem;

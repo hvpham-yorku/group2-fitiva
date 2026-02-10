@@ -7,6 +7,10 @@ import Logo from '@/components/ui/Logo';
 import PasswordRequirements from './PasswordRequirements';
 import './signup.css';
 
+// ============================================================================
+// TYPES
+// ============================================================================
+
 interface SignupData {
   username: string;
   email: string;
@@ -27,7 +31,10 @@ interface SignupData {
   };
 }
 
-// Certifications list
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
 const CERTIFICATIONS = [
   "NASM-CPT",
   "ACE-CPT",
@@ -94,11 +101,17 @@ const CERTIFICATIONS = [
   "Health Coach Certification",
   "CPR/AED Certification",
   "First Aid Certification"
-];
+] as const;
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export default function SignupPage() {
   const router = useRouter();
+  const certDropdownRef = useRef<HTMLDivElement>(null);
   
+  // Form state
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -114,103 +127,99 @@ export default function SignupPage() {
     specialty_flexibility: false,
     specialty_sports: false,
     specialty_rehabilitation: false,
-    certifications: '',
   });
 
+  // UI state
   const [selectedCertifications, setSelectedCertifications] = useState<string[]>([]);
   const [showCertDropdown, setShowCertDropdown] = useState(false);
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
-  
-  const certDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Close certifications dropdown when clicking outside
   useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    if (
-      certDropdownRef.current &&
-      !certDropdownRef.current.contains(event.target as Node)
-    ) {
-      setShowCertDropdown(false);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        certDropdownRef.current &&
+        !certDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowCertDropdown(false);
+      }
+    };
+
+    if (showCertDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showCertDropdown]);
+
+  // ========================================
+  // Event Handlers
+  // ========================================
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, type } = e.target;
+    const value = type === 'checkbox' 
+      ? (e.target as HTMLInputElement).checked 
+      : e.target.value;
+
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    // Clear error for this field
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  if (showCertDropdown) {
-    document.addEventListener('mousedown', handleClickOutside);
-  }
-
-  return () => {
-    document.removeEventListener('mousedown', handleClickOutside);
-  };
-}, [showCertDropdown]);
-
-
-const handleChange = (
-  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-) => {
-  const target = e.target as HTMLInputElement;
-  const { name, value, type } = target;
-  const checked = type === 'checkbox' ? target.checked : undefined;
-
-  setFormData(prev => ({
-    ...prev,
-    [name]: type === 'checkbox' ? checked : value
-  }));
-
-  if (errors[name]) {
-    setErrors(prev => ({ ...prev, [name]: '' }));
-  }
-};
-
-
-
-  // Handle certification selection
   const handleCertificationToggle = (cert: string) => {
-    setSelectedCertifications(prev => {
-      if (prev.includes(cert)) {
-        return prev.filter(c => c !== cert);
-      } else {
-        return [...prev, cert];
-      }
-    });
+    setSelectedCertifications(prev =>
+      prev.includes(cert) 
+        ? prev.filter(c => c !== cert)
+        : [...prev, cert]
+    );
     
-    // Clear certification error if exists
+    // Clear certification error
     if (errors.certifications) {
       setErrors(prev => ({ ...prev, certifications: '' }));
     }
   };
 
-  // Remove certification chip
   const handleRemoveCertification = (cert: string) => {
     setSelectedCertifications(prev => prev.filter(c => c !== cert));
+  };
+
+  const validateTrainerFields = (): Record<string, string> => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.is_trainer) return newErrors;
+
+    // Check if at least one specialty is selected
+    const hasSpecialty = 
+      formData.specialty_strength || 
+      formData.specialty_cardio || 
+      formData.specialty_flexibility || 
+      formData.specialty_sports || 
+      formData.specialty_rehabilitation;
+
+    if (!hasSpecialty) {
+      newErrors.specialties = 'Please select at least one specialty';
+    }
+
+    return newErrors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    // Validate trainer fields if is_trainer is checked
-    if (formData.is_trainer) {
-      const newErrors: Record<string, string> = {};
-
-      // Check if at least one specialty is selected
-      const hasSpecialty = formData.specialty_strength || 
-                          formData.specialty_cardio || 
-                          formData.specialty_flexibility || 
-                          formData.specialty_sports || 
-                          formData.specialty_rehabilitation;
-
-      if (!hasSpecialty) {
-        newErrors.specialties = 'Please select at least one specialty';
-      }
-
-      // Check if errors exist
-      if (Object.keys(newErrors).length > 0) {
-        setErrors(newErrors);
-        return;
-      }
+    // Validate trainer fields
+    const validationErrors = validateTrainerFields();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
     }
 
     setIsLoading(true);
@@ -235,7 +244,7 @@ const handleChange = (
           specialty_flexibility: formData.specialty_flexibility,
           specialty_sports: formData.specialty_sports,
           specialty_rehabilitation: formData.specialty_rehabilitation,
-          certifications: selectedCertifications.join(', '), // Join selected certs
+          certifications: selectedCertifications.join(', '),
         };
       }
 
@@ -255,11 +264,7 @@ const handleChange = (
           router.push('/login');
         }, 2000);
       } else {
-        if (data.errors) {
-          setErrors(data.errors);
-        } else {
-          setErrors({ general: 'Something went wrong. Please try again.' });
-        }
+        setErrors(data.errors || { general: 'Something went wrong. Please try again.' });
       }
     } catch (error) {
       setErrors({ general: 'Failed to connect to server. Please try again.' });
@@ -268,15 +273,19 @@ const handleChange = (
     }
   };
 
+  // ========================================
+  // Render
+  // ========================================
+
   return (
     <div className="signup-container">
-      {/* Left Side - Gym Image with Diagonal Overlay */}
+      {/* Left Side - Gym Image */}
       <div className="signup-left">
         <div className="gym-image"></div>
         <div className="diagonal-overlay"></div>
       </div>
 
-      {/* Right Side - Sign Up Form */}
+      {/* Right Side - Form */}
       <div className="signup-right">
         <div className="signup-box">
           {/* Logo */}
@@ -311,7 +320,7 @@ const handleChange = (
 
           {/* Form */}
           <form className="signup-form" onSubmit={handleSubmit}>
-            {/* Row 1: Username & Email */}
+            {/* Username & Email */}
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="username" className="form-label">
@@ -352,7 +361,7 @@ const handleChange = (
               </div>
             </div>
 
-            {/* Row 2: First Name & Last Name */}
+            {/* First Name & Last Name */}
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="first_name" className="form-label">
@@ -393,7 +402,7 @@ const handleChange = (
               </div>
             </div>
 
-            {/* Row 3: Password & Confirm Password */}
+            {/* Password & Confirm Password */}
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="password" className="form-label">
@@ -457,7 +466,7 @@ const handleChange = (
               </label>
             </div>
 
-            {/* Trainer-specific fields */}
+            {/* Trainer Fields */}
             {formData.is_trainer && (
               <div className="trainer-fields">
                 <h3 className="trainer-fields-title">Trainer Information</h3>
@@ -470,7 +479,7 @@ const handleChange = (
                   <textarea
                     id="bio"
                     name="bio"
-                    required={formData.is_trainer}
+                    required
                     value={formData.bio}
                     onChange={handleChange}
                     maxLength={500}
@@ -496,7 +505,7 @@ const handleChange = (
                     type="number"
                     min="0"
                     max="50"
-                    required={formData.is_trainer}
+                    required
                     value={formData.years_of_experience}
                     onChange={handleChange}
                     className={`form-input ${errors.years_of_experience ? 'error' : ''}`}
@@ -513,84 +522,38 @@ const handleChange = (
                     Specialties<span className="required-asterisk">*</span>
                   </label>
                   <div className="specialties-grid">
-                    <div className="specialty-item">
-                      <input
-                        id="specialty_strength"
-                        name="specialty_strength"
-                        type="checkbox"
-                        checked={formData.specialty_strength}
-                        onChange={handleChange}
-                        className="specialty-checkbox"
-                      />
-                      <label htmlFor="specialty_strength" className="specialty-label">
-                        Strength
-                      </label>
-                    </div>
-                    <div className="specialty-item">
-                      <input
-                        id="specialty_cardio"
-                        name="specialty_cardio"
-                        type="checkbox"
-                        checked={formData.specialty_cardio}
-                        onChange={handleChange}
-                        className="specialty-checkbox"
-                      />
-                      <label htmlFor="specialty_cardio" className="specialty-label">
-                        Cardio
-                      </label>
-                    </div>
-                    <div className="specialty-item">
-                      <input
-                        id="specialty_flexibility"
-                        name="specialty_flexibility"
-                        type="checkbox"
-                        checked={formData.specialty_flexibility}
-                        onChange={handleChange}
-                        className="specialty-checkbox"
-                      />
-                      <label htmlFor="specialty_flexibility" className="specialty-label">
-                        Flexibility
-                      </label>
-                    </div>
-                    <div className="specialty-item">
-                      <input
-                        id="specialty_sports"
-                        name="specialty_sports"
-                        type="checkbox"
-                        checked={formData.specialty_sports}
-                        onChange={handleChange}
-                        className="specialty-checkbox"
-                      />
-                      <label htmlFor="specialty_sports" className="specialty-label">
-                        Sports
-                      </label>
-                    </div>
-                    <div className="specialty-item">
-                      <input
-                        id="specialty_rehabilitation"
-                        name="specialty_rehabilitation"
-                        type="checkbox"
-                        checked={formData.specialty_rehabilitation}
-                        onChange={handleChange}
-                        className="specialty-checkbox"
-                      />
-                      <label htmlFor="specialty_rehabilitation" className="specialty-label">
-                        Rehab
-                      </label>
-                    </div>
+                    {[
+                      { id: 'specialty_strength', label: 'Strength' },
+                      { id: 'specialty_cardio', label: 'Cardio' },
+                      { id: 'specialty_flexibility', label: 'Flexibility' },
+                      { id: 'specialty_sports', label: 'Sports' },
+                      { id: 'specialty_rehabilitation', label: 'Rehab' },
+                    ].map(({ id, label }) => (
+                      <div key={id} className="specialty-item">
+                        <input
+                          id={id}
+                          name={id}
+                          type="checkbox"
+                          checked={formData[id as keyof typeof formData] as boolean}
+                          onChange={handleChange}
+                          className="specialty-checkbox"
+                        />
+                        <label htmlFor={id} className="specialty-label">
+                          {label}
+                        </label>
+                      </div>
+                    ))}
                   </div>
                   {errors.specialties && (
                     <p className="form-error">{errors.specialties}</p>
                   )}
                 </div>
 
-                {/* Certifications Multi-Select Dropdown */}
+                {/* Certifications */}
                 <div className="form-group">
-                  <label className="form-label">
-                    Certifications
-                  </label>
+                  <label className="form-label">Certifications</label>
                   
-                  {/* Selected Certifications Display */}
+                  {/* Selected Certifications Chips */}
                   {selectedCertifications.length > 0 && (
                     <div className="cert-chips-container">
                       {selectedCertifications.map((cert) => (
@@ -609,8 +572,8 @@ const handleChange = (
                     </div>
                   )}
 
-                  {/* Dropdown Button */}
-                  <div className="cert-dropdown-wrapper" ref={certDropdownRef} style={{ position: 'relative' }}>
+                  {/* Dropdown */}
+                  <div className="cert-dropdown-wrapper" ref={certDropdownRef}>
                     <button
                       type="button"
                       className="cert-dropdown-button"
@@ -622,23 +585,8 @@ const handleChange = (
                       <span className="dropdown-arrow">▼</span>
                     </button>
 
-                    {/* Dropdown List */}
                     {showCertDropdown && (
-                      <div className="cert-dropdown-menu"
-                      style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          maxHeight: '200px',
-                          overflowY: 'auto',
-                          backgroundColor: 'white',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '0.375rem',
-                          marginTop: '0.25rem',
-                          zIndex: 50,
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                        }}>
+                      <div className="cert-dropdown-menu">
                         {CERTIFICATIONS.map((cert) => (
                           <label key={cert} className="cert-dropdown-item">
                             <input

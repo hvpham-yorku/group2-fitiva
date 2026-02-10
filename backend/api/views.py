@@ -1,390 +1,227 @@
-import json
-from django.contrib.auth import authenticate, login, logout, get_user_model
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes
-from django.http import JsonResponse, HttpResponseBadRequest
-from django.views.decorators.csrf import ensure_csrf_cookie
-from django.core.mail import send_mail # for sending password reset emails
-from django.views.decorators.http import require_GET, require_POST
-from django.middleware.csrf import get_token
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-from .serializers import UserSignupSerializer, UserLoginSerializer, UserSerializer
-from .models import UserProfile
-from .authentication import CsrfExemptSessionAuthentication
 import os
 from urllib.parse import urlencode
-from rest_framework.exceptions import ValidationError
 
-from rest_framework import viewsets, permissions
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from .models import WorkoutPlan, WorkoutSession, WorkoutFeedback, UserProfile, TrainerProfile
+from django.contrib.auth import login, logout, get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.http import JsonResponse
+from django.middleware.csrf import get_token
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+
+from .authentication import CsrfExemptSessionAuthentication
+from .models import (
+    CustomUser,
+    UserProfile,
+    TrainerProfile,
+    WorkoutPlan,
+    WorkoutSession,
+    WorkoutFeedback,
+    ProgramSection,
+    Exercise,
+    ExerciseSet,
+)
+
 from .serializers import (
-    WorkoutPlanSerializer, 
-    WorkoutSessionSerializer, 
-    WorkoutFeedbackSerializer,
+    UserSignupSerializer,
+    UserLoginSerializer,
+    UserSerializer,
     UserProfileSerializer,
-    TrainerProfileSerializer
+    TrainerProfileSerializer,
+    WorkoutPlanSerializer,
+    WorkoutSessionSerializer,
+    WorkoutFeedbackSerializer,
+    ProgramSectionSerializer,
+    ExerciseSerializer,
+    ExerciseSetSerializer,
 )
 
 
 User = get_user_model()
 
-# CSRF
-@ensure_csrf_cookie
-@require_GET
-def csrf(_request):
-    token = get_token(_request)
-    return JsonResponse({"csrfToken": token})
 
-# Signup View
-@api_view(["POST"])
-@authentication_classes([CsrfExemptSessionAuthentication])
-@permission_classes([AllowAny])
-def signup_view(_request):
-    s = UserSignupSerializer(data=_request.data)
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
-    try:
-        s.is_valid(raise_exception=True)
-        user = s.save()
-        return Response(
-            UserSerializer(user).data,
-            status = status.HTTP_201_CREATED
-        )
-    except ValidationError as e:
-        # formatting errors for frontend display
-        formatted_errors = {}
-        for field, errors in e.detail.items():
+def format_validation_errors(validation_error):
+    """Format DRF ValidationError for consistent error responses."""
+    formatted_errors = {}
+    if isinstance(validation_error.detail, dict):
+        for field, errors in validation_error.detail.items():
             if isinstance(errors, list):
                 formatted_errors[field] = errors[0]
             else:
                 formatted_errors[field] = str(errors)
+    else:
+        formatted_errors["detail"] = str(validation_error.detail)
+    return formatted_errors
 
-        return Response(
-            {'errors': formatted_errors},
-            status = status.HTTP_400_BAD_REQUEST
-        )
-    
-# Login View (Session)
+
+# ============================================================================
+# AUTHENTICATION VIEWS
+# ============================================================================
+
+@ensure_csrf_cookie
+@require_GET
+def csrf(request):
+    """Return CSRF token for client-side authentication."""
+    token = get_token(request)
+    return JsonResponse({"csrfToken": token})
+
+
 @api_view(["POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([AllowAny])
-def login_view(_request):
-    serializer = UserLoginSerializer(data=_request.data)
+def signup_view(request):
+    """Register a new user with optional trainer profile."""
+    serializer = UserSignupSerializer(data=request.data)
     
     try:
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']  # User is already authenticated by serializer
+        user = serializer.save()
+        return Response(
+            UserSerializer(user).data,
+            status=status.HTTP_201_CREATED
+        )
+    except ValidationError as e:
+        return Response(
+            {'errors': format_validation_errors(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([AllowAny])
+def login_view(request):
+    """Authenticate user and create session."""
+    serializer = UserLoginSerializer(data=request.data)
+    
+    try:
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
         
-        login(_request, user)
+        login(request, user)
         return Response({
             "ok": True,
             "user": UserSerializer(user).data
         })
     except ValidationError as e:
+        error_message = str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)
         return Response(
-            {"detail": str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)},
+            {"detail": error_message},
             status=status.HTTP_401_UNAUTHORIZED
         )
 
 
-# Logging out
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def logout_view(_request):
-    logout(_request)
+def logout_view(request):
+    """Log out current user and end session."""
+    logout(request)
     return Response({"ok": True})
 
 
-# Debugging .../me/ to check if logged in
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def me(_request):
+def me(request):
+    """Return current authenticated user's data."""
     return Response({
         "authenticated": True,
-        "user": UserSerializer(_request.user).data
+        "user": UserSerializer(request.user).data
     })
 
-# Forgot Password (implement later)
-def build_reset_url(_request, uid, token):
-    base = os.environ.get("FRONTEND_BASE_URL") 
-    q = urlencode({"uid": uid, "token": token})
-    if base:
-        return f"{base.rstrip('/')}/reset-password?{q}"
-    return _request.build_absolute_uri(f"/reset-password?{q}")
 
+# ============================================================================
+# USER PROFILE VIEWS
+# ============================================================================
 
-# Password Reset Token Confirmation 
 @api_view(["POST"])
-@authentication_classes([CsrfExemptSessionAuthentication])
-@permission_classes([AllowAny])
-def password_reset_confirm(_request):
-    uid = _request.data.get("uid")
-    token = _request.data.get("token")
-    newpw = _request.data.get("new_password")
-    if not (uid and token and newpw):
-        return Response({"detail": "missing fields"}, status=400)
-    try:
-        uid_int = int(urlsafe_base64_decode(uid).decode())
-        user = User.objects.get(pk=uid_int)
-    except Exception:
-        return Response({"detail": "invalid uid"}, status=400)
-    if not default_token_generator.check_token(user, token):
-        return Response({"detail": "invalid token"}, status=400)
-    user.set_password(newpw)
-    user.save()
-    return Response({"ok": True})
-
-# Password Reset view
-@api_view(["POST"])
-@authentication_classes([CsrfExemptSessionAuthentication])
-@permission_classes([AllowAny])
-def password_reset(_request):
-
-
-    # code to be added here later if we want it implemented
-
-
-    return Response({"ok": True})
-
-import json
-from django.contrib.auth import authenticate, login, logout, get_user_model
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes
-from django.http import JsonResponse, HttpResponseBadRequest
-from django.views.decorators.csrf import ensure_csrf_cookie
-from django.core.mail import send_mail # for sending password reset emails
-from django.views.decorators.http import require_GET, require_POST
-from django.middleware.csrf import get_token
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-from .serializers import TrainerProfileSerializer, UserSignupSerializer, UserLoginSerializer, UserSerializer, UserProfileSerializer
-from .models import UserProfile
-from .authentication import CsrfExemptSessionAuthentication
-import os
-from urllib.parse import urlencode
-from rest_framework.exceptions import ValidationError
-
-
-User = get_user_model()
-
-# CSRF Cookie
-@ensure_csrf_cookie
-@require_GET
-def csrf(_request):
-    token = get_token(_request)
-    return JsonResponse({"csrfToken": token})
-
-# Signup View
-@api_view(["POST"])
-@authentication_classes([CsrfExemptSessionAuthentication])
-@permission_classes([AllowAny])
-def signup_view(_request):
-    s = UserSignupSerializer(data=_request.data)
-
-    try:
-        s.is_valid(raise_exception=True)
-        user = s.save()
+@permission_classes([IsAuthenticated])
+def create_profile_view(request):
+    """Create fitness profile for current user."""
+    if UserProfile.objects.filter(user=request.user).exists():
         return Response(
-            UserSerializer(user).data,
-            status = status.HTTP_201_CREATED
-        )
-    except ValidationError as e:
-        # formatting errors for frontend display
-        formatted_errors = {}
-        for field, errors in e.detail.items():
-            if isinstance(errors, list):
-                formatted_errors[field] = errors[0]
-            else:
-                formatted_errors[field] = str(errors)
-
-        return Response(
-            {'errors': formatted_errors},
-            status = status.HTTP_400_BAD_REQUEST
+            {"detail": "Profile already exists. Use update endpoint instead."}, 
+            status=status.HTTP_400_BAD_REQUEST
         )
     
-# Login View (Session)
-@api_view(["POST"])
-@authentication_classes([CsrfExemptSessionAuthentication])
-@permission_classes([AllowAny])
-def login_view(_request):
-    serializer = UserLoginSerializer(data=_request.data)
+    serializer = UserProfileSerializer(data=request.data)
     
     try:
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']  # User is already authenticated by serializer
-        
-        login(_request, user)
-        return Response({
-            "ok": True,
-            "user": UserSerializer(user).data
-        })
-    except ValidationError as e:
-        return Response(
-            {"detail": str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
-
-
-# Logging out
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def logout_view(_request):
-    logout(_request)
-    return Response({"ok": True})
-
-
-# Debugging .../me/ to check if logged in
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def me(_request):
-    return Response({
-        "authenticated": True,
-        "user": UserSerializer(_request.user).data
-    })
-
-# Create fitness profile
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-
-def create_profile_view(_request):
-    if UserProfile.objects.filter(user=_request.user).exists():
-        return Response({"detail": "Profile already exists. Use update endpoint instead."}, status= status.HTTP_400_BAD_REQUEST)
-    serializer = UserProfileSerializer(data = _request.data)
-
-    try:
-        serializer.is_valid(raise_exception = True)
-
         profile = UserProfile.objects.create(
-            user = _request.user,
-            age = serializer.validated_data.get("age"),
-            experience_level = serializer.validated_data.get("experience_level"),
-            training_location = serializer.validated_data.get("training_location"),
-            fitness_focus = serializer.validated_data.get("fitness_focus"),
+            user=request.user,
+            age=serializer.validated_data.get("age"),
+            experience_level=serializer.validated_data.get("experience_level"),
+            training_location=serializer.validated_data.get("training_location"),
+            fitness_focus=serializer.validated_data.get("fitness_focus"),
         )
         
         return Response(
             UserProfileSerializer(profile).data,
-            status = status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED
         )
     except ValidationError as e:
-        formatted_errors= {}
-        if isinstance(e.detail, dict):
-            for field, errors in e.detail.items():
-                if isinstance(errors, list):
-                    formatted_errors[field] = errors[0]
-                else:
-                    formatted_errors[field] = str(errors)
-            else:
-                formatted_errors["detail"] = str (e.detail)
-            return Response({"errors": formatted_errors}, status = status.HTTP_400_BAD_REQUEST)
-        
+        return Response(
+            {"errors": format_validation_errors(e)}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-# Get or update current user's profile
-@api_view(["GET","PUT"])
+
+@api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
-
-def profile_me_view(_request):
-    profile = UserProfile.objects.filter(user = _request.user).first()
-
-    if _request.method == "GET":
-        if not profile:
-            return Response({"detail": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
-        return Response(UserProfileSerializer(profile).data, status=status.HTTP_200_OK)
-
-    # PUT
-    if not profile:
-        return Response({"detail": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = UserProfileSerializer(data = _request.data)
-
+def profile_me_view(request):
+    """Get or update current user's fitness profile."""
+    try:
+        profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        return Response(
+            {"detail": "Profile not found"}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if request.method == "GET":
+        return Response(
+            UserProfileSerializer(profile).data, 
+            status=status.HTTP_200_OK
+        )
+    
+    # PUT - Update profile
+    serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+    
     try:
         serializer.is_valid(raise_exception=True)
-
-        profile.age = serializer.validated_data.get("age")
-        profile.experience_level = serializer.validated_data.get("experience_level")
-        profile.training_location = serializer.validated_data.get("training_location")
-        profile.fitness_focus = serializer.validated_data.get("fitness_focus")
-        profile.save()
-
+        serializer.save()
         return Response(
             UserProfileSerializer(profile).data,
             status=status.HTTP_200_OK
         )
     except ValidationError as e:
-        formatted_errors = {}
-        if isinstance(e.detail, dict):
-            for field, errors in e.detail.items():
-                if isinstance(errors, list):
-                    formatted_errors[field] = errors[0]
-                else:
-                    formatted_errors[field] = str(errors)
-        else:
-            formatted_errors["detail"] = str(e.detail)
-
         return Response(
-            {"errors": formatted_errors},
+            {"errors": format_validation_errors(e)},
             status=status.HTTP_400_BAD_REQUEST
         )
 
 
+# ============================================================================
+# PUBLIC PROFILE VIEWS
+# ============================================================================
 
-# Forgot Password (implement later)
-def build_reset_url(_request, uid, token):
-    base = os.environ.get("FRONTEND_BASE_URL") 
-    q = urlencode({"uid": uid, "token": token})
-    if base:
-        return f"{base.rstrip('/')}/reset-password?{q}"
-    return _request.build_absolute_uri(f"/reset-password?{q}")
-
-
-# Password Reset Token Confirmation 
-@api_view(["POST"])
-@authentication_classes([CsrfExemptSessionAuthentication])
-@permission_classes([AllowAny])
-def password_reset_confirm(_request):
-    uid = _request.data.get("uid")
-    token = _request.data.get("token")
-    newpw = _request.data.get("new_password")
-    if not (uid and token and newpw):
-        return Response({"detail": "missing fields"}, status=400)
-    try:
-        uid_int = int(urlsafe_base64_decode(uid).decode())
-        user = User.objects.get(pk=uid_int)
-    except Exception:
-        return Response({"detail": "invalid uid"}, status=400)
-    if not default_token_generator.check_token(user, token):
-        return Response({"detail": "invalid token"}, status=400)
-    user.set_password(newpw)
-    user.save()
-    return Response({"ok": True})
-
-# Password Reset view
-@api_view(["POST"])
-@authentication_classes([CsrfExemptSessionAuthentication])
-@permission_classes([AllowAny])
-def password_reset(_request):
-
-
-    # code to be added here later if we want it implemented
-
-
-
-    return Response({"ok": True})
-
-# Public Profile View (can view any user's profile)
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])  # Must be logged in to view profiles
+@permission_classes([IsAuthenticated])
 def get_public_profile(request, user_id):
     """
-    Get public profile for any user (trainer or regular user)
-    Returns basic info + trainer profile if they're a trainer
+    Get public profile for any user.
+    Returns basic info + trainer profile if they're a trainer.
     """
     try:
         user = User.objects.get(id=user_id)
@@ -414,9 +251,8 @@ def get_public_profile(request, user_id):
     trainer_profile = None
     if user.is_trainer:
         try:
-            t_profile = user.trainer_profile
-            trainer_profile = TrainerProfileSerializer(t_profile).data
-        except:
+            trainer_profile = TrainerProfileSerializer(user.trainer_profile).data
+        except TrainerProfile.DoesNotExist:
             pass
     
     return Response({
@@ -432,13 +268,10 @@ def get_public_profile(request, user_id):
     }, status=status.HTTP_200_OK)
 
 
-# Get Trainer's Programs
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_trainer_programs(request, user_id):
-    """
-    Get all workout programs created by a specific trainer
-    """
+    """Get all workout programs created by a specific trainer."""
     try:
         user = User.objects.get(id=user_id, is_trainer=True)
     except User.DoesNotExist:
@@ -447,37 +280,23 @@ def get_trainer_programs(request, user_id):
             status=status.HTTP_404_NOT_FOUND
         )
     
-    from .models import WorkoutPlan
     programs = WorkoutPlan.objects.filter(trainer=user).order_by('-created_at')
-    
-    programs_data = []
-    for program in programs:
-        programs_data.append({
-            "id": program.id,
-            "name": program.name,
-            "description": program.description,
-            "focus": program.focus,
-            "difficulty": program.difficulty,
-            "weekly_frequency": program.weekly_frequency,
-            "session_length": program.session_length,
-            "is_subscription": program.is_subscription,
-            "created_at": program.created_at.isoformat(),
-            "updated_at": program.updated_at.isoformat(),
-        })
+    serializer = WorkoutPlanSerializer(programs, many=True)
     
     return Response({
-        "programs": programs_data,
-        "total_count": len(programs_data)
+        "programs": serializer.data,
+        "total_count": programs.count()
     }, status=status.HTTP_200_OK)
 
 
-# Update Trainer Profile
+# ============================================================================
+# TRAINER PROFILE VIEWS
+# ============================================================================
+
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
 def update_trainer_profile(request):
-    """
-    Update trainer profile (only trainers can update their own profile)
-    """
+    """Update trainer profile (trainers only)."""
     if not request.user.is_trainer:
         return Response(
             {"detail": "Only trainers can update trainer profiles"},
@@ -486,7 +305,7 @@ def update_trainer_profile(request):
     
     try:
         trainer_profile = request.user.trainer_profile
-    except:
+    except TrainerProfile.DoesNotExist:
         return Response(
             {"detail": "Trainer profile not found"},
             status=status.HTTP_404_NOT_FOUND
@@ -503,71 +322,102 @@ def update_trainer_profile(request):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
     except ValidationError as e:
-        formatted_errors = {}
-        if isinstance(e.detail, dict):
-            for field, errors in e.detail.items():
-                if isinstance(errors, list):
-                    formatted_errors[field] = errors[0]
-                else:
-                    formatted_errors[field] = str(errors)
-        else:
-            formatted_errors["detail"] = str(e.detail)
-        
         return Response(
-            {"errors": formatted_errors},
+            {"errors": format_validation_errors(e)},
             status=status.HTTP_400_BAD_REQUEST
         )
 
+
+# ============================================================================
+# WORKOUT VIEWSETS
+# ============================================================================
+
 class WorkoutProgramViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for managing workout plans/programs
-    """
+    """ViewSet for managing workout plans/programs."""
     serializer_class = WorkoutPlanSerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        """
-        Return ALL workout programs without filtering
-        """
-        # Return all programs, ordered by creation date (newest first)
+        """Return all workout programs ordered by creation date."""
         return WorkoutPlan.objects.all().select_related('trainer').order_by('-created_at')
     
     def perform_create(self, serializer):
-        """
-        Set the trainer to the current user when creating a new plan
-        """
-        print(f"Creating program for user: {self.request.user.id} - {self.request.user.username}")
+        """Set the trainer to the current user when creating a new plan."""
         serializer.save(trainer=self.request.user)
-    
-    def list(self, request, *args, **kwargs):
-        """
-        List all programs - with debug logging
-        """
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        print(f"Returning {len(serializer.data)} programs to user {request.user.id}")
-        return Response(serializer.data)
 
 
-# WORKOUT SESSION VIEWSET
 class WorkoutSessionViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing workout sessions."""
     serializer_class = WorkoutSessionSerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
+        """Return user's workout sessions ordered by date."""
         return WorkoutSession.objects.filter(user=self.request.user).order_by('-date')
     
     def perform_create(self, serializer):
+        """Set the user to the current user when creating a session."""
         serializer.save(user=self.request.user)
 
 
-# WORKOUT FEEDBACK VIEWSET
 class WorkoutFeedbackViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing workout feedback."""
     serializer_class = WorkoutFeedbackSerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        # Get feedback for sessions belonging to the current user
+        """Return feedback for user's workout sessions."""
         return WorkoutFeedback.objects.filter(
             session__user=self.request.user
         ).order_by('-created_at')
+
+
+# ============================================================================
+# PASSWORD RESET VIEWS (To be implemented)
+# ============================================================================
+
+def build_reset_url(request, uid, token):
+    """Build password reset URL for email."""
+    base = os.environ.get("FRONTEND_BASE_URL")
+    query_params = urlencode({"uid": uid, "token": token})
+    if base:
+        return f"{base.rstrip('/')}/reset-password?{query_params}"
+    return request.build_absolute_uri(f"/reset-password?{query_params}")
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([AllowAny])
+def password_reset_confirm(request):
+    """Confirm password reset with token and set new password."""
+    uid = request.data.get("uid")
+    token = request.data.get("token")
+    new_password = request.data.get("new_password")
+    
+    if not (uid and token and new_password):
+        return Response({"detail": "Missing fields"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        uid_int = int(urlsafe_base64_decode(uid).decode())
+        user = User.objects.get(pk=uid_int)
+    except (ValueError, User.DoesNotExist):
+        return Response({"detail": "Invalid UID"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not default_token_generator.check_token(user, token):
+        return Response({"detail": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user.set_password(new_password)
+    user.save()
+    return Response({"ok": True})
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([AllowAny])
+def password_reset(request):
+    """
+    Initiate password reset process.
+    TODO: Implement email sending logic.
+    """
+    # Implementation pending
+    return Response({"ok": True})

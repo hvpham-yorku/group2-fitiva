@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import './create-program.css';
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface Exercise {
   name: string;
@@ -15,88 +19,184 @@ interface Exercise {
 
 interface Section {
   id: string;
-  format: string;
-  type: string;
+  dayNumber: number;
+  title: string;
   exercises: Exercise[];
 }
 
-// Helper function to get CSRF token from cookies
+type ViewType = 'main' | 'add-exercise' | 'exercise-details';
+
+type InvalidFieldKey =
+  | 'programName'
+  | 'programFocus'
+  | 'programDifficulty'
+  | 'weeklyFrequency'
+  | 'sessionLength'
+  | 'sections';
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const FOCUS_OPTIONS = [
+  { value: '', label: 'Select Focus' },
+  { value: 'strength', label: 'Strength' },
+  { value: 'cardio', label: 'Cardio' },
+  { value: 'flexibility', label: 'Flexibility' },
+  { value: 'balance', label: 'Balance' },
+];
+
+const DIFFICULTY_OPTIONS = [
+  { value: '', label: 'Select Difficulty' },
+  { value: 'beginner', label: 'Beginner' },
+  { value: 'intermediate', label: 'Intermediate' },
+  { value: 'advanced', label: 'Advanced' },
+];
+
+const TIME_PRESETS = [
+  { value: '', label: 'Quick' },
+  { value: 15, label: '15s' },
+  { value: 30, label: '30s' },
+  { value: 45, label: '45s' },
+  { value: 60, label: '1m' },
+  { value: 90, label: '1m 30s' },
+  { value: 120, label: '2m' },
+  { value: 180, label: '3m' },
+  { value: 240, label: '4m' },
+  { value: 300, label: '5m' },
+];
+
+const API_BASE_URL = 'http://localhost:8000/api';
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
 function getCookie(name: string): string | null {
-  let cookieValue = null;
-  if (typeof document !== 'undefined' && document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
+  if (typeof document === 'undefined') return null;
+
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const trimmedCookie = cookie.trim();
+    if (trimmedCookie.startsWith(`${name}=`)) {
+      return decodeURIComponent(trimmedCookie.substring(name.length + 1));
     }
   }
-  return cookieValue;
+  return null;
 }
 
-// Helper function to format seconds to "X min Y sec"
 function formatTime(seconds: number): string {
-  if (seconds === 0) return '0 sec';
+  if (!seconds) return '0 sec';
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  
-  if (mins === 0) {
-    return `${secs} sec`;
-  } else if (secs === 0) {
-    return `${mins} min`;
-  } else {
-    return `${mins} min ${secs} sec`;
-  }
+  if (mins === 0) return `${secs} sec`;
+  if (secs === 0) return `${mins} min`;
+  return `${mins} min ${secs} sec`;
 }
+
+// ============================================================================
+// VALIDATION
+// ============================================================================
+
+function getInvalidFields(
+  programName: string,
+  programFocus: string,
+  programDifficulty: string,
+  weeklyFrequency: number,
+  sessionLength: number,
+  sections: Section[]
+): InvalidFieldKey[] {
+  const invalid: InvalidFieldKey[] = [];
+
+  if (!programName.trim()) invalid.push('programName');
+  if (!programFocus) invalid.push('programFocus');
+  if (!programDifficulty) invalid.push('programDifficulty');
+  if (!weeklyFrequency || weeklyFrequency < 1 || weeklyFrequency > 7) {
+    invalid.push('weeklyFrequency');
+  }
+  if (!sessionLength || sessionLength < 15) invalid.push('sessionLength');
+  if (sections.length === 0 || sections.some(s => s.exercises.length === 0)) {
+    invalid.push('sections');
+  }
+
+  return invalid;
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export default function CreateProgramPage() {
   const router = useRouter();
-  const [currentView, setCurrentView] = useState<'main' | 'add-section' | 'add-exercise' | 'exercise-details'>('main');
-  
+
+  // Invalid fields tracking
+  const [invalidFields, setInvalidFields] = useState<InvalidFieldKey[]>([]);
+
+  // View state
+  const [currentView, setCurrentView] = useState<ViewType>('main');
+
   // Program details
   const [programName, setProgramName] = useState('');
   const [programDescription, setProgramDescription] = useState('');
   const [programFocus, setProgramFocus] = useState('');
   const [programDifficulty, setProgramDifficulty] = useState('');
-  const [weeklyFrequency, setWeeklyFrequency] = useState<number>(3);
+  const [weeklyFrequency, setWeeklyFrequency] = useState<number>(0);
   const [sessionLength, setSessionLength] = useState<number>(60);
-  const [isSubscription, setIsSubscription] = useState(false);
-  
+
+  // Sections generated from weeklyFrequency
   const [sections, setSections] = useState<Section[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // For adding section
-  const [newSection, setNewSection] = useState({
-    format: '',
-    type: ''
-  });
-  
-  // For adding exercise
+
+  // Exercise state
   const [currentSectionId, setCurrentSectionId] = useState('');
   const [currentExercise, setCurrentExercise] = useState<Exercise>({
     name: '',
-    sets: [{ reps: 0, time: 0, rest: 0 }]
+    sets: [{ reps: 0, time: 0, rest: 0 }],
   });
 
-  const handleAddSection = () => {
-    setCurrentView('add-section');
-    setNewSection({ format: '', type: '' });
+  // Auto-clear invalid fields after 3 seconds
+  useEffect(() => {
+    if (invalidFields.length > 0) {
+      const timer = setTimeout(() => {
+        setInvalidFields([]);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [invalidFields]);
+
+  // --------------------------------------------------------------------------
+  // Regenerate sections when weeklyFrequency changes
+  // --------------------------------------------------------------------------
+
+  const regenerateSections = (days: number) => {
+    if (days <= 0) {
+      setSections([]);
+      return;
+    }
+
+    setSections(prev => {
+      const existingByDay = new Map(prev.map(s => [s.dayNumber, s]));
+      const next: Section[] = [];
+      for (let day = 1; day <= days; day++) {
+        const existing = existingByDay.get(day);
+        if (existing) {
+          next.push(existing);
+        } else {
+          next.push({
+            id: `day-${day}`,
+            dayNumber: day,
+            title: `Day ${day}`,
+            exercises: [],
+          });
+        }
+      }
+      return next;
+    });
   };
 
-  const handleSectionSubmit = () => {
-    if (newSection.format && newSection.type) {
-      const section: Section = {
-        id: Date.now().toString(),
-        format: newSection.format,
-        type: newSection.type,
-        exercises: []
-      };
-      setSections([...sections, section]);
-      setCurrentView('main');
-    }
-  };
+  // --------------------------------------------------------------------------
+  // Event Handlers - Exercises
+  // --------------------------------------------------------------------------
 
   const handleAddExerciseToSection = (sectionId: string) => {
     setCurrentSectionId(sectionId);
@@ -108,61 +208,67 @@ export default function CreateProgramPage() {
   };
 
   const handleAddSet = () => {
-    setCurrentExercise({
-      ...currentExercise,
-      sets: [...currentExercise.sets, { reps: 0, time: 0, rest: 0 }]
-    });
+    setCurrentExercise(prev => ({
+      ...prev,
+      sets: [...prev.sets, { reps: 0, time: 0, rest: 0 }],
+    }));
   };
 
   const handleSetChange = (index: number, field: 'reps' | 'time' | 'rest', value: number) => {
-    const newSets = [...currentExercise.sets];
-    newSets[index] = { ...newSets[index], [field]: value };
-    setCurrentExercise({ ...currentExercise, sets: newSets });
+    setCurrentExercise(prev => {
+      const newSets = [...prev.sets];
+      newSets[index] = { ...newSets[index], [field]: value };
+      return { ...prev, sets: newSets };
+    });
   };
 
   const handleSaveExercise = () => {
-    const updatedSections = sections.map(section => {
-      if (section.id === currentSectionId) {
-        return {
-          ...section,
-          exercises: [...section.exercises, currentExercise]
-        };
-      }
-      return section;
-    });
-    setSections(updatedSections);
-    setCurrentView('main');
+    if (!currentSectionId) return;
+
+    setSections(prev =>
+      prev.map(section =>
+        section.id === currentSectionId
+          ? { ...section, exercises: [...section.exercises, currentExercise] }
+          : section
+      )
+    );
+
     setCurrentExercise({ name: '', sets: [{ reps: 0, time: 0, rest: 0 }] });
+    setCurrentSectionId('');
+    setCurrentView('main');
   };
 
-  // Check if the form is valid for saving
-  const canSaveProgram = (): boolean => {
-    if (!programName.trim()) return false;
-    if (!programFocus) return false;
-    if (!programDifficulty) return false;
-    if (!weeklyFrequency || weeklyFrequency < 1) return false;
-    if (!sessionLength || sessionLength < 15) return false;
-    if (sections.length === 0) return false;
-    
-    const allSectionsHaveExercises = sections.every(section => section.exercises.length > 0);
-    if (!allSectionsHaveExercises) return false;
-    
-    return true;
-  };
+  // --------------------------------------------------------------------------
+  // Save Program
+  // --------------------------------------------------------------------------
 
   const handleFinalSave = async () => {
-    if (!canSaveProgram()) {
-      alert('Please ensure:\n- Program has a name\n- Focus is selected\n- Difficulty is selected\n- Weekly frequency is set\n- Session length is set\n- At least one section exists\n- Each section has at least one exercise');
+    // Check for invalid fields
+    const invalid = getInvalidFields(
+      programName,
+      programFocus,
+      programDifficulty,
+      weeklyFrequency,
+      sessionLength,
+      sections
+    );
+
+    if (invalid.length > 0) {
+      setInvalidFields(invalid);
+      // Scroll to first invalid field
+      const firstInvalid = document.querySelector('.field-invalid');
+      if (firstInvalid) {
+        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
     setIsSaving(true);
 
-    // Transform sections data to match backend format
-    const formattedSections = sections.map((section) => ({
-      format: section.format,
-      type: section.type,
-      exercises: section.exercises.map((exercise) => ({
+    const formattedSections = sections.map(section => ({
+      format: section.title,
+      type: 'day',
+      exercises: section.exercises.map(exercise => ({
         name: exercise.name,
         sets: exercise.sets.map((set, index) => ({
           set_number: index + 1,
@@ -180,16 +286,13 @@ export default function CreateProgramPage() {
       difficulty: programDifficulty,
       weekly_frequency: weeklyFrequency,
       session_length: sessionLength,
-      is_subscription: isSubscription,
       sections: formattedSections,
     };
-
-    console.log('Sending payload:', JSON.stringify(payload, null, 2));
 
     try {
       const csrfToken = getCookie('csrftoken');
 
-      const response = await fetch('http://localhost:8000/api/programs/', {
+      const response = await fetch(`${API_BASE_URL}/programs/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -200,7 +303,6 @@ export default function CreateProgramPage() {
       });
 
       const data = await response.json();
-      console.log('Response:', data);
 
       if (response.ok) {
         alert('Program created successfully!');
@@ -217,6 +319,10 @@ export default function CreateProgramPage() {
     }
   };
 
+  // ========================================================================
+  // RENDER
+  // ========================================================================
+
   // Main View
   if (currentView === 'main') {
     return (
@@ -229,72 +335,100 @@ export default function CreateProgramPage() {
         </div>
 
         <div className="content">
+          {/* Program Name */}
           <div className="form-group">
             <label>Program Name *</label>
             <input
               type="text"
               value={programName}
-              onChange={(e) => setProgramName(e.target.value)}
+              onChange={e => setProgramName(e.target.value)}
               placeholder="Enter program name"
-              className="input-field"
+              className={`input-field ${invalidFields.includes('programName') ? 'field-invalid' : ''}`}
               required
             />
+            {invalidFields.includes('programName') && (
+              <span className="field-error">Program name is required</span>
+            )}
           </div>
 
+          {/* Description */}
           <div className="form-group">
             <label>Description</label>
             <textarea
               value={programDescription}
-              onChange={(e) => setProgramDescription(e.target.value)}
+              onChange={e => setProgramDescription(e.target.value)}
               placeholder="Enter program description"
               className="input-field textarea-field"
               rows={3}
             />
           </div>
 
+          {/* Focus */}
           <div className="form-group">
             <label>Focus *</label>
-            <select 
-              value={programFocus} 
-              onChange={(e) => setProgramFocus(e.target.value)}
-              className="input-field"
+            <select
+              value={programFocus}
+              onChange={e => setProgramFocus(e.target.value)}
+              className={`input-field ${invalidFields.includes('programFocus') ? 'field-invalid' : ''}`}
               required
             >
-              <option value="">Select Focus</option>
-              <option value="strength">Strength</option>
-              <option value="cardio">Cardio</option>
-              <option value="flexibility">Flexibility</option>
-              <option value="balance">Balance</option>
+              {FOCUS_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
+            {invalidFields.includes('programFocus') && (
+              <span className="field-error">Please select a focus</span>
+            )}
           </div>
 
+          {/* Difficulty */}
           <div className="form-group">
             <label>Difficulty *</label>
-            <select 
-              value={programDifficulty} 
-              onChange={(e) => setProgramDifficulty(e.target.value)}
-              className="input-field"
+            <select
+              value={programDifficulty}
+              onChange={e => setProgramDifficulty(e.target.value)}
+              className={`input-field ${invalidFields.includes('programDifficulty') ? 'field-invalid' : ''}`}
               required
             >
-              <option value="">Select Difficulty</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
+              {DIFFICULTY_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
+            {invalidFields.includes('programDifficulty') && (
+              <span className="field-error">Please select a difficulty</span>
+            )}
           </div>
 
+          {/* Frequency and Length */}
           <div className="form-row">
             <div className="form-group">
               <label>Weekly Frequency (days) *</label>
               <input
                 type="number"
-                value={weeklyFrequency}
-                onChange={(e) => setWeeklyFrequency(parseInt(e.target.value) || 0)}
-                min="1"
-                max="7"
-                className="input-field"
+                value={weeklyFrequency || ''}
+                onChange={e => {
+                  const raw = parseInt(e.target.value, 10);
+                  if (Number.isNaN(raw)) {
+                    setWeeklyFrequency(0);
+                    regenerateSections(0);
+                    return;
+                  }
+                  const clamped = Math.max(0, Math.min(7, raw));
+                  setWeeklyFrequency(clamped);
+                  regenerateSections(clamped);
+                }}
+                min={1}
+                max={7}
+                className={`input-field ${invalidFields.includes('weeklyFrequency') ? 'field-invalid' : ''}`}
                 required
               />
+              {invalidFields.includes('weeklyFrequency') && (
+                <span className="field-error">Must be between 1-7 days</span>
+              )}
             </div>
 
             <div className="form-group">
@@ -302,143 +436,76 @@ export default function CreateProgramPage() {
               <input
                 type="number"
                 value={sessionLength}
-                onChange={(e) => setSessionLength(parseInt(e.target.value) || 0)}
-                min="15"
-                max="180"
-                className="input-field"
+                onChange={e => setSessionLength(parseInt(e.target.value, 10) || 0)}
+                min={15}
+                max={180}
+                className={`input-field ${invalidFields.includes('sessionLength') ? 'field-invalid' : ''}`}
                 required
               />
+              {invalidFields.includes('sessionLength') && (
+                <span className="field-error">Minimum 15 minutes required</span>
+              )}
             </div>
           </div>
 
-          <div className="form-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={isSubscription}
-                onChange={(e) => setIsSubscription(e.target.checked)}
-              />
-              <span>Subscription Required</span>
-            </label>
-          </div>
+          {/* Sections (Days) */}
+          <div className={`sections-container ${invalidFields.includes('sections') ? 'sections-invalid' : ''}`}>
+            <h2>Sections (Days)</h2>
+            {sections.length === 0 && (
+              <div className="exercise-item empty">
+                Set weekly frequency (1–7) to generate days.
+              </div>
+            )}
 
-          <div className="sections-container">
-            <h2>Sections</h2>
-            {sections.map((section) => (
+            {sections.map(section => (
               <div key={section.id} className="section-card">
                 <div className="section-header">
                   <div>
-                    <strong>{section.format}</strong> - {section.type}
+                    <strong>{section.title}</strong>
                   </div>
-                  <button 
+                  <button
                     onClick={() => handleAddExerciseToSection(section.id)}
                     className="btn-small"
                   >
                     + Add Exercise
                   </button>
                 </div>
+
                 <div className="exercises-list">
                   {section.exercises.length === 0 ? (
                     <div className="exercise-item empty">No exercises added yet</div>
                   ) : (
                     section.exercises.map((ex, idx) => (
                       <div key={idx} className="exercise-item">
-                        {ex.name} - {ex.sets.length} set{ex.sets.length !== 1 ? 's' : ''}
+                        {ex.name} – {ex.sets.length} set{ex.sets.length !== 1 ? 's' : ''}
                       </div>
                     ))
                   )}
                 </div>
               </div>
             ))}
+
+            {invalidFields.includes('sections') && (
+              <div className="field-error sections-error">
+                Please add at least one exercise to each day
+              </div>
+            )}
           </div>
 
-          <button onClick={handleAddSection} className="btn-add-section">
-            + Add Section
-          </button>
-
-          <button 
-            onClick={handleFinalSave} 
+          {/* Save */}
+          <button
+            onClick={handleFinalSave}
             className="btn-save"
-            disabled={!canSaveProgram() || isSaving}
-            style={{
-              opacity: canSaveProgram() && !isSaving ? 1 : 0.5,
-              cursor: canSaveProgram() && !isSaving ? 'pointer' : 'not-allowed',
-            }}
+            disabled={isSaving}
           >
             {isSaving ? 'Saving...' : 'Save Program'}
           </button>
-
-          {!canSaveProgram() && (
-            <div className="validation-hint">
-              ⚠️ Required: {!programName.trim() && 'Program name. '}
-              {!programFocus && 'Focus. '}
-              {!programDifficulty && 'Difficulty. '}
-              {(!weeklyFrequency || weeklyFrequency < 1) && 'Weekly frequency. '}
-              {(!sessionLength || sessionLength < 15) && 'Session length. '}
-              {sections.length === 0 && 'At least one section. '}
-              {sections.some(s => s.exercises.length === 0) && 'All sections need exercises.'}
-            </div>
-          )}
         </div>
       </div>
     );
   }
 
-  // Add Section View - NEW CIRCULAR DESIGN
-  if (currentView === 'add-section') {
-    return (
-      <div className="create-program-container">
-        <div className="header">
-          <button onClick={() => setCurrentView('main')} className="back-button">
-            ← Back
-          </button>
-          <h1>Add Section</h1>
-        </div>
-
-        <div className="content">
-          <div className="form-group">
-            <label>Section Format</label>
-            <div className="options-grid-modal">
-              {['Straight Sets', 'Superset', 'Triset', 'Giant Set', 'Circuit'].map((format) => (
-                <button
-                  key={format}
-                  onClick={() => setNewSection({ ...newSection, format })}
-                  className={`option-btn-modal ${newSection.format === format ? 'active-orange' : ''}`}
-                >
-                  {format}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Section Type</label>
-            <div className="options-grid-modal">
-              {['Warm Up', 'Working Sets', 'Drop Sets', 'Cool Down'].map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setNewSection({ ...newSection, type })}
-                  className={`option-btn-modal ${newSection.type === type ? 'active-orange' : ''}`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button 
-            onClick={handleSectionSubmit}
-            disabled={!newSection.format || !newSection.type}
-            className="btn-update-orange"
-          >
-            Add Section
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Add Exercise View
+  // Add Exercise View (placeholder selection)
   if (currentView === 'add-exercise') {
     return (
       <div className="create-program-container">
@@ -450,7 +517,9 @@ export default function CreateProgramPage() {
         </div>
 
         <div className="content">
-          <p className="placeholder-text">Exercise selection will be implemented in User Story 1.5</p>
+          <p className="placeholder-text">
+            Exercise selection will be implemented in User Story 1.5
+          </p>
           <button onClick={handleExerciseSelect} className="btn-primary">
             Continue to Exercise Details
           </button>
@@ -471,17 +540,21 @@ export default function CreateProgramPage() {
         </div>
 
         <div className="content">
+          {/* Exercise Name */}
           <div className="form-group">
             <label>Exercise Name</label>
             <input
               type="text"
               value={currentExercise.name}
-              onChange={(e) => setCurrentExercise({ ...currentExercise, name: e.target.value })}
+              onChange={e =>
+                setCurrentExercise(prev => ({ ...prev, name: e.target.value }))
+              }
               placeholder="Enter exercise name"
               className="input-field"
             />
           </div>
 
+          {/* Sets Table */}
           <div className="sets-container">
             <h3>Sets</h3>
             <div className="table-wrapper">
@@ -501,8 +574,14 @@ export default function CreateProgramPage() {
                       <td>
                         <input
                           type="number"
-                          value={set.reps || ''}
-                          onChange={(e) => handleSetChange(index, 'reps', parseInt(e.target.value) || 0)}
+                          value={set.reps ?? ''}
+                          onChange={e =>
+                            handleSetChange(
+                              index,
+                              'reps',
+                              parseInt(e.target.value, 10) || 0
+                            )
+                          }
                           className="input-small"
                           placeholder="0"
                           min="0"
@@ -511,8 +590,8 @@ export default function CreateProgramPage() {
                       <td>
                         <div className="time-input-group">
                           <select
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value);
+                            onChange={e => {
+                              const value = parseInt(e.target.value, 10);
                               if (value > 0) {
                                 handleSetChange(index, 'time', value);
                               }
@@ -520,35 +599,38 @@ export default function CreateProgramPage() {
                             className="input-small dropdown"
                             defaultValue=""
                           >
-                            <option value="">Quick</option>
-                            <option value="15">15s</option>
-                            <option value="30">30s</option>
-                            <option value="45">45s</option>
-                            <option value="60">1m</option>
-                            <option value="90">1m 30s</option>
-                            <option value="120">2m</option>
-                            <option value="180">3m</option>
-                            <option value="240">4m</option>
-                            <option value="300">5m</option>
+                            {TIME_PRESETS.map(preset => (
+                              <option key={preset.value} value={preset.value}>
+                                {preset.label}
+                              </option>
+                            ))}
                           </select>
                           <input
                             type="number"
-                            value={set.time || ''}
-                            onChange={(e) => handleSetChange(index, 'time', parseInt(e.target.value) || 0)}
+                            value={set.time ?? ''}
+                            onChange={e =>
+                              handleSetChange(
+                                index,
+                                'time',
+                                parseInt(e.target.value, 10) || 0
+                              )
+                            }
                             className="input-small"
                             placeholder="sec"
                             min="0"
                           />
                           {set.time && set.time > 0 && (
-                            <span className="time-display">{formatTime(set.time)}</span>
+                            <span className="time-display">
+                              {formatTime(set.time)}
+                            </span>
                           )}
                         </div>
                       </td>
                       <td>
                         <div className="time-input-group">
                           <select
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value);
+                            onChange={e => {
+                              const value = parseInt(e.target.value, 10);
                               if (value > 0) {
                                 handleSetChange(index, 'rest', value);
                               }
@@ -556,27 +638,30 @@ export default function CreateProgramPage() {
                             className="input-small dropdown"
                             defaultValue=""
                           >
-                            <option value="">Quick</option>
-                            <option value="15">15s</option>
-                            <option value="30">30s</option>
-                            <option value="45">45s</option>
-                            <option value="60">1m</option>
-                            <option value="90">1m 30s</option>
-                            <option value="120">2m</option>
-                            <option value="180">3m</option>
-                            <option value="240">4m</option>
-                            <option value="300">5m</option>
+                            {TIME_PRESETS.map(preset => (
+                              <option key={preset.value} value={preset.value}>
+                                {preset.label}
+                              </option>
+                            ))}
                           </select>
                           <input
                             type="number"
-                            value={set.rest || ''}
-                            onChange={(e) => handleSetChange(index, 'rest', parseInt(e.target.value) || 0)}
+                            value={set.rest ?? ''}
+                            onChange={e =>
+                              handleSetChange(
+                                index,
+                                'rest',
+                                parseInt(e.target.value, 10) || 0
+                              )
+                            }
                             className="input-small"
                             placeholder="sec"
                             min="0"
                           />
                           {set.rest && set.rest > 0 && (
-                            <span className="time-display">{formatTime(set.rest)}</span>
+                            <span className="time-display">
+                              {formatTime(set.rest)}
+                            </span>
                           )}
                         </div>
                       </td>
@@ -591,8 +676,8 @@ export default function CreateProgramPage() {
             </button>
           </div>
 
-          <button 
-            onClick={handleSaveExercise} 
+          <button
+            onClick={handleSaveExercise}
             className="btn-save"
             disabled={!currentExercise.name.trim()}
           >

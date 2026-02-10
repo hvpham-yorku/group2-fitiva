@@ -1,23 +1,97 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { profileAPI } from '@/library/api';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import './dashboard.css';
+import { profileAPI } from '@/library/api';
 import Logo from '@/components/ui/Logo';
 import SettingsModal from '@/components/ui/SettingsModal';
+import './dashboard.css';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface StatCard {
+  icon: string;
+  iconColor: 'blue' | 'green' | 'purple' | 'orange';
+  label: string;
+  value: string | number;
+  subtext: string;
+}
+
+interface Program {
+  id: number;
+  name: string;
+  trainer: number;
+  is_deleted: boolean;
+  created_at: string;
+}
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const API_BASE_URL = 'http://localhost:8000/api';
+
+const USER_STATS: StatCard[] = [
+  {
+    icon: '📊',
+    iconColor: 'blue',
+    label: 'Total Workouts',
+    value: 0,
+    subtext: 'Start your first workout today!',
+  },
+  {
+    icon: '🔥',
+    iconColor: 'green',
+    label: 'Current Streak',
+    value: '0 days',
+    subtext: 'Build consistency!',
+  },
+  {
+    icon: '⏱️',
+    iconColor: 'purple',
+    label: 'Total Time',
+    value: '0 min',
+    subtext: 'Every minute counts',
+  },
+  {
+    icon: '🏆',
+    iconColor: 'orange',
+    label: 'Achievements',
+    value: 0,
+    subtext: 'Unlock your first badge!',
+  },
+];
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export default function DashboardPage() {
   const { user, logout, isLoading } = useAuth();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // UI state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // Profile state
   const [hasCompletedProfile, setHasCompletedProfile] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Check profile to see if its completed
+  // Trainer stats state
+  const [programsCount, setProgramsCount] = useState(0);
+  const [activeProgramsCount, setActiveProgramsCount] = useState(0);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // ========================================
+  // Effects
+  // ========================================
+
+  // Check if user has completed their profile
   useEffect(() => {
     const checkProfile = async () => {
       try {
@@ -33,6 +107,52 @@ export default function DashboardPage() {
     checkProfile();
   }, []);
 
+// Fetch trainer stats (programs count)
+useEffect(() => {
+  const fetchTrainerStats = async () => {
+    if (!user?.is_trainer || !user?.id) {
+      setStatsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/programs/`, {
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Handle paginated response
+        const programs = Array.isArray(data) 
+          ? data 
+          : Array.isArray(data.results) 
+            ? data.results 
+            : [];
+        
+        // Count all programs created by current user (including deleted)
+        const myPrograms = programs.filter(
+          (p: Program) => String(p.trainer) === String(user.id)
+        );
+        
+        // Count only active (non-deleted) programs
+        const activePrograms = myPrograms.filter(
+          (p: Program) => !p.is_deleted
+        );
+        
+        setProgramsCount(myPrograms.length);
+        setActiveProgramsCount(activePrograms.length);
+      }
+    } catch (error) {
+      console.error('Error fetching trainer stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  fetchTrainerStats();
+}, [user?.id, user?.is_trainer]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -43,12 +163,13 @@ export default function DashboardPage() {
 
     if (isDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
   }, [isDropdownOpen]);
+
+  // ========================================
+  // Event Handlers
+  // ========================================
 
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
@@ -65,6 +186,10 @@ export default function DashboardPage() {
     setIsSettingsOpen(true);
   };
 
+  // ========================================
+  // Loading & Auth States
+  // ========================================
+
   if (isLoading) {
     return (
       <div className="loading-container">
@@ -77,15 +202,59 @@ export default function DashboardPage() {
     return null;
   }
 
-  const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || user.username[0].toUpperCase();
+  // ========================================
+  // Render Helpers
+  // ========================================
+
+  const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() 
+    || user.username[0].toUpperCase();
+
+  // Dynamic trainer stats with live program count
+  const TRAINER_STATS: StatCard[] = [
+    {
+      icon: '📊',
+      iconColor: 'blue',
+      label: 'Programs Created',
+      value: statsLoading ? '...' : programsCount,
+      subtext: programsCount === 0 ? 'Create your first program!' : 'Keep building!',
+    },
+    {
+      icon: '🏋️',
+      iconColor: 'green',
+      label: 'Exercises Created',
+      value: 0,
+      subtext: 'Build your exercise library',
+    },
+    {
+      icon: '💪',
+      iconColor: 'purple',
+      label: 'Active Programs',
+      value: statsLoading ? '...' : activeProgramsCount,
+      subtext: 'Publish and share your work',
+    },
+    {
+      icon: '🏆',
+      iconColor: 'orange',
+      label: 'Total Trainees',
+      value: 0,
+      subtext: 'See how many people follow your workouts!',
+    },
+  ];
+
+  const stats = user.is_trainer ? TRAINER_STATS : USER_STATS;
+
+  // ========================================
+  // Render
+  // ========================================
 
   return (
     <div className="dashboard-container">
-      {/* Headers */}
+      {/* Header */}
       <header className="dashboard-header">
         <div className="dashboard-logo">
           <Logo variant="text" size="sm" />
         </div>
+        
         <nav className="dashboard-nav">
           {/* User Menu with Dropdown */}
           <div className="user-menu" ref={dropdownRef}>
@@ -101,12 +270,9 @@ export default function DashboardPage() {
                   {user.first_name} {user.last_name}
                 </div>
                 <div className="user-email">{user.email}</div>
-                {user.is_trainer && (
-                  <span className="user-badge trainer">Trainer</span>
-                )}
-                {!user.is_trainer && (
-                  <span className="user-badge">Member</span>
-                )}
+                <span className={`user-badge ${user.is_trainer ? 'trainer' : ''}`}>
+                  {user.is_trainer ? 'Trainer' : 'Member'}
+                </span>
               </div>
               <svg 
                 className={`dropdown-icon ${isDropdownOpen ? 'open' : ''}`}
@@ -143,17 +309,6 @@ export default function DashboardPage() {
                     <span>Settings</span>
                   </button>
                 </li>
-                {user.is_trainer && (
-                  <li>
-                    <Link 
-                      href="/my-programs" 
-                      className="dropdown-menu-item"
-                      onClick={() => setIsDropdownOpen(false)}
-                    >
-                      <span>My Programs</span>
-                    </Link>
-                  </li>
-                )}
                 <div className="dropdown-divider"></div>
                 <li>
                   <button 
@@ -183,15 +338,14 @@ export default function DashboardPage() {
               : "Ready to crush your fitness goals today?"}
           </p>
           <div className="welcome-message">
+            <span className="welcome-icon">🎯</span>
             {user.is_trainer ? (
               <>
-                <span style={{ fontSize: '1.25rem', marginRight: '0.25rem' }}>🎯</span>
                 <strong>Trainer Journey:</strong> Manage your workout programs, track client progress, 
                 and share your expertise with the Fitiva community.
               </>
             ) : (
               <>
-                <span style={{ fontSize: '1.25rem', marginRight: '0.25rem' }}>🎯</span>
                 <strong>Your Fitness Journey:</strong> Complete your profile to get personalized workout 
                 recommendations tailored to your goals and experience level.
               </>
@@ -199,130 +353,74 @@ export default function DashboardPage() {
           </div>
         </section>
 
-    {/* Stats Grid */}
-    <section className="stats-grid">
-    {user.is_trainer ? (
-        // Trainer Stats
-        <>
-        <div className="stat-card">
-            <div className="stat-icon blue">📊</div>
-            <div className="stat-label">Programs Created</div>
-            <div className="stat-value">0</div>
-            <div className="stat-subtext">Create programs for people</div>
-        </div>
-
-        <div className="stat-card">
-            <div className="stat-icon green">🏋️</div>
-            <div className="stat-label">Exercises Created</div>
-            <div className="stat-value">0</div>
-            <div className="stat-subtext">Build your exercise library</div>
-        </div>
-
-        <div className="stat-card">
-            <div className="stat-icon purple">💪</div>
-            <div className="stat-label">Active Programs</div>
-            <div className="stat-value">0</div>
-            <div className="stat-subtext">Publish and share your work</div>
-        </div>
-
-        <div className="stat-card">
-            <div className="stat-icon orange">🏆</div>
-            <div className="stat-label">Total Trainees</div>
-            <div className="stat-value">0</div>
-            <div className="stat-subtext">See how many people follow your workouts!</div>
-        </div>
-        </>
-    ) : (
-        // Regular User Stats
-        <>
-        <div className="stat-card">
-            <div className="stat-icon blue">📊</div>
-            <div className="stat-label">Total Workouts</div>
-            <div className="stat-value">0</div>
-            <div className="stat-subtext">Start your first workout today!</div>
-        </div>
-
-        <div className="stat-card">
-            <div className="stat-icon green">🔥</div>
-            <div className="stat-label">Current Streak</div>
-            <div className="stat-value">0 days</div>
-            <div className="stat-subtext">Build consistency!</div>
-        </div>
-
-        <div className="stat-card">
-            <div className="stat-icon purple">⏱️</div>
-            <div className="stat-label">Total Time</div>
-            <div className="stat-value">0 min</div>
-            <div className="stat-subtext">Every minute counts</div>
-        </div>
-
-        <div className="stat-card">
-            <div className="stat-icon orange">🏆</div>
-            <div className="stat-label">Achievements</div>
-            <div className="stat-value">0</div>
-            <div className="stat-subtext">Unlock your first badge!</div>
-        </div>
-        </>
-    )}
-    </section>
-
-
-    {/* Quick Actions */}
-    <section className="quick-actions">
-    <h2 className="section-title">Quick Actions</h2>
-    <div className="action-buttons">
-        <Link href="/profile" className="action-button">
-        <div className="action-button-icon">👤</div>
-        <div className="action-button-title">
-            {hasCompletedProfile 
-            ? 'Edit your profile' 
-            : 'Complete Profile'}
-        </div>
-        <div className="action-button-description">
-            {hasCompletedProfile 
-            ? 'Change your fitness details to customize for your new preferences'
-            : 'Add your fitness details to get started'}
-        </div>
-        </Link>
-
-        <Link href="/trainer-programs" className="action-button">
-        <div className="action-button-icon">💪</div>
-        <div className="action-button-title">Browse Programs</div>
-        <div className="action-button-description">
-            Explore trainer-created workouts
-        </div>
-        </Link>
-
-        {user.is_trainer ? (
-        <>
-            <Link href="/add-exercise" className="action-button">
-            <div className="action-button-icon">🏋️</div>
-            <div className="action-button-title">Add Exercise</div>
-            <div className="action-button-description">
-                Create exercises for your programs
+        {/* Stats Grid */}
+        <section className="stats-grid">
+          {stats.map((stat) => (
+            <div key={stat.label} className="stat-card">
+              <div className={`stat-icon ${stat.iconColor}`}>{stat.icon}</div>
+              <div className="stat-label">{stat.label}</div>
+              <div className="stat-value">{stat.value}</div>
+              <div className="stat-subtext">{stat.subtext}</div>
             </div>
+          ))}
+        </section>
+
+        {/* Quick Actions */}
+        <section className="quick-actions">
+          <h2 className="section-title">Quick Actions</h2>
+          <div className="action-buttons">
+            {/* Profile Action */}
+            <Link href="/profile" className="action-button">
+              <div className="action-button-icon">👤</div>
+              <div className="action-button-title">
+                {hasCompletedProfile ? 'Edit your profile' : 'Complete Profile'}
+              </div>
+              <div className="action-button-description">
+                {hasCompletedProfile 
+                  ? 'Change your fitness details to customize for your new preferences'
+                  : 'Add your fitness details to get started'}
+              </div>
             </Link>
 
-            <Link href="/create-program" className="action-button">
-            <div className="action-button-icon">✨</div>
-            <div className="action-button-title">Create Program</div>
-            <div className="action-button-description">
-                Design a new workout plan
-            </div>
+            {/* Browse Programs Action */}
+            <Link href="/trainer-programs" className="action-button">
+              <div className="action-button-icon">💪</div>
+              <div className="action-button-title">Browse Programs</div>
+              <div className="action-button-description">
+                Explore trainer-created workouts
+              </div>
             </Link>
-        </>
-        ) : (
-        <Link href="/recommendations" className="action-button">
-            <div className="action-button-icon">🎯</div>
-            <div className="action-button-title">View Recommendations</div>
-            <div className="action-button-description">
-            Discover workout plans for you
-            </div>
-        </Link>
-        )}
 
-    </div>
-    </section>
+            {/* Trainer or User Specific Actions */}
+            {user.is_trainer ? (
+              <>
+                <Link href="/add-exercise" className="action-button">
+                  <div className="action-button-icon">🏋️</div>
+                  <div className="action-button-title">Add Exercise</div>
+                  <div className="action-button-description">
+                    Create exercises for your programs
+                  </div>
+                </Link>
+
+                <Link href="/create-program" className="action-button">
+                  <div className="action-button-icon">✨</div>
+                  <div className="action-button-title">Create Program</div>
+                  <div className="action-button-description">
+                    Design a new workout plan
+                  </div>
+                </Link>
+              </>
+            ) : (
+              <Link href="/recommendations" className="action-button">
+                <div className="action-button-icon">🎯</div>
+                <div className="action-button-title">View Recommendations</div>
+                <div className="action-button-description">
+                  Discover workout plans for you
+                </div>
+              </Link>
+            )}
+          </div>
+        </section>
       </main>
 
       {/* Settings Modal */}

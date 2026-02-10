@@ -18,6 +18,15 @@
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
+.required-asterisk {
+  color: #dc2626;
+}
+
+.profile-not-found {
+  text-align: center;
+  color: var(--text-secondary);
+}
+
 .profile-view-header {
   display: flex;
   justify-content: space-between;

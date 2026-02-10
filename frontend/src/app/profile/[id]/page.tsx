@@ -7,6 +7,11 @@ import { profileAPI, publicProfileAPI, ApiError } from '@/library/api';
 import EditProfileModal from '@/components/ui/EditProfileModal';
 import EditTrainerProfileModal from '@/components/ui/EditTrainerProfileModal';
 import './profile.css';
+import Link from 'next/link';
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 type PublicProfile = {
   id: number;
@@ -55,17 +60,80 @@ type ProfileForm = {
   fitness_focus: string;
 };
 
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const EXPERIENCE_OPTIONS = [
+  { value: 'beginner', label: 'Beginner' },
+  { value: 'intermediate', label: 'Intermediate' },
+  { value: 'advanced', label: 'Advanced' },
+];
+
+const LOCATION_OPTIONS = [
+  { value: 'home', label: 'Home' },
+  { value: 'gym', label: 'Gym' },
+];
+
+const FOCUS_OPTIONS = [
+  { value: 'strength', label: 'Strength' },
+  { value: 'cardio', label: 'Cardio' },
+  { value: 'flexibility', label: 'Flexibility' },
+  { value: 'mixed', label: 'Mixed' },
+];
+
+const SPECIALTY_LABELS = {
+  specialty_strength: 'Strength Training',
+  specialty_cardio: 'Cardio',
+  specialty_flexibility: 'Flexibility',
+  specialty_sports: 'Sports',
+  specialty_rehabilitation: 'Rehabilitation',
+} as const;
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+const capitalize = (str: string): string => {
+  if (!str) return 'Not set';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+const getSpecialties = (trainerProfile: PublicProfile['trainer_profile']): string[] => {
+  if (!trainerProfile) return [];
+  
+  return (Object.keys(SPECIALTY_LABELS) as Array<keyof typeof SPECIALTY_LABELS>)
+    .filter(key => trainerProfile[key])
+    .map(key => SPECIALTY_LABELS[key]);
+};
+
+const parseCertifications = (certString: string): string[] => {
+  return certString
+    .split(',')
+    .map(cert => cert.trim())
+    .filter(cert => cert.length > 0);
+};
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
 export default function ProfileViewPage() {
   const params = useParams();
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const profileId = params.id as string;
 
+  // Profile state
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [programs, setPrograms] = useState<WorkoutProgram[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
+
+  // Modal state
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditTrainerModal, setShowEditTrainerModal] = useState(false);
+
+  // First-time setup state
   const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false);
   const [setupForm, setSetupForm] = useState<ProfileForm>({
     age: '',
@@ -78,6 +146,10 @@ export default function ProfileViewPage() {
 
   const isOwnProfile = user && String(user.id) === profileId;
 
+  // ========================================
+  // Effects
+  // ========================================
+
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
@@ -89,7 +161,7 @@ export default function ProfileViewPage() {
         const profileData = await publicProfileAPI.getPublicProfile(Number(profileId));
         setProfile(profileData);
 
-        // Check if this is first-time setup (own profile with no age)
+        // Check if first-time setup needed
         if (isOwnProfile && profileData.user_profile && !profileData.user_profile.age) {
           setIsFirstTimeSetup(true);
         }
@@ -115,52 +187,40 @@ export default function ProfileViewPage() {
     }
   }, [user, authLoading, profileId, isOwnProfile]);
 
-  if (authLoading || pageLoading) {
-    return (
-      <div className="profile-loading">
-        <div className="profile-spinner"></div>
-      </div>
-    );
-  }
+  // ========================================
+  // Event Handlers - Profile Updates
+  // ========================================
 
-  if (!user || !profile) {
-    return (
-      <div className="profile-page-container">
-        <div className="profile-view-card">
-          <p style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Profile not found
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const handleProfileUpdate = (updatedProfile: unknown) => {
+  const handleProfileUpdate = () => {
     setShowEditModal(false);
     setIsFirstTimeSetup(false);
-    // Reload profile
     window.location.reload();
   };
 
   const handleTrainerProfileUpdate = () => {
     setShowEditTrainerModal(false);
-    // Reload profile
     window.location.reload();
   };
 
-  // Setup form handlers
+  // ========================================
+  // Event Handlers - First-Time Setup
+  // ========================================
+
   const setSetupField = (name: keyof ProfileForm, value: string) => {
     setSetupForm(prev => ({ ...prev, [name]: value }));
     setSetupErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  const validateSetup = () => {
+  const validateSetup = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!setupForm.age) newErrors.age = 'Age is required';
-    const ageNum = Number(setupForm.age);
-    if (setupForm.age && (Number.isNaN(ageNum) || !Number.isFinite(ageNum))) {
-      newErrors.age = 'Age must be a number';
+    if (!setupForm.age) {
+      newErrors.age = 'Age is required';
+    } else {
+      const ageNum = Number(setupForm.age);
+      if (Number.isNaN(ageNum) || !Number.isFinite(ageNum)) {
+        newErrors.age = 'Age must be a valid number';
+      }
     }
 
     setSetupErrors(newErrors);
@@ -198,7 +258,32 @@ export default function ProfileViewPage() {
     }
   };
 
-  // First-time setup view
+  // ========================================
+  // Loading & Error States
+  // ========================================
+
+  if (authLoading || pageLoading) {
+    return (
+      <div className="profile-loading">
+        <div className="profile-spinner"></div>
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
+    return (
+      <div className="profile-page-container">
+        <div className="profile-view-card">
+          <p className="profile-not-found">Profile not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ========================================
+  // Render - First-Time Setup
+  // ========================================
+
   if (isFirstTimeSetup && isOwnProfile) {
     return (
       <div className="profile-setup-container">
@@ -215,9 +300,10 @@ export default function ProfileViewPage() {
               <div className="setup-alert error">{setupErrors.detail}</div>
             )}
 
+            {/* Age */}
             <div className="setup-field">
               <label className="setup-label" htmlFor="age">
-                Age<span style={{ color: '#dc2626' }}>*</span>
+                Age<span className="required-asterisk">*</span>
               </label>
               <input
                 id="age"
@@ -231,6 +317,7 @@ export default function ProfileViewPage() {
               {setupErrors.age && <div className="setup-error">{setupErrors.age}</div>}
             </div>
 
+            {/* Experience Level */}
             <div className="setup-field">
               <label className="setup-label" htmlFor="experience_level">
                 Experience level
@@ -241,12 +328,15 @@ export default function ProfileViewPage() {
                 value={setupForm.experience_level}
                 onChange={e => setSetupField('experience_level', e.target.value)}
               >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
+                {EXPERIENCE_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
 
+            {/* Training Location */}
             <div className="setup-field">
               <label className="setup-label" htmlFor="training_location">
                 Training location
@@ -257,11 +347,15 @@ export default function ProfileViewPage() {
                 value={setupForm.training_location}
                 onChange={e => setSetupField('training_location', e.target.value)}
               >
-                <option value="home">Home</option>
-                <option value="gym">Gym</option>
+                {LOCATION_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
 
+            {/* Fitness Focus */}
             <div className="setup-field">
               <label className="setup-label" htmlFor="fitness_focus">
                 Primary fitness focus
@@ -272,10 +366,11 @@ export default function ProfileViewPage() {
                 value={setupForm.fitness_focus}
                 onChange={e => setSetupField('fitness_focus', e.target.value)}
               >
-                <option value="strength">Strength</option>
-                <option value="cardio">Cardio</option>
-                <option value="flexibility">Flexibility</option>
-                <option value="mixed">Mixed</option>
+                {FOCUS_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -288,20 +383,21 @@ export default function ProfileViewPage() {
     );
   }
 
-  // Normal profile view
+  // ========================================
+  // Render Helpers
+  // ========================================
+
   const fullName = `${profile.first_name} ${profile.last_name}`.trim() || profile.username;
-  const specialties = profile.trainer_profile ? [
-    profile.trainer_profile.specialty_strength && 'Strength Training',
-    profile.trainer_profile.specialty_cardio && 'Cardio',
-    profile.trainer_profile.specialty_flexibility && 'Flexibility',
-    profile.trainer_profile.specialty_sports && 'Sports',
-    profile.trainer_profile.specialty_rehabilitation && 'Rehabilitation',
-  ].filter(Boolean) : [];
+  const specialties = getSpecialties(profile.trainer_profile);
+
+  // ========================================
+  // Render - Profile View
+  // ========================================
 
   return (
     <div className="profile-page-container">
-      {/* Header Section */}
       <div className="profile-view-card">
+        {/* Header */}
         <div className="profile-view-header">
           <div className="profile-header-info">
             <div className="profile-avatar">
@@ -341,7 +437,7 @@ export default function ProfileViewPage() {
             </div>
 
             <div className="trainer-info-grid">
-
+              {/* Bio */}
               {profile.trainer_profile.bio && (
                 <div className="info-card full-width">
                   <span className="info-label">Bio</span>
@@ -349,6 +445,7 @@ export default function ProfileViewPage() {
                 </div>
               )}
 
+              {/* Experience */}
               <div className="info-card">
                 <span className="info-label">Experience</span>
                 <span className="info-value">
@@ -356,32 +453,30 @@ export default function ProfileViewPage() {
                 </span>
               </div>
 
+              {/* Specialties */}
               {specialties.length > 0 && (
                 <div className="info-card full-width">
                   <span className="info-label">Specialties</span>
                   <div className="specialty-tags">
                     {specialties.map((specialty) => (
-                      <span key={specialty as string} className="specialty-tag">
-                        {specialty as string}
+                      <span key={specialty} className="specialty-tag">
+                        {specialty}
                       </span>
                     ))}
                   </div>
                 </div>
               )}
 
+              {/* Certifications */}
               {profile.trainer_profile.certifications && (
                 <div className="info-card full-width">
                   <span className="info-label">Certifications</span>
                   <div className="cert-display-chips">
-                    {profile.trainer_profile.certifications
-                      .split(',')
-                      .map(cert => cert.trim())
-                      .filter(cert => cert.length > 0)
-                      .map((cert) => (
-                        <span key={cert} className="cert-display-chip">
-                          {cert}
-                        </span>
-                      ))}
+                    {parseCertifications(profile.trainer_profile.certifications).map((cert) => (
+                      <span key={cert} className="cert-display-chip">
+                        {cert}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}
@@ -389,7 +484,7 @@ export default function ProfileViewPage() {
           </div>
         )}
 
-        {/* Fitness Profile Section (for regular users or trainers viewing own) */}
+        {/* Fitness Profile Section */}
         {profile.user_profile && (!profile.is_trainer || isOwnProfile) && (
           <div className="profile-section">
             <div className="section-header">
@@ -415,10 +510,7 @@ export default function ProfileViewPage() {
               <div className="profile-info-item">
                 <span className="profile-info-label">Experience Level</span>
                 <span className="profile-info-value">
-                  {profile.user_profile.experience_level
-                    ? profile.user_profile.experience_level.charAt(0).toUpperCase() +
-                      profile.user_profile.experience_level.slice(1)
-                    : 'Not set'}
+                  {capitalize(profile.user_profile.experience_level)}
                 </span>
               </div>
 
@@ -432,28 +524,26 @@ export default function ProfileViewPage() {
               <div className="profile-info-item">
                 <span className="profile-info-label">Fitness Focus</span>
                 <span className="profile-info-value">
-                  {profile.user_profile.fitness_focus
-                    ? profile.user_profile.fitness_focus.charAt(0).toUpperCase() +
-                      profile.user_profile.fitness_focus.slice(1)
-                    : 'Not set'}
+                  {capitalize(profile.user_profile.fitness_focus)}
                 </span>
               </div>
             </div>
           </div>
         )}
 
-        {/* My Programs Section (for trainers only) */}
+        {/* Programs Section (Trainers Only) */}
         {profile.is_trainer && (
           <div className="profile-section">
             <div className="section-header">
               <h2 className="section-title">My Programs</h2>
               {isOwnProfile && (
+                <Link href="/create-program" className="create-program button">
                 <button
                   className="create-program-button"
-                  onClick={() => alert('Create program functionality coming soon!')}
                 >
                   + Create Program
                 </button>
+                </Link>
               )}
             </div>
 
@@ -487,7 +577,7 @@ export default function ProfileViewPage() {
         )}
       </div>
 
-      {/* Modals */}
+      {/* Edit Profile Modal */}
       {showEditModal && profile.user_profile && (
         <EditProfileModal
           currentProfile={profile.user_profile}
@@ -497,6 +587,7 @@ export default function ProfileViewPage() {
         />
       )}
 
+      {/* Edit Trainer Profile Modal */}
       {showEditTrainerModal && profile.trainer_profile && (
         <EditTrainerProfileModal
           currentData={profile.trainer_profile}

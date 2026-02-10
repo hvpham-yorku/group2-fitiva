@@ -5,6 +5,28 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import './trainer-programs.css';
 
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface ExerciseSet {
+  set_number: number;
+  reps: number | null;
+  time: number | null;
+  rest: number;
+}
+
+interface Exercise {
+  name: string;
+  sets: ExerciseSet[];
+}
+
+interface ProgramSection {
+  format: string;
+  type: string;
+  exercises: Exercise[];
+}
+
 interface Program {
   id: number;
   name: string;
@@ -13,91 +35,265 @@ interface Program {
   difficulty: string;
   weekly_frequency: number;
   session_length: number;
-  is_subscription: boolean;
   trainer: number;
   created_at: string;
-  sections?: Array<{
-    format: string;
-    type: string;
-    exercises: Array<{
-      name: string;
-      sets: any[];
-    }>;
-  }>;
+  sections?: ProgramSection[];
 }
+
+type TabType = 'my' | 'others';
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const API_BASE_URL = 'http://localhost:8000/api';
+
+const FOCUS_ICONS: Record<string, string> = {
+  strength: '💪',
+  cardio: '🏃',
+  flexibility: '🧘',
+  balance: '⚖️',
+  default: '🏋️',
+};
+
+const DIFFICULTY_CLASSES: Record<string, string> = {
+  beginner: 'beginner',
+  intermediate: 'intermediate',
+  advanced: 'advanced',
+  default: 'beginner',
+};
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function getDifficultyColor(difficulty: string): string {
+  return DIFFICULTY_CLASSES[difficulty.toLowerCase()] || DIFFICULTY_CLASSES.default;
+}
+
+function getFocusIcon(focus: string): string {
+  return FOCUS_ICONS[focus.toLowerCase()] || FOCUS_ICONS.default;
+}
+
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString();
+}
+
+function getTotalExercises(program: Program): number {
+  return program.sections?.reduce((acc, section) => acc + section.exercises.length, 0) || 0;
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export default function TrainerProgramsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  
+  // State
   const [myPrograms, setMyPrograms] = useState<Program[]>([]);
   const [otherPrograms, setOtherPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'my' | 'others'>('my');
+  const [activeTab, setActiveTab] = useState<TabType>('my');
+
+  // ========================================
+  // Effects
+  // ========================================
 
   useEffect(() => {
-    fetchPrograms();
-  }, []);
+    // Only fetch when user is loaded
+    if (user?.id) {
+      fetchPrograms();
+    } else {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  // ========================================
+  // API Functions
+  // ========================================
 
   const fetchPrograms = async () => {
+    if (!user?.id) {
+      console.log('No user ID available');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('http://localhost:8000/api/programs/', {
+      const response = await fetch(`${API_BASE_URL}/programs/`, {
         credentials: 'include',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Split programs into user's and others'
-        const mine = data.filter((p: Program) => p.trainer === user?.id);
-        const others = data.filter((p: Program) => p.trainer !== user?.id);
-        
-        setMyPrograms(mine);
-        setOtherPrograms(others);
+      if (!response.ok) {
+        console.error('Failed to fetch programs:', response.status);
+        setMyPrograms([]);
+        setOtherPrograms([]);
+        setLoading(false);
+        return;
       }
+
+      const data = await response.json();
+      console.log('Fetched programs:', data);
+      
+      // Handle paginated response with 'results' key
+      const programs = Array.isArray(data) 
+        ? data 
+        : Array.isArray(data.results) 
+          ? data.results 
+          : [];
+      
+      console.log('Programs array:', programs);
+      console.log('Current user ID:', user.id, 'Type:', typeof user.id);
+      
+      // Use string comparison to avoid type mismatch issues
+      const currentUserId = String(user.id);
+      
+      const mine = programs.filter((p: Program) => {
+        const trainerId = String(p.trainer);
+        console.log(`Comparing: trainer ${trainerId} === user ${currentUserId}`, trainerId === currentUserId);
+        return trainerId === currentUserId;
+      });
+      
+      const others = programs.filter((p: Program) => 
+        String(p.trainer) !== currentUserId
+      );
+      
+      console.log('My programs:', mine);
+      console.log('Other programs:', others);
+      
+      setMyPrograms(mine);
+      setOtherPrograms(others);
     } catch (error) {
       console.error('Error fetching programs:', error);
+      setMyPrograms([]);
+      setOtherPrograms([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case 'beginner':
-        return 'beginner';
-      case 'intermediate':
-        return 'intermediate';
-      case 'advanced':
-        return 'advanced';
-      default:
-        return 'beginner';
-    }
-  };
-
-  const getFocusIcon = (focus: string) => {
-    switch (focus.toLowerCase()) {
-      case 'strength':
-        return '💪';
-      case 'cardio':
-        return '🏃';
-      case 'flexibility':
-        return '🧘';
-      case 'balance':
-        return '⚖️';
-      default:
-        return '🏋️';
-    }
-  };
+  // ========================================
+  // Event Handlers
+  // ========================================
 
   const viewProgramDetails = (program: Program) => {
-    // If it's user's own program OR a free program, show full details
-    if (program.trainer === user?.id || !program.is_subscription) {
-      router.push(`/program/${program.id}`);
-    } else {
-      // If it requires subscription and user doesn't own it, show preview only
-      router.push(`/program/${program.id}/preview`);
-    }
+    router.push(`/program/${program.id}`);
   };
+
+  // ========================================
+  // Render Helpers
+  // ========================================
+
+  const renderProgramCard = (program: Program, isOwn: boolean) => (
+    <div key={program.id} className={`program-card ${isOwn ? 'my-program' : 'other-program'}`}>
+      {/* Badge */}
+      <div className="program-badge">
+        {isOwn ? 'Your Program' : 'Public Program'}
+      </div>
+
+      {/* Header */}
+      <div className="program-header">
+        <span className="focus-icon">{getFocusIcon(program.focus)}</span>
+        <h3 className="program-title">{program.name}</h3>
+      </div>
+      
+      {/* Description */}
+      <p className="program-description">
+        {program.description || 'No description provided'}
+      </p>
+
+      {/* Meta Information */}
+      <div className="program-meta">
+        <div className="meta-item">
+          <span className="meta-label">Focus:</span>
+          <span className="meta-value">{program.focus.charAt(0).toUpperCase() + program.focus.slice(1)}</span>
+        </div>
+        <div className="meta-item">
+          <span className="meta-label">Difficulty:</span>
+          <span className={`difficulty-badge ${getDifficultyColor(program.difficulty)}`}>
+            {program.difficulty.charAt(0).toUpperCase() + program.difficulty.slice(1)}
+          </span>
+        </div>
+        <div className="meta-item">
+          <span className="meta-label">Weekly Frequency:</span>
+          <span className="meta-value">{program.weekly_frequency} days/week</span>
+        </div>
+        <div className="meta-item">
+          <span className="meta-label">Session Length:</span>
+          <span className="meta-value">{program.session_length} min</span>
+        </div>
+      </div>
+
+      {/* Stats (only for own programs) */}
+      {isOwn && (
+        <div className="program-stats">
+          <div className="stat">
+            <span className="stat-value">{program.sections?.length || 0}</span>
+            <span className="stat-label">Sections</span>
+          </div>
+          <div className="stat">
+            <span className="stat-value">{getTotalExercises(program)}</span>
+            <span className="stat-label">Exercises</span>
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="program-actions">
+        <button 
+          onClick={() => viewProgramDetails(program)}
+          className="btn-view"
+        >
+          View Details
+        </button>
+        {isOwn && (
+          <button 
+            onClick={() => router.push(`/edit-program/${program.id}`)}
+            className="btn-edit"
+          >
+            Edit
+          </button>
+        )}
+      </div>
+
+      {/* Created Date */}
+      <p className="program-date">
+        Created {formatDate(program.created_at)}
+      </p>
+    </div>
+  );
+
+  const renderEmptyState = (type: 'my' | 'others') => {
+    if (type === 'my') {
+      return (
+        <div className="empty-state">
+          <div className="empty-icon">📋</div>
+          <h3>No Programs Yet</h3>
+          <p>You haven&apos;t created any workout programs yet.</p>
+          <button 
+            onClick={() => router.push('/create-program')}
+            className="btn-primary"
+          >
+            Create Your First Program
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="empty-state">
+        <div className="empty-icon">🔍</div>
+        <h3>No Other Programs Available</h3>
+        <p>There are currently no programs from other trainers.</p>
+      </div>
+    );
+  };
+
+  // ========================================
+  // Loading State
+  // ========================================
 
   if (loading) {
     return (
@@ -106,6 +302,10 @@ export default function TrainerProgramsPage() {
       </div>
     );
   }
+
+  // ========================================
+  // Render
+  // ========================================
 
   return (
     <div className="trainer-programs-container">
@@ -148,89 +348,10 @@ export default function TrainerProgramsPage() {
             </div>
 
             {myPrograms.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">📋</div>
-                <h3>No Programs Yet</h3>
-                <p>You haven't created any workout programs yet.</p>
-                <button 
-                  onClick={() => router.push('/create-program')}
-                  className="btn-primary"
-                >
-                  Create Your First Program
-                </button>
-              </div>
+              renderEmptyState('my')
             ) : (
               <div className="programs-grid">
-                {myPrograms.map((program) => (
-                  <div key={program.id} className="program-card my-program">
-                    <div className="program-badge">Your Program</div>
-                    <div className="program-header">
-                      <span className="focus-icon">{getFocusIcon(program.focus)}</span>
-                      <h3 className="program-title">{program.name}</h3>
-                    </div>
-                    
-                    <p className="program-description">{program.description || 'No description provided'}</p>
-
-                    <div className="program-meta">
-                      <div className="meta-item">
-                        <span className="meta-label">Focus:</span>
-                        <span className="meta-value">{program.focus}</span>
-                      </div>
-                      <div className="meta-item">
-                        <span className="meta-label">Difficulty:</span>
-                        <span className={`difficulty-badge ${getDifficultyColor(program.difficulty)}`}>
-                          {program.difficulty}
-                        </span>
-                      </div>
-                      <div className="meta-item">
-                        <span className="meta-label">Weekly Frequency:</span>
-                        <span className="meta-value">{program.weekly_frequency} days/week</span>
-                      </div>
-                      <div className="meta-item">
-                        <span className="meta-label">Session Length:</span>
-                        <span className="meta-value">{program.session_length} min</span>
-                      </div>
-                      <div className="meta-item">
-                        <span className="meta-label">Subscription:</span>
-                        <span className={`subscription-badge ${program.is_subscription ? 'required' : 'free'}`}>
-                          {program.is_subscription ? '🔒 Required' : '✓ Free'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="program-stats">
-                      <div className="stat">
-                        <span className="stat-value">{program.sections?.length || 0}</span>
-                        <span className="stat-label">Sections</span>
-                      </div>
-                      <div className="stat">
-                        <span className="stat-value">
-                          {program.sections?.reduce((acc, s) => acc + s.exercises.length, 0) || 0}
-                        </span>
-                        <span className="stat-label">Exercises</span>
-                      </div>
-                    </div>
-
-                    <div className="program-actions">
-                      <button 
-                        onClick={() => viewProgramDetails(program)}
-                        className="btn-view"
-                      >
-                        View Details
-                      </button>
-                      <button 
-                        onClick={() => router.push(`/edit-program/${program.id}`)}
-                        className="btn-edit"
-                      >
-                        Edit
-                      </button>
-                    </div>
-
-                    <p className="program-date">
-                      Created {new Date(program.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
+                {myPrograms.map((program) => renderProgramCard(program, true))}
               </div>
             )}
           </section>
@@ -239,103 +360,16 @@ export default function TrainerProgramsPage() {
         {/* Other Trainers Tab */}
         {activeTab === 'others' && (
           <section className="programs-section">
-            <h2>Other Trainers' Workout Plans</h2>
+            <h2>Other Trainers&apos; Workout Plans</h2>
             <p className="section-description">
-              Explore programs from other trainers. Some programs require a subscription.
+              Explore and view programs created by other trainers.
             </p>
 
             {otherPrograms.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">🔍</div>
-                <h3>No Other Programs Available</h3>
-                <p>There are currently no programs from other trainers.</p>
-              </div>
+              renderEmptyState('others')
             ) : (
               <div className="programs-grid">
-                {otherPrograms.map((program) => (
-                  <div key={program.id} className="program-card other-program">
-                    <div className={`program-badge ${program.is_subscription ? 'premium' : 'free'}`}>
-                      {program.is_subscription ? '🔒 Premium' : '✓ Free'}
-                    </div>
-                    <div className="program-header">
-                      <span className="focus-icon">{getFocusIcon(program.focus)}</span>
-                      <h3 className="program-title">{program.name}</h3>
-                    </div>
-                    
-                    <p className="program-description">{program.description || 'No description provided'}</p>
-
-                    <div className="program-meta">
-                      <div className="meta-item">
-                        <span className="meta-label">Focus:</span>
-                        <span className="meta-value">{program.focus}</span>
-                      </div>
-                      <div className="meta-item">
-                        <span className="meta-label">Difficulty:</span>
-                        <span className={`difficulty-badge ${getDifficultyColor(program.difficulty)}`}>
-                          {program.difficulty}
-                        </span>
-                      </div>
-                      <div className="meta-item">
-                        <span className="meta-label">Weekly Frequency:</span>
-                        <span className="meta-value">{program.weekly_frequency} days/week</span>
-                      </div>
-                      <div className="meta-item">
-                        <span className="meta-label">Session Length:</span>
-                        <span className="meta-value">{program.session_length} min</span>
-                      </div>
-                    </div>
-
-                    {program.is_subscription && (
-                      <div className="subscription-notice">
-                        <p>🔒 Subscribe to view full workout details</p>
-                      </div>
-                    )}
-
-                    <div className="program-actions">
-                      <button 
-                        onClick={() => viewProgramDetails(program)}
-                        className="btn-view"
-                      >
-                        {program.is_subscription ? 'Preview Program' : 'View Details'}
-                      </button>
-                    </div>
-
-                    <p className="program-date">
-                      Created {new Date(program.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
-
-                {/* Show subscription card if there are subscription programs */}
-                {otherPrograms.some(p => p.is_subscription) && (
-                  <div className="program-card subscription-card">
-                    <div className="lock-icon">🔒</div>
-                    <h3>Premium Access</h3>
-                    <p className="subscription-description">
-                      Subscribe to unlock all premium workout programs
-                    </p>
-                    
-                    <div className="subscription-benefits">
-                      <div className="benefit">✓ Unlimited premium programs</div>
-                      <div className="benefit">✓ Full workout details</div>
-                      <div className="benefit">✓ Progress tracking</div>
-                      <div className="benefit">✓ Personalized recommendations</div>
-                    </div>
-
-                    <div className="subscription-pricing">
-                      <span className="price">$9.99</span>
-                      <span className="period">/month</span>
-                    </div>
-
-                    <button className="btn-subscribe">
-                      Subscribe Now
-                    </button>
-
-                    <p className="subscription-note">
-                      Cancel anytime. No commitments.
-                    </p>
-                  </div>
-                )}
+                {otherPrograms.map((program) => renderProgramCard(program, false))}
               </div>
             )}
           </section>

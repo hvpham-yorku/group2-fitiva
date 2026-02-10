@@ -4,22 +4,45 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/ui/Logo';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 import { ApiError } from '@/library/api';
 import './login.css';
-import ThemeToggle from '@/components/ui/ThemeToggle';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface LoginFormData {
+  login: string;
+  password: string;
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const [formData, setFormData] = useState({
+  
+  // Form state
+  const [formData, setFormData] = useState<LoginFormData>({
     login: '',
     password: '',
   });
+  
+  // UI state
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // ========================================
+  // Event Handlers
+  // ========================================
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
     if (error) setError('');
   };
 
@@ -41,6 +64,10 @@ export default function LoginPage() {
     }
   };
 
+  // ========================================
+  // Render
+  // ========================================
+
   return (
     <div className="login-container">
       {/* Left Side - Gym Image */}
@@ -49,7 +76,7 @@ export default function LoginPage() {
         <div className="diagonal-overlay"></div>
       </div>
 
-      {/* Right Side - Login Form */}
+      {/* Right Side - Form */}
       <div className="login-right">
         <ThemeToggle />
         <div className="login-box">
@@ -78,6 +105,7 @@ export default function LoginPage() {
 
           {/* Form */}
           <form className="login-form" onSubmit={handleSubmit}>
+            {/* Username/Email Field */}
             <div className="form-group">
               <label htmlFor="login" className="form-label">
                 Username or Email<span className="required-asterisk">*</span>
@@ -93,9 +121,12 @@ export default function LoginPage() {
                 placeholder="Enter your username or email"
                 autoComplete="username"
               />
-              <p className="form-helper">You can use either your username or email address</p>
+              <p className="form-helper">
+                You can use either your username or email address
+              </p>
             </div>
 
+            {/* Password Field */}
             <div className="form-group">
               <label htmlFor="password" className="form-label">
                 Password<span className="required-asterisk">*</span>
@@ -113,6 +144,7 @@ export default function LoginPage() {
               />
             </div>
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
