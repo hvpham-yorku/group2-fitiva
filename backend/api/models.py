@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 
 
 # ============================================================================
@@ -100,6 +101,8 @@ class WorkoutPlan(models.Model):
     difficulty = models.CharField(max_length=20, choices=EXPERIENCE_CHOICES)
     weekly_frequency = models.IntegerField(help_text="Number of workouts per week")
     session_length = models.IntegerField(help_text="Minutes per session")
+    #show/hide in Browse Programs
+    is_published = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
     trainer = models.ForeignKey(
         CustomUser, 
