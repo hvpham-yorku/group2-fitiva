@@ -99,6 +99,11 @@ const CreateProgramPage = () => {
   const [showRestDayConfirm, setShowRestDayConfirm] = useState(false);
   const [pendingRestDayIndex, setPendingRestDayIndex] = useState<number | null>(null);
 
+  const [draggedExercise, setDraggedExercise] = useState<{
+      dayIndex: number;
+      exerciseIndex: number;
+    } | null>(null);
+
   // Form state
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -295,6 +300,40 @@ const CreateProgramPage = () => {
     updated[dayIndex].exercises = updated[dayIndex].exercises.filter((_, i) => i !== exerciseIndex);
     setDaySections(updated);
   };
+
+  // Drag and drop handlers - ADD THESE HERE
+  const handleDragStart = (dayIndex: number, exerciseIndex: number) => {
+    setDraggedExercise({ dayIndex, exerciseIndex });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (dayIndex: number, targetExerciseIndex: number) => {
+    if (!draggedExercise || draggedExercise.dayIndex !== dayIndex) {
+      setDraggedExercise(null);
+      return;
+    }
+
+    const updated = [...daySections];
+    const exercises = [...updated[dayIndex].exercises];
+    
+    // Remove from old position
+    const [movedExercise] = exercises.splice(draggedExercise.exerciseIndex, 1);
+    
+    // Insert at new position
+    exercises.splice(targetExerciseIndex, 0, movedExercise);
+    
+    updated[dayIndex].exercises = exercises;
+    setDaySections(updated);
+    setDraggedExercise(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedExercise(null);
+  };
+
 
   // Validate form
   const validateForm = () => {
@@ -750,9 +789,24 @@ const CreateProgramPage = () => {
                               <p className="no-exercises-hint">No exercises added yet</p>
                             ) : (
                               <div className="day-exercises-list">
+                              
                                 {section.exercises.map((exercise, exIndex) => (
-                                  <div key={exIndex} className="exercise-item-compact">
+                                  <div
+                                    key={exIndex}
+                                    draggable
+                                    onDragStart={() => handleDragStart(dayIndex, exIndex)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={() => handleDrop(dayIndex, exIndex)}
+                                    onDragEnd={handleDragEnd}
+                                    className={`exercise-item-compact ${
+                                      draggedExercise?.dayIndex === dayIndex &&
+                                      draggedExercise?.exerciseIndex === exIndex
+                                        ? 'dragging'
+                                        : ''
+                                    }`}
+                                  >
                                     <div className="exercise-compact-header">
+                                      <span className="drag-handle">⋮⋮</span>
                                       <span className="exercise-number">{exIndex + 1}</span>
                                       <h4>{exercise.name}</h4>
                                       <button

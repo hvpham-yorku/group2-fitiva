@@ -900,3 +900,29 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Drag and Drop */
+.exercise-item-compact {
+  cursor: move;
+}
+
+.exercise-item-compact.dragging {
+  opacity: 0.4;
+  border: 2px dashed var(--primary);
+}
+
+.drag-handle {
+  color: var(--text-tertiary);
+  font-size: 1rem;
+  cursor: grab;
+  user-select: none;
+  margin-right: 0.25rem;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.exercise-item-compact:hover .drag-handle {
+  color: var(--primary);
+}
