@@ -178,23 +178,40 @@ class ExerciseTemplate(models.Model):
         return f"{self.name} ({'Default' if self.is_default else self.trainer.username if self.trainer else 'Unknown'})"
 
 class ProgramSection(models.Model):
-    """Section within a workout program (e.g., Day 1, Day 2)."""
+    """
+    Represents a workout day/section in a program.
+    """
     program = models.ForeignKey(
-        WorkoutPlan, 
-        on_delete=models.CASCADE, 
+        WorkoutPlan,
+        on_delete=models.CASCADE,
         related_name='sections'
     )
-    format = models.CharField(max_length=100, blank=True)  # "Day 1", "Day 2", etc.
-    type = models.CharField(max_length=100, blank=True)    # "day", etc.
+    format = models.CharField(
+        max_length=50,
+        help_text="Day name (e.g., 'Monday', 'Tuesday')"
+    )
+    type = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Optional day description (e.g., 'Upper Body', 'Chest Day')"
+    )
+    is_rest_day = models.BooleanField(
+        default=False,
+        help_text="Whether this day is a rest day"
+    )
     order = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-
+    
     class Meta:
         db_table = 'program_sections'
         ordering = ['order']
-
+        indexes = [
+            models.Index(fields=['program', 'order']),
+        ]
+    
     def __str__(self):
-        return f"{self.program.name} - {self.format}"
+        rest_label = " (Rest)" if self.is_rest_day else ""
+        return f"{self.program.name} - {self.format}{rest_label}"
+
 
 
 class Exercise(models.Model):

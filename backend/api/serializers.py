@@ -350,24 +350,19 @@ class ExerciseSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'sets', 'order']
         read_only_fields = ['id']
 
-
-
 class ProgramSectionSerializer(serializers.ModelSerializer):
     """Serializer for program sections with nested exercises."""
     exercises = ExerciseSerializer(many=True)
     
     class Meta:
         model = ProgramSection
-        fields = ['id', 'format', 'type', 'exercises', 'order']
+        fields = ['id', 'format', 'type', 'is_rest_day', 'exercises', 'order']
         read_only_fields = ['id']
-
-
 
 class WorkoutPlanSerializer(serializers.ModelSerializer):
     """Serializer for workout plans with trainer information and nested sections."""
     trainer_name = serializers.SerializerMethodField()
     sections = ProgramSectionSerializer(many=True, read_only=False, required=False)
-
 
     class Meta:
         model = WorkoutPlan
