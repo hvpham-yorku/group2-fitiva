@@ -449,3 +449,36 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Highlight Schedule Card */
+.action-button.schedule-highlight {
+  background: linear-gradient(135deg, rgba(239, 62, 54, 0.05) 0%, rgba(255, 146, 52, 0.05) 100%);
+  border: 2px solid var(--fitiva-red);
+  position: relative;
+  overflow: hidden;
+}
+
+.action-button.schedule-highlight::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 146, 52, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.action-button.schedule-highlight:hover::before {
+  left: 100%;
+}
+
+.action-button.schedule-highlight:hover {
+  border-color: var(--fitiva-orange);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(239, 62, 54, 0.2);
+}
+
+.action-button.schedule-highlight .action-button-icon {
+  font-size: 1.75rem;
+}
