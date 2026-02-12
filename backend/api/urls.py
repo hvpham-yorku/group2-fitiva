@@ -39,6 +39,12 @@ urlpatterns = [
     path('programs/<int:program_id>/', views.get_program_detail, name='program-detail'),
     
     # ========================================
+    # Exercise Template Endpoints
+    # ========================================
+    path('exercise-templates/', views.exercise_templates, name='exercise-templates'),
+    path('exercise-templates/<int:template_id>/', views.exercise_template_detail, name='exercise-template-detail'),
+    
+    # ========================================
     # Router URLs (WorkoutProgramViewSet)
     # Generates: /programs/, /programs/{id}/
     # ========================================

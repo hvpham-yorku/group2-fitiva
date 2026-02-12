@@ -12,6 +12,7 @@ from .models import (
     TrainerProfile,
     WorkoutSession,
     WorkoutFeedback,
+    ExerciseTemplate,
     EXPERIENCE_CHOICES,
     LOCATION_CHOICES,
     DIFFICULTY_RATING_CHOICES,
@@ -299,6 +300,38 @@ class UserLoginSerializer(serializers.Serializer):
 # WORKOUT SERIALIZERS
 # ============================================================================
 
+class ExerciseTemplateSerializer(serializers.ModelSerializer):
+    """Serializer for exercise templates in trainer's library."""
+    
+    class Meta:
+        model = ExerciseTemplate
+        fields = [
+            'id', 'name', 'description', 'muscle_groups', 'exercise_type',
+            'default_recommendations', 'image_url', 'trainer', 'is_default',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'trainer', 'is_default', 'created_at', 'updated_at']
+    
+    def validate_muscle_groups(self, value):
+        """Validate muscle groups list."""
+        valid_groups = ['chest', 'quads/hamstrings', 'back', 'shoulders', 'biceps', 'triceps', 'core', 'full body']
+        
+        if not isinstance(value, list):
+            raise serializers.ValidationError("muscle_groups must be a list")
+        
+        for group in value:
+            if group.lower() not in valid_groups:
+                raise serializers.ValidationError(
+                    f"Invalid muscle group '{group}'. Choose from: {', '.join(valid_groups)}"
+                )
+        
+        return [g.lower() for g in value]
+    
+    def validate_exercise_type(self, value):
+        """Validate exercise type."""
+        if value not in ['reps', 'time']:
+            raise serializers.ValidationError("exercise_type must be 'reps' or 'time'")
+        return value
 
 class ExerciseSetSerializer(serializers.ModelSerializer):
     """Serializer for exercise sets."""
@@ -307,8 +340,6 @@ class ExerciseSetSerializer(serializers.ModelSerializer):
         model = ExerciseSet
         fields = ['id', 'set_number', 'reps', 'time', 'rest']
         read_only_fields = ['id']
-
-
 
 class ExerciseSerializer(serializers.ModelSerializer):
     """Serializer for exercises with nested sets."""
@@ -319,24 +350,19 @@ class ExerciseSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'sets', 'order']
         read_only_fields = ['id']
 
-
-
 class ProgramSectionSerializer(serializers.ModelSerializer):
     """Serializer for program sections with nested exercises."""
     exercises = ExerciseSerializer(many=True)
     
     class Meta:
         model = ProgramSection
-        fields = ['id', 'format', 'type', 'exercises', 'order']
+        fields = ['id', 'format', 'type', 'is_rest_day', 'exercises', 'order']
         read_only_fields = ['id']
-
-
 
 class WorkoutPlanSerializer(serializers.ModelSerializer):
     """Serializer for workout plans with trainer information and nested sections."""
     trainer_name = serializers.SerializerMethodField()
     sections = ProgramSectionSerializer(many=True, read_only=False, required=False)
-
 
     class Meta:
         model = WorkoutPlan

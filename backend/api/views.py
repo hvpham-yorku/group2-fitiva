@@ -1,6 +1,7 @@
 import os
 from urllib.parse import urlencode
 
+from django.db.models import Q
 from django.contrib.auth import login, logout, get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.http import JsonResponse
@@ -27,6 +28,7 @@ from .models import (
     ProgramSection,
     Exercise,
     ExerciseSet,
+    ExerciseTemplate,
 )
 
 from .serializers import (
@@ -41,6 +43,7 @@ from .serializers import (
     ProgramSectionSerializer,
     ExerciseSerializer,
     ExerciseSetSerializer,
+    ExerciseTemplateSerializer,
 )
 
 
@@ -464,6 +467,91 @@ def get_program_detail(request, program_id):
         return Response({
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def exercise_templates(request):
+    """
+    GET: List all exercise templates (trainer's own + defaults)
+    POST: Create a new exercise template
+    """
+    if not request.user.is_trainer:
+        return Response({
+            'error': 'Only trainers can access exercise templates'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'GET':
+        # Get trainer's own exercises + default exercises
+        templates = ExerciseTemplate.objects.filter(
+            Q(trainer=request.user) | Q(is_default=True)
+        ).order_by('is_default', '-created_at')
+        
+        # Optional search filter
+        search = request.GET.get('search', '').strip()
+        if search:
+            templates = templates.filter(name__icontains=search)
+        
+        serializer = ExerciseTemplateSerializer(templates, many=True)
+        return Response({
+            'total': templates.count(),
+            'exercises': serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    elif request.method == 'POST':
+        serializer = ExerciseTemplateSerializer(data=request.data)
+        if serializer.is_valid():
+            # Set the trainer to current user
+            serializer.save(trainer=request.user, is_default=False)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def exercise_template_detail(request, template_id):
+    """
+    GET: Retrieve specific exercise template
+    PUT: Update exercise template
+    DELETE: Delete exercise template
+    """
+    if not request.user.is_trainer:
+        return Response({
+            'error': 'Only trainers can access exercise templates'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        template = ExerciseTemplate.objects.get(id=template_id)
+        
+        # Only allow modifying own exercises (not defaults)
+        if request.method in ['PUT', 'DELETE']:
+            if template.is_default or template.trainer != request.user:
+                return Response({
+                    'error': 'You can only modify your own exercises'
+                }, status=status.HTTP_403_FORBIDDEN)
+        
+        if request.method == 'GET':
+            serializer = ExerciseTemplateSerializer(template)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        elif request.method == 'PUT':
+            serializer = ExerciseTemplateSerializer(template, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        elif request.method == 'DELETE':
+            template.delete()
+            return Response({
+                'message': 'Exercise deleted successfully'
+            }, status=status.HTTP_204_NO_CONTENT)
+    
+    except ExerciseTemplate.DoesNotExist:
+        return Response({
+            'error': 'Exercise template not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
 
 # ============================================================================
 # PASSWORD RESET VIEWS (To be implemented)
