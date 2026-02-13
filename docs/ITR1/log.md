@@ -309,7 +309,8 @@ For each story, we list the key tasks so the TA can see real work.
   - Schedule generation and completion tracking
 - Result: All tests passing on latest ITR1 tag.
 
-*(to run tests locally: `docker-compose exec backend python manage.py test api`)*
+*(to run tests locally: `docker-compose exec backend python manage.py test api --verbosity=2`)*
+*(this will only work after running `docker-compose up -d` to start the containers)
 
 ---
 
