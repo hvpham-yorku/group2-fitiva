@@ -325,7 +325,8 @@ This section documents what changed from the **Iteration 0 plan** to the **Itera
 
 ---
 
-# 8. we don't have any concerns with the project or group members.
+# 8. 
+we don't have any concerns with the project or group members.
 
 ---
 
