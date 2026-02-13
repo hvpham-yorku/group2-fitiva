@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import Notification from '@/components/Notification';
+import ConfirmModal from '@/components/ConfirmModal';
 import './schedule.css';
 
 interface CalendarEvent {
@@ -57,6 +59,15 @@ const SchedulePage = () => {
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [editingStartDate, setEditingStartDate] = useState(false);
   const [newStartDate, setNewStartDate] = useState('');
+  
+  // Notification state
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info' | 'warning';
+    message: string;
+  } | null>(null);
+  
+  // Confirm modal state
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
 
   useEffect(() => {
     fetchSchedule();
@@ -83,6 +94,19 @@ const SchedulePage = () => {
     }
   };
 
+  // Notification helpers
+  const showSuccess = (message: string) => {
+    setNotification({ type: 'success', message });
+  };
+
+  const showError = (message: string) => {
+    setNotification({ type: 'error', message });
+  };
+
+  const showInfo = (message: string) => {
+    setNotification({ type: 'info', message });
+  };
+
   const handleUpdateStartDate = async () => {
     if (!newStartDate || !scheduleData?.schedule) return;
 
@@ -102,16 +126,16 @@ const SchedulePage = () => {
       );
 
       if (response.ok) {
-        alert('✅ Start date updated!');
+        showSuccess('Start date updated!');
         setEditingStartDate(false);
         fetchSchedule();
       } else {
         const errorData = await response.json();
-        alert(`❌ ${errorData.error || 'Failed to update start date'}`);
+        showError(errorData.error || 'Failed to update start date');
       }
     } catch (error) {
       console.error('Error updating start date:', error);
-      alert('❌ Error updating start date. Please try again.');
+      showError('Error updating start date. Please try again.');
     }
   };
 
@@ -131,6 +155,7 @@ const SchedulePage = () => {
       }
     } catch (error) {
       console.error('Error fetching workout:', error);
+      showError('Failed to load workout details');
     }
   };
 
@@ -140,8 +165,6 @@ const SchedulePage = () => {
   };
 
   const handleDeactivateSchedule = async () => {
-    if (!confirm('Are you sure you want to deactivate your entire schedule?')) return;
-
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/deactivate/`,
@@ -152,11 +175,14 @@ const SchedulePage = () => {
       );
 
       if (response.ok) {
-        alert('Schedule deactivated');
-        router.push('/trainer-programs');
+        showSuccess('Schedule cleared successfully');
+        setTimeout(() => router.push('/trainer-programs'), 1500);
+      } else {
+        showError('Failed to clear schedule');
       }
     } catch (error) {
       console.error('Error deactivating schedule:', error);
+      showError('Error clearing schedule. Please try again.');
     }
   };
 
@@ -286,7 +312,7 @@ const SchedulePage = () => {
               </div>
               <button 
                 className="btn-deactivate"
-                onClick={handleDeactivateSchedule}
+                onClick={() => setShowDeactivateConfirm(true)}
               >
                 🗑️ Clear Schedule
               </button>
@@ -536,7 +562,7 @@ const SchedulePage = () => {
                           className="btn-start-workout"
                           onClick={() => {
                             setShowWorkoutModal(false);
-                            alert('Start workout feature coming soon!');
+                            showInfo('Start workout feature coming soon!');
                           }}
                         >
                           ▶️ Start Workout
@@ -549,6 +575,31 @@ const SchedulePage = () => {
             </div>
           ) : null}
         </div>
+
+        {/* Notification Component */}
+        {notification && (
+          <Notification
+            type={notification.type}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        )}
+
+        {/* Confirmation Modal for Deactivate */}
+        {showDeactivateConfirm && (
+          <ConfirmModal
+            title="Clear Entire Schedule?"
+            message="This will remove all programs from your schedule. This action cannot be undone."
+            confirmText="Clear Schedule"
+            cancelText="Cancel"
+            type="danger"
+            onConfirm={() => {
+              setShowDeactivateConfirm(false);
+              handleDeactivateSchedule();
+            }}
+            onCancel={() => setShowDeactivateConfirm(false)}
+          />
+        )}
       </div>
     </ProtectedRoute>
   );

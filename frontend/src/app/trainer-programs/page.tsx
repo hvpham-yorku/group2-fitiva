@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import Notification from '@/components/Notification';
+import ConfirmModal from '@/components/ConfirmModal';
 import './trainer-programs.css';
 
 interface ExerciseSet {
@@ -50,6 +52,16 @@ const TrainerProgramsPage = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'my' | 'others'>('my');
   const [programsInSchedule, setProgramsInSchedule] = useState<Set<number>>(new Set());
+  
+  // Notification state
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info' | 'warning';
+    message: string;
+  } | null>(null);
+  
+  // Confirm modal state
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [programToRemove, setProgramToRemove] = useState<number | null>(null);
 
   const isTrainer = user?.is_trainer || false;
 
@@ -98,6 +110,19 @@ const TrainerProgramsPage = () => {
     }
   };
 
+  // Notification helpers
+  const showSuccess = (message: string) => {
+    setNotification({ type: 'success', message });
+  };
+
+  const showError = (message: string) => {
+    setNotification({ type: 'error', message });
+  };
+
+  const showInfo = (message: string) => {
+    setNotification({ type: 'info', message });
+  };
+
   const myPrograms = programs.filter(
     (program) => String(program.trainer) === String(user?.id)
   );
@@ -126,6 +151,66 @@ const TrainerProgramsPage = () => {
     });
   };
 
+  const handleAddToSchedule = async (programId: number) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/generate/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            program_id: programId,
+            rest_days: ['sunday']
+          })
+        }
+      );
+
+      if (response.ok) {
+        showSuccess('Program added to your schedule!');
+        setProgramsInSchedule(prev => new Set([...prev, programId]));
+      } else {
+        const errorData = await response.json();
+        showError(errorData.error || 'Failed to add to schedule');
+      }
+    } catch (error) {
+      console.error('Error adding to schedule:', error);
+      showError('Error adding to schedule. Please try again.');
+    }
+  };
+
+  const handleRemoveFromSchedule = async () => {
+    if (!programToRemove) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/remove-program/${programToRemove}/`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+        }
+      );
+
+      if (response.ok) {
+        showSuccess('Program removed from schedule');
+        setProgramsInSchedule(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(programToRemove);
+          return newSet;
+        });
+        fetchSchedulePrograms();
+      } else {
+        const errorData = await response.json();
+        showError(errorData.error || 'Failed to remove from schedule');
+      }
+    } catch (error) {
+      console.error('Error removing from schedule:', error);
+      showError('Error removing from schedule. Please try again.');
+    }
+  };
+
   const renderProgramCard = (program: Program, showEditButton: boolean = false) => {
     const totalExercises = program.sections?.reduce(
       (sum, section) => sum + (section.exercises?.length || 0),
@@ -133,70 +218,6 @@ const TrainerProgramsPage = () => {
     );
 
     const isInSchedule = programsInSchedule.has(program.id);
-
-    const handleAddToSchedule = async (programId: number) => {
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/generate/`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              program_id: programId,
-              rest_days: ['sunday']
-            })
-          }
-        );
-
-        if (response.ok) {
-          alert('✅ Program added to your schedule!');
-          // Update local state
-          setProgramsInSchedule(prev => new Set([...prev, programId]));
-          router.push('/schedule');
-        } else {
-          const errorData = await response.json();
-          alert(`❌ ${errorData.error || 'Failed to add to schedule'}`);
-        }
-      } catch (error) {
-        console.error('Error adding to schedule:', error);
-        alert('❌ Error adding to schedule. Please try again.');
-      }
-    };
-
-    const handleRemoveFromSchedule = async (programId: number) => {
-      if (!confirm('Remove this program from your schedule?')) return;
-
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/remove-program/${programId}/`,
-          {
-            method: 'DELETE',
-            credentials: 'include',
-          }
-        );
-
-        if (response.ok) {
-          alert('✅ Program removed from schedule');
-          // Update local state
-          setProgramsInSchedule(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(programId);
-            return newSet;
-          });
-          // Optionally refresh
-          fetchSchedulePrograms();
-        } else {
-          const errorData = await response.json();
-          alert(`❌ ${errorData.error || 'Failed to remove from schedule'}`);
-        }
-      } catch (error) {
-        console.error('Error removing from schedule:', error);
-        alert('❌ Error removing from schedule. Please try again.');
-      }
-    };
 
     return (
       <div key={program.id} className={`program-card ${showEditButton ? 'my-program' : 'other-program'}`}>
@@ -287,7 +308,10 @@ const TrainerProgramsPage = () => {
           {isInSchedule ? (
             <button 
               className="btn-remove-calendar" 
-              onClick={() => handleRemoveFromSchedule(program.id)}
+              onClick={() => {
+                setProgramToRemove(program.id);
+                setShowRemoveConfirm(true);
+              }}
             >
               🗑️ Remove from Schedule
             </button>
@@ -363,6 +387,34 @@ const TrainerProgramsPage = () => {
               )}
             </div>
           </div>
+
+          {/* Notification Component */}
+          {notification && (
+            <Notification
+              type={notification.type}
+              message={notification.message}
+              onClose={() => setNotification(null)}
+            />
+          )}
+
+          {/* Confirmation Modal */}
+          {showRemoveConfirm && (
+            <ConfirmModal
+              title="Remove from Schedule?"
+              message="Are you sure you want to remove this program from your schedule?"
+              confirmText="Remove"
+              cancelText="Cancel"
+              type="danger"
+              onConfirm={() => {
+                setShowRemoveConfirm(false);
+                handleRemoveFromSchedule();
+              }}
+              onCancel={() => {
+                setShowRemoveConfirm(false);
+                setProgramToRemove(null);
+              }}
+            />
+          )}
         </div>
       </ProtectedRoute>
     );
@@ -434,6 +486,34 @@ const TrainerProgramsPage = () => {
             </div>
           )}
         </div>
+
+        {/* Notification Component */}
+        {notification && (
+          <Notification
+            type={notification.type}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        )}
+
+        {/* Confirmation Modal */}
+        {showRemoveConfirm && (
+          <ConfirmModal
+            title="Remove from Schedule?"
+            message="Are you sure you want to remove this program from your schedule?"
+            confirmText="Remove"
+            cancelText="Cancel"
+            type="danger"
+            onConfirm={() => {
+              setShowRemoveConfirm(false);
+              handleRemoveFromSchedule();
+            }}
+            onCancel={() => {
+              setShowRemoveConfirm(false);
+              setProgramToRemove(null);
+            }}
+          />
+        )}
       </div>
     </ProtectedRoute>
   );

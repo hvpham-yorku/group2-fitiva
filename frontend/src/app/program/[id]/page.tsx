@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import Notification from '@/components/Notification';
+import ConfirmModal from '@/components/ConfirmModal';
 import './program-details.css';
 
 interface ExerciseSet {
@@ -53,9 +55,20 @@ const ProgramDetailPage = () => {
   const [program, setProgram] = useState<Program | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInSchedule, setIsInSchedule] = useState(false);
+  
+  // Notification state
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info' | 'warning';
+    message: string;
+  } | null>(null);
+  
+  // Confirm modal state
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   useEffect(() => {
     fetchProgramDetail();
+    checkIfInSchedule();
   }, [programId]);
 
   const fetchProgramDetail = async () => {
@@ -81,6 +94,26 @@ const ProgramDetailPage = () => {
     }
   };
 
+  const checkIfInSchedule = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/active/`,
+        {
+          credentials: 'include',
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.schedule && data.schedule.programs) {
+          setIsInSchedule(data.schedule.programs.includes(parseInt(programId)));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking schedule:', error);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -99,9 +132,21 @@ const ProgramDetailPage = () => {
     return `${mins} min ${secs} sec`;
   };
 
-  // handing "Use This Program" action - for schedule generation
+  // Notification helpers
+  const showSuccess = (message: string) => {
+    setNotification({ type: 'success', message });
+  };
 
-  const handleUseProgram = async () => {
+  const showError = (message: string) => {
+    setNotification({ type: 'error', message });
+  };
+
+  const showInfo = (message: string) => {
+    setNotification({ type: 'info', message });
+  };
+
+  // Add to schedule
+  const handleAddToSchedule = async () => {
     if (!program) return;
 
     try {
@@ -115,20 +160,47 @@ const ProgramDetailPage = () => {
           credentials: 'include',
           body: JSON.stringify({
             program_id: program.id,
-            rest_days: ['sunday']  // Can make this configurable later
+            rest_days: ['sunday']
           })
         }
       );
+      
       if (response.ok) {
-        alert('Schedule created successfully! Redirecting to your schedule...');
-        router.push('/schedule');  // Redirect to schedule page
+        showSuccess('Program added to your schedule!');
+        setIsInSchedule(true);
       } else {
         const errorData = await response.json();
-        alert(`Failed to create schedule: ${errorData.error || 'Unknown error'}`);
+        showError(errorData.error || 'Failed to add to schedule');
       }
     } catch (error) {
-      console.error('Error creating schedule:', error);
-      alert('Error creating schedule. Please try again.');
+      console.error('Error adding to schedule:', error);
+      showError('Error adding to schedule. Please try again.');
+    }
+  };
+
+  // Remove from schedule
+  const handleRemoveFromSchedule = async () => {
+    if (!program) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/remove-program/${program.id}/`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+        }
+      );
+
+      if (response.ok) {
+        showSuccess('Program removed from schedule');
+        setIsInSchedule(false);
+      } else {
+        const errorData = await response.json();
+        showError(errorData.error || 'Failed to remove from schedule');
+      }
+    } catch (error) {
+      console.error('Error removing from schedule:', error);
+      showError('Error removing from schedule. Please try again.');
     }
   };
   
@@ -221,9 +293,14 @@ const ProgramDetailPage = () => {
                   ))}
                 </div>
               </div>
-              {isOwnProgram && (
-                <span className="owner-badge">Your Program</span>
-              )}
+              <div className="header-badges">
+                {isOwnProgram && (
+                  <span className="owner-badge">Your Program</span>
+                )}
+                {isInSchedule && (
+                  <span className="schedule-badge">Already in your schedule</span>
+                )}
+              </div>
             </div>
 
             <p className="program-description">
@@ -293,9 +370,22 @@ const ProgramDetailPage = () => {
 
             {/* Action Buttons */}
             <div className="action-buttons">
-              <button className="btn-primary btn-large" onClick={handleUseProgram}>
-                ⭐ Use This Program
-              </button>
+              {isInSchedule ? (
+                <button 
+                  className="btn-remove-schedule btn-large" 
+                  onClick={() => setShowRemoveConfirm(true)}
+                >
+                  🗑️ Remove from My Schedule
+                </button>
+              ) : (
+                <button 
+                  className="btn-primary btn-large" 
+                  onClick={handleAddToSchedule}
+                >
+                  ⭐ Use This Program
+                </button>
+              )}
+              
               {isOwnProgram && (
                 <button 
                   className="btn-secondary btn-large"
@@ -372,6 +462,31 @@ const ProgramDetailPage = () => {
             )}
           </div>
         </div>
+
+        {/* Confirmation Modal for Remove */}
+        {showRemoveConfirm && (
+          <ConfirmModal
+            title="Remove from Schedule?"
+            message="Are you sure you want to remove this program from your schedule?"
+            confirmText="Remove"
+            cancelText="Cancel"
+            type="danger"
+            onConfirm={() => {
+              setShowRemoveConfirm(false);
+              handleRemoveFromSchedule();
+            }}
+            onCancel={() => setShowRemoveConfirm(false)}
+          />
+        )}
+
+        {/* Notification Component */}
+        {notification && (
+          <Notification
+            type={notification.type}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        )}
       </div>
     </ProtectedRoute>
   );
