@@ -341,6 +341,7 @@ export const programAPI = {
         }>;
       }>;
     }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> => {
     return fetchAPI(`/api/programs/${programId}/`, {
       method: 'PUT',
