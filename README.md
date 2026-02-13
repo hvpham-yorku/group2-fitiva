@@ -6,6 +6,18 @@ Fitiva is a web application for personalized workout planning, serving both fitn
 
 ## Team
 
+**Group 2, Section Z** - EECS 2311 Winter 2026
+
+| Name | Student ID | Email | GitHub |
+|------|-----------|-------|--------|
+| Ege Yesilyurt | 219701739 | [egeyesss@my.yorku.ca](mailto:egeyesss@my.yorku.ca) | [@egeyesss](https://github.com/egeyesss) |
+| Weiqin Situ | 219720432 | [ksitu@my.yorku.ca](mailto:ksitu@my.yorku.ca) | [@kevinsitu1706](https://github.com/kevinsitu1706) |
+| Arshia Hassanpour | 219284272 | [arshi79@my.yorku.ca](mailto:arshi79@my.yorku.ca) | [@Arshi-prog](https://github.com/Arshi-prog) |
+| Raha Golsorkhi | 219763580 | [raha9@my.yorku.ca](mailto:raha9@my.yorku.ca) | [@raha-golsorkhi](https://github.com/raha-golsorkhi) |
+| Dawood Al-Janaby | 219625417 | [Dawood91@my.yorku.ca](mailto:Dawood91@my.yorku.ca) | [@DaveT1991](https://github.com/DaveT1991) |
+| Nurjahan Ahmed Shiah | 218802348 | [nshiah49@my.yorku.ca](mailto:nshiah49@my.yorku.ca) | [@nurjahan-shiah](https://github.com/nurjahan-shiah) |
+
+
 ---
 
 ## Features
