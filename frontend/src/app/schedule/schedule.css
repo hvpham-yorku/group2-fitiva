@@ -851,4 +851,31 @@
   border-radius: 8px;
 }
 
+.program-name-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.program-complete-badge {
+  background: #4caf50;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.3rem;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.program-inprogress-badge{
+  background: #f59e0b; /* amber */
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.3rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+
 

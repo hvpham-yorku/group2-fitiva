@@ -458,10 +458,12 @@ const completeSession = async (dateStr: string) => {
                     >
                       <div className="day-header">
                         <span className="day-name">{event.day}</span>
+
                         <span className="day-date">
                           {new Date(event.date).getDate()}
                         </span>
                       </div>
+
 
                       <div className="day-content">
                         {event.section_type === 'rest' ? (
@@ -479,18 +481,37 @@ const completeSession = async (dateStr: string) => {
                                 {event.sections.map((section, idx) => (
                                   <div key={idx} className="program-row">
                                     <div className="program-name-col">
-                                      <a 
-                                        href={`/program/${section.program_id}`}
-                                        className="program-link"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          router.push(`/program/${section.program_id}`);
-                                        }}
-                                      >
-                                        {section.program_name}
-                                      </a>
-                                      <div className="program-focus-col">
-                                        {typeof section.focus === 'string' ? section.focus : Array.isArray(section.focus) ? (section.focus as string[]).slice(0, 2).join(', ') : 'N/A'}
+                                      <div className="program-name-line">
+                                        <a 
+                                          href={`/program/${section.program_id}`}
+                                          className="program-link"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            router.push(`/program/${section.program_id}`);
+                                          }}
+                                        >
+                                          {section.program_name}
+                                        </a>
+                                      </div>
+                                      <div className="program-focus-line">
+                                        <span className="program-focus-text">
+                                          {typeof section.focus === 'string'
+                                            ? section.focus
+                                            : Array.isArray(section.focus)
+                                              ? (section.focus as string[]).slice(0, 2).join(', ')
+                                              : 'N/A'}
+                                        </span>
+
+                                        {event.session_status === 'completed' && (
+                                          <span className="program-complete-badge">
+                                            ✅ Complete
+                                          </span>
+                                        )}
+                                        {event.session_status === 'in_progress' && (
+                                          <span className="program-inprogress-badge">
+                                           In Progress
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -585,30 +606,32 @@ const completeSession = async (dateStr: string) => {
                         </div>
                       ))}
 
-                      <div className="modal-actions">
-                  {/* If completed, show label */}
-                  {workoutDetail.session_status === 'completed' ? (
-                    <div className="workout-completed-label">✅ Completed</div>
-                  ) : (
-                    <>
-                      {/* Start / Continue button */}
-                      <button
-                        className="btn-start-workout"
-                        onClick={async () => {
-                          try {
-                            await startSession(workoutDetail.date);
-                            showSuccess('Workout started!');
-                            await fetchSchedule(); // refresh badges
-                            await fetchWorkoutForDate(workoutDetail.date); // refresh modal status
-                          } catch (e) {
-                            showError('Could not start workout.');
-                          }
-                        }}
-                      >
-                        {workoutDetail.session_status === 'in_progress' ? '▶️ Continue Workout' : '▶️ Start Workout'}
-                      </button>
+                    <div className="modal-actions">
+                      {/* Completed state */}
+                      {workoutDetail.session_status === 'completed' && (
+                        <div className="workout-completed-label">✅ Completed</div>
+                      )}
 
-                      {/* Complete button only when in_progress */}
+                      {/* No session yet -> show Start */}
+                      {!workoutDetail.session_status && (
+                        <button
+                          className="btn-start-workout"
+                          onClick={async () => {
+                            try {
+                              await startSession(workoutDetail.date);
+                              showSuccess('Workout started!');
+                              await fetchSchedule();
+                              await fetchWorkoutForDate(workoutDetail.date);
+                            } catch (e) {
+                              showError('Could not start workout.');
+                            }
+                          }}
+                        >
+                          ▶️ Start Workout
+                        </button>
+                      )}
+
+                      {/* In progress -> ONLY show Complete (no Continue button) */}
                       {workoutDetail.session_status === 'in_progress' && (
                         <button
                           className="btn-complete-workout"
@@ -626,9 +649,7 @@ const completeSession = async (dateStr: string) => {
                           ✅ Complete
                         </button>
                       )}
-                    </>
-                  )}
-                </div>
+                    </div>
 
                     </>
                   )}
