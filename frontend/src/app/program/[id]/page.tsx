@@ -298,7 +298,7 @@ const ProgramDetailPage = () => {
                   <span className="owner-badge">Your Program</span>
                 )}
                 {isInSchedule && (
-                  <span className="schedule-badge">Already in your schedule</span>
+                  <span className="schedule-badge">In your schedule</span>
                 )}
               </div>
             </div>
