@@ -283,3 +283,52 @@ class WorkoutFeedback(models.Model):
 
     def __str__(self):
         return f"Feedback for {self.session}"
+
+
+# add schedule 
+
+class UserSchedule(models.Model):
+    """
+    User's personalized workout schedule.
+    Can contain multiple programs merged together.
+    """
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='schedules'
+    )
+    
+    # Remove single program field, use many-to-many instead
+    programs = models.ManyToManyField(
+        WorkoutPlan,
+        related_name='user_schedules'
+    )
+    
+    # Start date for this schedule
+    start_date = models.DateField()
+    
+    # JSON field mapping: {"monday": [section_id, section_id], "tuesday": [section_id], ...}
+    # Now stores LISTS of section IDs per day to support multiple programs
+    weekly_schedule = models.JSONField(
+        default=dict,
+        help_text="Maps days of week to lists of program section IDs or 'rest'"
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this is the user's active schedule"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'user_schedules'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+        ]
+    
+    def __str__(self):
+        program_names = ', '.join([p.name for p in self.programs.all()[:3]])
+        return f"{self.user.username}'s schedule: {program_names}"

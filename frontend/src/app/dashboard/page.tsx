@@ -390,8 +390,7 @@ useEffect(() => {
                 Explore trainer-created workouts
               </div>
             </Link>
-
-            {/* Trainer or User Specific Actions */}
+            
             {user.is_trainer ? (
               <>
                 <Link href="/add-exercise" className="action-button">
@@ -401,7 +400,7 @@ useEffect(() => {
                     Create exercises for your programs
                   </div>
                 </Link>
-
+                
                 <Link href="/create-program" className="action-button">
                   <div className="action-button-icon">✨</div>
                   <div className="action-button-title">Create Program</div>
@@ -411,14 +410,24 @@ useEffect(() => {
                 </Link>
               </>
             ) : (
-              <Link href="/recommendations" className="action-button">
-                <div className="action-button-icon">🎯</div>
-                <div className="action-button-title">View Recommendations</div>
-                <div className="action-button-description">
-                  Discover workout plans for you
-                </div>
-              </Link>
+              <>
+                
+                <Link href="/recommendations" className="action-button">
+                  <div className="action-button-icon">🎯</div>
+                  <div className="action-button-title">View Recommendations</div>
+                  <div className="action-button-description">
+                    Discover workout plans for you
+                  </div>
+                </Link>
+              </>
             )}
+            <Link href="/schedule" className="action-button">
+                  <div className="action-button-icon">📅</div>
+                  <div className="action-button-title">My Workout Schedule</div>
+                  <div className="action-button-description">
+                    View and manage your personalized calendar
+                  </div>
+                </Link>
           </div>
         </section>
       </main>

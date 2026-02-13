@@ -6,6 +6,7 @@ from .models import (
     CustomUser,
     UserProfile,
     WorkoutPlan,
+    UserSchedule,
     ProgramSection,
     Exercise,
     ExerciseSet,
@@ -476,3 +477,49 @@ class WorkoutFeedbackSerializer(serializers.ModelSerializer):
             'pain_reported', 'notes', 'created_at'
         ]
         read_only_fields = ['created_at']
+
+
+# add schedule serializer
+
+
+class UserScheduleSerializer(serializers.ModelSerializer):
+    """Serializer for user's workout schedule with multiple programs."""
+    program_names = serializers.SerializerMethodField()
+    program_list = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserSchedule
+        fields = [
+            'id', 'user', 'programs', 'program_names', 'program_list',
+            'start_date', 'weekly_schedule', 'is_active',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+    
+    def get_program_names(self, obj):
+        """Return comma-separated program names."""
+        return ', '.join([p.name for p in obj.programs.all()])
+    
+    def get_program_list(self, obj):
+        """Return list of programs with details."""
+        return [{
+            'id': p.id,
+            'name': p.name,
+            'focus': p.focus,
+            'difficulty': p.difficulty,
+            'trainer_name': f"{p.trainer.first_name} {p.trainer.last_name}" if p.trainer else "System"
+        } for p in obj.programs.all()]
+    
+    def validate_weekly_schedule(self, value):
+        """Validate weekly schedule structure."""
+        valid_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("weekly_schedule must be a dictionary")
+        
+        for day in value.keys():
+            if day.lower() not in valid_days:
+                raise serializers.ValidationError(f"Invalid day: {day}")
+        
+        return value
+       

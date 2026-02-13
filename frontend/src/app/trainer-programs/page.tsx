@@ -49,6 +49,7 @@ const TrainerProgramsPage = () => {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'my' | 'others'>('my');
+  const [programsInSchedule, setProgramsInSchedule] = useState<Set<number>>(new Set());
 
   const isTrainer = user?.is_trainer || false;
 
@@ -58,6 +59,7 @@ const TrainerProgramsPage = () => {
       setActiveTab('others');
     }
     fetchPrograms();
+    fetchSchedulePrograms();
   }, [isTrainer]);
 
   const fetchPrograms = async () => {
@@ -73,6 +75,26 @@ const TrainerProgramsPage = () => {
       console.error('Error fetching programs:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSchedulePrograms = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/active/`,
+        {
+          credentials: 'include',
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.schedule && data.schedule.programs) {
+          setProgramsInSchedule(new Set(data.schedule.programs));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching schedule:', error);
     }
   };
 
@@ -110,8 +132,77 @@ const TrainerProgramsPage = () => {
       0
     );
 
+    const isInSchedule = programsInSchedule.has(program.id);
+
+    const handleAddToSchedule = async (programId: number) => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/generate/`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              program_id: programId,
+              rest_days: ['sunday']
+            })
+          }
+        );
+
+        if (response.ok) {
+          alert('✅ Program added to your schedule!');
+          // Update local state
+          setProgramsInSchedule(prev => new Set([...prev, programId]));
+          router.push('/schedule');
+        } else {
+          const errorData = await response.json();
+          alert(`❌ ${errorData.error || 'Failed to add to schedule'}`);
+        }
+      } catch (error) {
+        console.error('Error adding to schedule:', error);
+        alert('❌ Error adding to schedule. Please try again.');
+      }
+    };
+
+    const handleRemoveFromSchedule = async (programId: number) => {
+      if (!confirm('Remove this program from your schedule?')) return;
+
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/remove-program/${programId}/`,
+          {
+            method: 'DELETE',
+            credentials: 'include',
+          }
+        );
+
+        if (response.ok) {
+          alert('✅ Program removed from schedule');
+          // Update local state
+          setProgramsInSchedule(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(programId);
+            return newSet;
+          });
+          // Optionally refresh
+          fetchSchedulePrograms();
+        } else {
+          const errorData = await response.json();
+          alert(`❌ ${errorData.error || 'Failed to remove from schedule'}`);
+        }
+      } catch (error) {
+        console.error('Error removing from schedule:', error);
+        alert('❌ Error removing from schedule. Please try again.');
+      }
+    };
+
     return (
       <div key={program.id} className={`program-card ${showEditButton ? 'my-program' : 'other-program'}`}>
+        {/* Date at top */}
+        <div className="program-date-top">Created {formatDate(program.created_at)}</div>
+        
         <div className="program-badge">PUBLIC PROGRAM</div>
 
         <div className="program-header">
@@ -155,9 +246,9 @@ const TrainerProgramsPage = () => {
           </div>
         </div>
 
-                {/* Author Information */}
+        {/* Trainer Information */}
         <div className="program-author">
-          <strong>Author:</strong> {program.trainer_name}
+          <strong>Trainer:</strong> {program.trainer_name}
         </div>
 
         {/* Show stats only for trainer's own programs */}
@@ -176,18 +267,39 @@ const TrainerProgramsPage = () => {
 
         {/* Action Buttons */}
         <div className="program-actions">
-          <button className="btn-view" onClick={() => router.push(`/program/${program.id}`)}>
-          View Details
+          <button 
+            className="btn-view" 
+            onClick={() => router.push(`/program/${program.id}`)}
+          >
+            View Details
           </button>
+          
           {showEditButton && (
-            <button className="btn-edit" onClick={() => router.push(`/edit-program/${program.id}`)}>
+            <button 
+              className="btn-edit" 
+              onClick={() => router.push(`/edit-program/${program.id}`)}
+            >
               Edit
             </button>
           )}
+          
+          {/* Show Add or Remove based on schedule status */}
+          {isInSchedule ? (
+            <button 
+              className="btn-remove-calendar" 
+              onClick={() => handleRemoveFromSchedule(program.id)}
+            >
+              🗑️ Remove from Schedule
+            </button>
+          ) : (
+            <button 
+              className="btn-add-calendar" 
+              onClick={() => handleAddToSchedule(program.id)}
+            >
+              📅 Add to Schedule
+            </button>
+          )}
         </div>
-
-        {/* Meta Information */}
-        <div className="program-date">Created {formatDate(program.created_at)}</div>
       </div>
     );
   };
@@ -226,7 +338,6 @@ const TrainerProgramsPage = () => {
   }
 
   // For regular users (non-trainers), show simplified view
-    // For regular users (non-trainers), show simplified view
   if (!isTrainer) {
     return (
       <ProtectedRoute>
@@ -256,7 +367,6 @@ const TrainerProgramsPage = () => {
       </ProtectedRoute>
     );
   }
-
 
   // For trainers, show full view with tabs
   return (

@@ -49,4 +49,19 @@ urlpatterns = [
     # Generates: /programs/, /programs/{id}/
     # ========================================
     path('', include(router.urls)),
+
+    # ========================================
+    # Schedule Endpoints
+    # ========================================
+    path('schedule/generate/', views.generate_schedule, name='generate-schedule'),
+    path('schedule/active/', views.get_active_schedule, name='active-schedule'),
+    path('schedule/workout/<str:date_str>/', views.get_workout_for_date, name='workout-for-date'),
+    path('schedule/deactivate/', views.deactivate_schedule, name='deactivate-schedule'),
+    path('schedule/remove-program/<int:program_id>/', views.remove_program_from_schedule, name='remove-program-from-schedule'),  
+    path('schedule/check-program/<int:program_id>/', views.check_program_in_schedule, name='check-program-in-schedule'),  
+    path('schedule/<int:schedule_id>/update-start-date/', views.update_schedule_start_date),
+
+
+    
 ]
+

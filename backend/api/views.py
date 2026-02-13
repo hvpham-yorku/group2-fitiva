@@ -1,5 +1,6 @@
 import os
 from urllib.parse import urlencode
+from datetime import datetime, timedelta
 
 from django.db.models import Q
 from django.contrib.auth import login, logout, get_user_model
@@ -22,6 +23,7 @@ from .models import (
     CustomUser,
     UserProfile,
     TrainerProfile,
+    UserSchedule,
     WorkoutPlan,
     WorkoutSession,
     WorkoutFeedback,
@@ -35,6 +37,7 @@ from .serializers import (
     UserSignupSerializer,
     UserLoginSerializer,
     UserSerializer,
+    UserScheduleSerializer,
     UserProfileSerializer,
     TrainerProfileSerializer,
     WorkoutPlanSerializer,
@@ -134,6 +137,7 @@ def logout_view(request):
 
 
 @api_view(["GET"])
+@authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def me(request):
     """Return current authenticated user's data."""
@@ -148,7 +152,9 @@ def me(request):
 # ============================================================================
 
 @api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
+
 def create_profile_view(request):
     """Create fitness profile for current user."""
     if UserProfile.objects.filter(user=request.user).exists():
@@ -602,3 +608,387 @@ def password_reset(request):
     """
     # Implementation pending
     return Response({"ok": True})
+
+# add schedule views
+
+# ============================================================================
+# SCHEDULE VIEWS
+# ============================================================================
+
+@api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def generate_schedule(request):
+    """
+    Add a program to the user's schedule (or create new schedule).
+    Merges with existing schedule if one exists.
+    """
+    program_id = request.data.get('program_id')
+    start_date_str = request.data.get('start_date')
+    rest_days = request.data.get('rest_days', [])
+    
+    if not program_id:
+        return Response(
+            {"error": "program_id is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        program = WorkoutPlan.objects.get(id=program_id, is_deleted=False)
+    except WorkoutPlan.DoesNotExist:
+        return Response(
+            {"error": "Program not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Check if user already has this program in their schedule
+    try:
+        existing_schedule = UserSchedule.objects.get(user=request.user, is_active=True)
+        if program in existing_schedule.programs.all():
+            return Response(
+                {"error": "This program is already in your schedule"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    except UserSchedule.DoesNotExist:
+        existing_schedule = None
+    
+    # Get program sections (workout days)
+    sections = program.sections.filter(is_rest_day=False).order_by('order')
+    
+    if sections.count() == 0:
+        return Response(
+            {"error": "Program has no workout sections"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Determine start date
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    else:
+        if existing_schedule:
+            start_date = existing_schedule.start_date
+        else:
+            today = datetime.now().date()
+            days_until_monday = (7 - today.weekday()) % 7
+            if days_until_monday == 0:
+                days_until_monday = 7
+            start_date = today + timedelta(days=days_until_monday)
+    
+    # Build schedule for this program
+    days_of_week = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    program_schedule = {}
+    
+    frequency = min(program.weekly_frequency, 7)
+    section_index = 0
+    days_scheduled = 0
+    
+    for day in days_of_week:
+        if day in [d.lower() for d in rest_days]:
+            program_schedule[day] = []
+        elif days_scheduled < frequency and section_index < sections.count():
+            program_schedule[day] = [sections[section_index].id]
+            section_index += 1
+            days_scheduled += 1
+            
+            if section_index >= sections.count():
+                section_index = 0
+        else:
+            program_schedule[day] = []
+    
+    # Merge with existing schedule or create new one
+    if existing_schedule:
+        # Merge the schedules
+        merged_schedule = existing_schedule.weekly_schedule.copy()
+        for day, section_ids in program_schedule.items():
+            if day not in merged_schedule:
+                merged_schedule[day] = []
+            elif merged_schedule[day] == 'rest':
+                merged_schedule[day] = []
+            
+            # Add new sections to this day
+            if isinstance(merged_schedule[day], list):
+                merged_schedule[day].extend(section_ids)
+            else:
+                merged_schedule[day] = section_ids
+        
+        existing_schedule.weekly_schedule = merged_schedule
+        existing_schedule.save()
+        existing_schedule.programs.add(program)
+        
+        schedule = existing_schedule
+    else:
+        # Create new schedule
+        schedule = UserSchedule.objects.create(
+            user=request.user,
+            start_date=start_date,
+            weekly_schedule=program_schedule,
+            is_active=True
+        )
+        schedule.programs.add(program)
+    
+    serializer = UserScheduleSerializer(schedule)
+    return Response({
+        "message": "Program added to your schedule",
+        "schedule": serializer.data
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def remove_program_from_schedule(request, program_id):
+    """Remove a specific program from the user's schedule."""
+    try:
+        schedule = UserSchedule.objects.get(user=request.user, is_active=True)
+    except UserSchedule.DoesNotExist:
+        return Response(
+            {"error": "No active schedule found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    try:
+        program = WorkoutPlan.objects.get(id=program_id)
+    except WorkoutPlan.DoesNotExist:
+        return Response(
+            {"error": "Program not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if program not in schedule.programs.all():
+        return Response(
+            {"error": "Program not in schedule"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Get sections from this program
+    program_sections = list(program.sections.values_list('id', flat=True))
+    
+    # Remove these sections from the weekly schedule
+    updated_schedule = {}
+    for day, section_ids in schedule.weekly_schedule.items():
+        if isinstance(section_ids, list):
+            # Filter out sections from this program
+            updated_schedule[day] = [sid for sid in section_ids if sid not in program_sections]
+        else:
+            updated_schedule[day] = section_ids
+    
+    schedule.weekly_schedule = updated_schedule
+    schedule.programs.remove(program)
+    
+    # If no programs left, deactivate schedule
+    if schedule.programs.count() == 0:
+        schedule.is_active = False
+    
+    schedule.save()
+    
+    return Response({
+        "message": "Program removed from schedule",
+        "programs_remaining": schedule.programs.count()
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def check_program_in_schedule(request, program_id):
+    """Check if a program is in the user's active schedule."""
+    try:
+        schedule = UserSchedule.objects.get(user=request.user, is_active=True)
+        program = WorkoutPlan.objects.get(id=program_id)
+        
+        is_in_schedule = program in schedule.programs.all()
+        
+        return Response({
+            "in_schedule": is_in_schedule,
+            "schedule_id": schedule.id if is_in_schedule else None
+        }, status=status.HTTP_200_OK)
+    except UserSchedule.DoesNotExist:
+        return Response({"in_schedule": False}, status=status.HTTP_200_OK)
+    except WorkoutPlan.DoesNotExist:
+        return Response(
+            {"error": "Program not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@api_view(['GET'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def get_active_schedule(request):
+    """Get user's current active workout schedule with merged programs."""
+    try:
+        schedule = UserSchedule.objects.get(user=request.user, is_active=True)
+        serializer = UserScheduleSerializer(schedule)
+        
+        # Add calendar events for the next 4 weeks
+        calendar_events = []
+        start_date = schedule.start_date
+        days_of_week = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        
+        for week in range(4):
+            for day_index, day_name in enumerate(days_of_week):
+                event_date = start_date + timedelta(days=week * 7 + day_index)
+                section_ids = schedule.weekly_schedule.get(day_name, [])
+                
+                if not section_ids or section_ids == 'rest':
+                    calendar_events.append({
+                        'date': event_date.isoformat(),
+                        'day': day_name,
+                        'sections': [],
+                        'section_type': 'rest',
+                        'exercise_count': 0
+                    })
+                else:
+                    # Get all sections for this day
+                    sections = []
+                    total_exercises = 0
+                    
+                    # Handle both list and single ID formats
+                    if not isinstance(section_ids, list):
+                        section_ids = [section_ids] if section_ids != 'rest' else []
+                    
+                    # FIXED: Proper indentation here
+                    for section_id in section_ids:
+                        try:
+                            section = ProgramSection.objects.get(id=section_id)
+                            exercise_count = section.exercises.count()
+                            total_exercises += exercise_count
+                            
+                            sections.append({
+                                'id': section.id,
+                                'name': section.format,
+                                'type': section.type,
+                                'exercise_count': exercise_count,
+                                # NEW: Add program information
+                                'program_id': section.program.id,
+                                'program_name': section.program.name,
+                                'focus': section.program.focus,
+                            })
+                        except ProgramSection.DoesNotExist:
+                            pass
+                    
+                    # FIXED: This needs to be at the same level as the for loop above
+                    calendar_events.append({
+                        'date': event_date.isoformat(),
+                        'day': day_name,
+                        'sections': sections,
+                        'section_type': 'workout' if sections else 'rest',
+                        'exercise_count': total_exercises
+                    })
+        
+        return Response({
+            'schedule': serializer.data,
+            'calendar_events': calendar_events
+        }, status=status.HTTP_200_OK)
+        
+    except UserSchedule.DoesNotExist:
+        return Response({
+            'message': 'No active schedule found',
+            'schedule': None,
+            'calendar_events': []
+        }, status=status.HTTP_200_OK)
+@api_view(['PATCH'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def update_schedule_start_date(request, schedule_id):
+    """Update the start date of a schedule."""
+    try:
+        schedule = UserSchedule.objects.get(id=schedule_id, user=request.user, is_active=True)
+    except UserSchedule.DoesNotExist:
+        return Response(
+            {"error": "Schedule not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    new_start_date = request.data.get('start_date')
+    if not new_start_date:
+        return Response(
+            {"error": "start_date is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        schedule.start_date = datetime.strptime(new_start_date, '%Y-%m-%d').date()
+        schedule.save()
+        
+        return Response({
+            "message": "Start date updated successfully",
+            "new_start_date": schedule.start_date.isoformat()
+        }, status=status.HTTP_200_OK)
+    except ValueError:
+        return Response(
+            {"error": "Invalid date format. Use YYYY-MM-DD"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+@api_view(['GET'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def get_workout_for_date(request, date_str):
+    """Get all workouts for a specific date (merged from multiple programs)."""
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return Response(
+            {"error": "Invalid date format. Use YYYY-MM-DD"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        schedule = UserSchedule.objects.get(user=request.user, is_active=True)
+    except UserSchedule.DoesNotExist:
+        return Response(
+            {"error": "No active schedule found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Calculate which day of the week this is
+    day_name = target_date.strftime('%A').lower()
+    section_ids = schedule.weekly_schedule.get(day_name, [])
+    
+    # Handle both list and single ID formats
+    if not isinstance(section_ids, list):
+        section_ids = [section_ids] if section_ids != 'rest' else []
+    
+    if not section_ids or section_ids == 'rest':
+        return Response({
+            'date': date_str,
+            'is_rest_day': True,
+            'message': 'Rest day - recovery is important!',
+            'workouts': []
+        }, status=status.HTTP_200_OK)
+    
+    # Get all sections for this day
+    workouts = []
+    for section_id in section_ids:
+        try:
+            section = ProgramSection.objects.get(id=section_id)
+            serializer = ProgramSectionSerializer(section)
+            workouts.append({
+                'program_name': section.program.name,
+                'section': serializer.data
+            })
+        except ProgramSection.DoesNotExist:
+            pass
+    
+    return Response({
+        'date': date_str,
+        'is_rest_day': False,
+        'workouts': workouts,
+        'total_exercises': sum(len(w['section']['exercises']) for w in workouts)
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def deactivate_schedule(request):
+    """Deactivate the user's current schedule."""
+    updated_count = UserSchedule.objects.filter(
+        user=request.user,
+        is_active=True
+    ).update(is_active=False)
+    
+    return Response({
+        'message': f'Deactivated {updated_count} schedule(s)',
+        'count': updated_count
+    }, status=status.HTTP_200_OK)

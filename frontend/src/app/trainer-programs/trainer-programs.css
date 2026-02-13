@@ -243,8 +243,8 @@
 
 .program-actions {
   display: flex;
-  gap: 1rem;
-  margin: 1.5rem 0 1rem 0;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
 }
 
 .btn-view,
@@ -278,10 +278,15 @@
 }
 
 .program-date {
+  diaplay: none;
+}
+.program-date-top {
   color: var(--text-tertiary);
-  font-size: 0.85rem;
-  margin-top: 1rem;
-  text-align: center;
+  font-size: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+  text-align: right;
 }
 
 /* Empty State */
@@ -574,3 +579,42 @@
   font-size: 14px;
   margin-bottom: 20px;
 }
+
+/* Add to Calendar button */
+.btn-add-calendar {
+  flex: 1;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.btn-add-calendar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+/* Remove from Calendar button */
+.btn-remove-calendar {
+  flex: 1;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+}
+
+.btn-remove-calendar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
+

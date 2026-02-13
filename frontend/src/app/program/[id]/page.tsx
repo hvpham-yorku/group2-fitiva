@@ -99,6 +99,39 @@ const ProgramDetailPage = () => {
     return `${mins} min ${secs} sec`;
   };
 
+  // handing "Use This Program" action - for schedule generation
+
+  const handleUseProgram = async () => {
+    if (!program) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/generate/`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            program_id: program.id,
+            rest_days: ['sunday']  // Can make this configurable later
+          })
+        }
+      );
+      if (response.ok) {
+        alert('Schedule created successfully! Redirecting to your schedule...');
+        router.push('/schedule');  // Redirect to schedule page
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to create schedule: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error creating schedule:', error);
+      alert('Error creating schedule. Please try again.');
+    }
+  };
+  
   const getFocusIcon = (focus: string) => {
     const icons: { [key: string]: string } = {
       strength: '💪',
@@ -260,7 +293,7 @@ const ProgramDetailPage = () => {
 
             {/* Action Buttons */}
             <div className="action-buttons">
-              <button className="btn-primary btn-large">
+              <button className="btn-primary btn-large" onClick={handleUseProgram}>
                 ⭐ Use This Program
               </button>
               {isOwnProgram && (
