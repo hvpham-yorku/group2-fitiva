@@ -196,17 +196,17 @@ This section documents what changed from the **Iteration 0 plan** to the **Itera
 **Duration:** 30 minutes  
 **Agenda:**
 - Finalized logo + signature color for Fitiva
-- Progress update: **US 1.1 (Register/Login) completed**
+- Progress update: US 1.1 (Register/Login) completed
 
 **Decisions:**
-- Began moving to: **US 1.2, 1.3, 1.4, 1.5, 1.6** (next implementation targets)
+- Began moving to: US 1.2, 1.3, 1.4, 1.5, 1.6 (next implementation targets)
 
 ## Meeting 8 — Feb 6, 2026
 **Attendees:** All team members  
 **Duration:** 30 minutes  
 **Agenda:**
 - Implementation progress updates by each member
-- Status: **US 1.1, 1.2, 1.3 completed by this point**
+- Status: US 1.1, 1.2, 1.3 completed by this point
 
 **Decisions:**
 - Continued implementation on remaining assigned stories and integration work
@@ -221,14 +221,14 @@ This section documents what changed from the **Iteration 0 plan** to the **Itera
 **Decisions:**
 - Finish all ITR1 documentation
 - Final coding touches for US 1.1–1.6
-- Complete remaining work for **US 3.1 and US 3.6**
+- Complete remaining work for US 3.1 and US 3.6
 
 ## Meeting 10 — Feb 13, 2026
 **Attendees:** All team members  
 **Duration:** 30 minutes  
 **Agenda:**
 - Final review of ITR1 documentation for submission readiness
-- Demo/review: features for **US 3.1 & US 3.6**
+- Demo/review: features for US 3.1 & US 3.6
 - Assigned at least one story per member to begin ITR2 planning
 
 **Decisions:**
@@ -249,12 +249,9 @@ This section documents what changed from the **Iteration 0 plan** to the **Itera
 | US 1.4 – View List of Workouts | Ege | 2 days | Completed | Access list of default workouts or ones created by you |
 | US 1.5 – Browse Trainer Created Programs | Shiah | 1 day | Completed | Browse all programs created by you or other trainers and choose which one to use |
 | US 1.6 - Profile-Based Recommendations | Ege | 1 day | Completed | Matching workout programs with the same focus as user's preferred focus |
-| US 3.1 – Record Workout Completion | Raha | 3 days | Partially Implemented | WorkoutSession model created; UI integration pending |
-| US 3.6 – Personalized Calendar Schedule View | Shiah | 3 days | Partially Implemented | Weekly calendar UI planned; dynamic schedule generation pending |
+| US 3.1 – Record Workout Completion | Raha | 3 days | Completed | WorkoutSession model created; UI integration pending |
+| US 3.6 – Personalized Calendar Schedule View | Shiah | 3 days | Completed | Weekly calendar UI planned; dynamic schedule generation pending |
 
-
-## 5.2 Development Tasks
-For each story, we list the key tasks so the TA can see real work.
 
 ### US 1.1 — Register & Log In
 - UI: login/register pages, error messaging, navigation (Est: 6h, Actual: 4h)
@@ -290,14 +287,14 @@ For each story, we list the key tasks so the TA can see real work.
 - Unit tests: rule coverage with multiple profiles (Est: 1h, Actual: 2h)
 
 ### US 3.1 — Record Workout Completion
-- UI: daily workout view + completion action (Est: 5h, Actual: TBD)
-- Domain/service: record completion + basic details (Est: 6h, Actual: TBD)
-- Unit tests: completion record correctness (Est: 2h, Actual: TBD)
+- UI: daily workout view + completion action (Est: 5h, Actual: 5h)
+- Domain/service: record completion + basic details (Est: 6h, Actual: 3h)
+- Unit tests: completion record correctness (Est: 2h, Actual: 2h)
 
 ### US 3.6 — Personalized Schedule (Calendar View)
-- UI: weekly calendar layout + click to view workout details (Est: 8h, Actual: TBD)
-- Logic: generate events from schedule/program selection (Est: 4h, Actual: TBD)
-- Unit tests: schedule generation mapping (Est: 3h, Actual: TBD)
+- UI: weekly calendar layout + click to view workout details (Est: 8h, Actual: 8h)
+- Logic: generate events from schedule/program selection (Est: 4h, Actual: 4h)
+- Unit tests: schedule generation mapping (Est: 3h, Actual: 3h)
 
 ---
 
@@ -328,8 +325,12 @@ For each story, we list the key tasks so the TA can see real work.
 
 ---
 
-# 8. Next Steps (Preview for ITR2)
+# 8. we don't have any concerns with the project or group members.
+
+---
+
+# 9. Next Steps (Preview for ITR2)
 - Identify ITR2 stories (assigned in Meeting 10)
 - Plan improvements:
   - Expand tests and UI polish
-  - Add dashboards/rewards/reflection flows
+  - Add dashboards rewards/reflection flows
