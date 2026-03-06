@@ -7,6 +7,8 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import Notification from '@/components/Notification';
 import ConfirmModal from '@/components/ConfirmModal';
 import './program-details.css';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { programAPI } from '@/library/api';
 
 interface ExerciseSet {
   id: number;
@@ -46,6 +48,30 @@ interface Program {
   sections: ProgramSection[];
 }
 
+interface FeedbackEntry {
+  date: string;
+  difficulty_rating: number;      
+  fatigue_level: number | null;   
+  pain_reported: boolean;         
+  notes: string;
+}
+
+interface ProgramFeedback {
+  program_id: number;             
+  program_name: string;           
+  total_responses: number;        
+  avg_difficulty: number | null;  
+  avg_fatigue: number | null;     
+  pain_reported_count: number;    
+  weekly_trends: Array<{        
+    week: string; 
+    avg_difficulty: number;     
+    response_count: number;       
+  }>;
+  entries: FeedbackEntry[];
+}
+
+
 // Bug fix #2: all days for rest day picker
 const ALL_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -59,6 +85,9 @@ const ProgramDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isInSchedule, setIsInSchedule] = useState(false);
+  const [feedback, setFeedback] = useState<ProgramFeedback | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
+
   
   // Notification state
   const [notification, setNotification] = useState<{
@@ -115,6 +144,44 @@ const ProgramDetailPage = () => {
       console.error('Error checking schedule:', error);
     }
   };
+
+const fetchProgramFeedback = async () => {
+  if (!program?.id || !user?.is_trainer) {
+    console.log('⏭️ Skipping feedback - not trainer or no program');
+    setFeedbackLoading(false);
+    return;
+  }
+  
+  try {
+    console.log('🔍 Fetching feedback for program:', program.id);
+    console.log('👤 Trainer check:', user.id === program.trainer);
+    
+    // DIRECT FETCH - BYPASSES BROKEN api.ts
+    const response = await fetch(`http://localhost:8000/api/trainer/programs/${program.id}/feedback/`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('✅ FEEDBACK DATA:', data);
+    setFeedback(data);
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+  } finally {
+    setFeedbackLoading(false);
+  }
+};
+
+  useEffect(() => {
+    if (program?.id) fetchProgramFeedback();
+  }, [program?.id]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -332,6 +399,77 @@ const ProgramDetailPage = () => {
               </div>
             </div>
 
+{isOwnProgram && (
+  <div className="feedback-summary">
+    <h3 className="feedback-title">📊 Feedback Summary</h3>
+    
+    {feedbackLoading ? (
+      <div className="no-feedback">Loading feedback...</div>
+    ) : feedback ? (
+      <>
+        {/* Stats Row */}
+        <div className="feedback-stats">
+          <div className="stat-item">
+            <span className="stat-icon">📊</span>
+            <div>
+              <span>Avg Difficulty</span>
+              <span>{feedback.avg_difficulty?.toFixed(1) ?? 'N/A'}</span>
+            </div>
+          </div>
+          <div className="stat-item">
+            <span className="stat-icon">😴</span>
+            <div>
+              <span>Avg Fatigue</span>
+              <span>{feedback.avg_fatigue?.toFixed(1) ?? 'N/A'}</span>
+            </div>
+          </div>
+          <div className="stat-item">
+            <span className="stat-icon">💬</span>
+            <div>
+              <span>Total Responses</span>
+              <span>{feedback.total_responses}</span>
+            </div>
+          </div>
+          <div className="stat-item">
+            <span className="stat-icon">⚠️</span>
+            <div>
+              <span>Pain Reports</span>
+              <span>{feedback.pain_reported_count}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Trends Chart */}
+        {feedback?.weekly_trends && feedback.weekly_trends.length > 0 && (
+          <div className="feedback-chart" style={{ minHeight: '300px' }}>
+            <h4>📈 Weekly Difficulty Trends</h4>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={feedback.weekly_trends}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
+                <XAxis dataKey="week" />
+                <YAxis type="number" domain={['auto', 'auto']} />
+                <Tooltip />
+                <Line 
+                  type="monotone" 
+                  dataKey="avg_difficulty" 
+                  stroke="#EF3E36" 
+                  strokeWidth={3}
+                  dot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </>
+    ) : (
+      <div className="no-feedback">
+        No feedback yet. Share your program to get client feedback!
+      </div>
+    )}
+  </div>
+)}
+
+            {/* Dates */}
             <div className="dates-info">
               <div className="date-item">
                 <span className="date-label">Created:</span>

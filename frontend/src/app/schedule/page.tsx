@@ -1040,7 +1040,7 @@ const SchedulePage = () => {
                           {workoutDetail.session_status === 'completed' && !workoutDetail.has_feedback && (
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                               <div className="workout-completed-label" style={{ flex: 1 }}>✅ Completed</div>
-                              <button className="btn-add-feedback" onClick={()=>setShowFeedbackForm(true)}>📝 Rate this Workout</button>
+                              <button className="btn-add-feedback" onClick={()=>setShowFeedbackForm(true)}>📝 Give a feedback</button>
                             </div>
                           )}
                           {workoutDetail.session_status === 'completed' && (

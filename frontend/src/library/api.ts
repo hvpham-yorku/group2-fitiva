@@ -355,8 +355,14 @@ export const programAPI = {
       method: 'DELETE',
     });
   },
-};
 
+  // Get program feedback stats (US 2.4)
+  getProgramFeedback: async (programId: number): Promise<any> => {
+    return fetchAPI(`/trainer/programs/${programId}/feedback/`, { 
+      method: 'GET' 
+    });
+  },
+};
 
 // Trainer API for own profiles only
 export const trainerAPI = {
