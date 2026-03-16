@@ -482,9 +482,11 @@ export default function DashboardPage() {
 
       {/* Header */}
       <header className="dashboard-header">
-        <div className="dashboard-logo">
-          <Logo variant="text" size="sm" />
-        </div>
+        <Link href="/" className="dashboard-logo-link" style={{ textDecoration: 'none' }}>
+          <div className="dashboard-logo">
+            <Logo variant="text" size="sm" />
+          </div>
+        </Link>
 
         <nav className="dashboard-nav">
           <div className="user-menu" ref={dropdownRef}>
@@ -518,6 +520,11 @@ export default function DashboardPage() {
                 <div className="dropdown-user-email">{user.email}</div>
               </div>
               <ul className="dropdown-menu-items">
+                <li>
+                  <Link href="/" className="dropdown-menu-item" onClick={() => setIsDropdownOpen(false)}>
+                    <span>Landing Page</span>
+                  </Link>
+                </li>
                 <li>
                   <Link href="/profile" className="dropdown-menu-item" onClick={() => setIsDropdownOpen(false)}>
                     <span>Profile</span>
