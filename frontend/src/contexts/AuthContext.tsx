@@ -96,7 +96,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setUser(null);
       localStorage.removeItem('user');
-      router.push('/login');
+      router.push('/');
     }
   };
 
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
     if (!user && !isPublicRoute) {
-      router.push('/login');
+      router.push('/');
     } else if (user && (pathname === '/login' || pathname === '/signup')) {
       router.push('/dashboard');
     }
