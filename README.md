@@ -22,20 +22,18 @@ Fitiva is a web application for personalized workout planning, serving both fitn
 
 ## Features
 
-✅ User & trainer authentication  
-✅ Personalized fitness profiles  
-✅ Workout program creation & management  
-✅ Exercise template library  
-✅ Smart workout recommendations  
-✅ Multi-program scheduling  
-✅ Session tracking  
-✅ Light/dark theme support  
+✅ **Landing Page**: Smooth-scroll navigation, dark mode support, and authenticated user states.  
+✅ **User & Trainer Auth**: Role-based access for members and professional trainers.  
+✅ **Dashboard**: Interactive charts (Recharts), workout history tracking, and streak counts.  
+✅ **Smart Scheduling**: Auto-generate 4-week schedules and manage multi-program calendars.  
+✅ **Trainer Tools**: Create custom exercise templates and receive anonymized trainee feedback.  
+✅ **Minimalist UI**: Modern design focused on reducing "fitness clutter."
 
 ---
 
 ## Tech Stack
 
-- **Frontend**: Next.js 16.1.6, React 19.2.3, TypeScript
+- **Frontend**: Next.js 16, React 19
 - **Backend**: Django 4.2.8, Django REST Framework
 - **Database**: MySQL 8.0
 - **DevOps**: Docker Compose
@@ -78,11 +76,16 @@ docker-compose exec backend python manage.py migrate
 - **Backend API**: http://localhost:8000/api/
 - **Django Admin**: http://localhost:8000/admin/ (optional)
 
+- Default Login:
+  - Username: User_TA
+  - Password: TestingTA123!
+  - More default accounts info in GitHub WIKI - SETUP Seciton
+
 ---
 
 ## Testing
 
-Run all 40 unit tests:
+Run all 40+ unit tests:
 
 ```bash
 docker-compose exec backend python manage.py test api
