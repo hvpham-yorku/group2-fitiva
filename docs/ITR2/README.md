@@ -91,13 +91,13 @@ Everything runs automatically on container startup:
 ```bash
 docker exec -it fitiva-backend python manage.py shell -c "from api.models import CustomUser; accounts = ['User_TA', 'Trainer_TA', 'admin', 'trainer_TA2']; [ (u.set_password('TestingTA123!'), u.save()) for u in CustomUser.objects.filter(username__in=accounts) ]; print('All test passwords updated successfully!')"
 ```
-Simply proceed to Step 7 to access the application.
+After that, proceed to Step 7 to access the application.
 
 ---
 
 ## Step 7: Default Login Credentials
 
-After the docker automatically loads seed data, you can log in with these accounts:
+After the docker automatically loads seed data and you run the command given above, you can log in with these accounts:
 
 Regular User:
 ```
