@@ -98,26 +98,26 @@ After the docker automatically loads seed data, you can log in with these accoun
 
 Regular User:
 ```
-Username: UserTA
-Password: UserTA123!
+Username: User_TA
+Password: TestingTA123!
 ```
 
 Trainer Account 1:
 ```
-Username: TrainerTA
-Password: TrainerTA123!
+Username: Trainer_TA
+Password: TestingTA123!
 ```
 
 Trainer Account 2:
 ```
-Username: trainerTA2
-Password: TrainerTA2123!
+Username: trainer_TA2
+Password: TestingTA123!
 ```
 
 Admin Panel (if needed, localhost:8000/admin):
 ```
 Username: admin
-Password: admin123!
+Password: TestingTA123!
 ```
 
 ---
