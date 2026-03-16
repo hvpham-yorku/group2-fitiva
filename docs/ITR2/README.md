@@ -87,7 +87,7 @@ Everything runs automatically on container startup:
 - Exercise seed data
 - Default user/trainer accounts
 
-Run the command pasted below in the terminal while on the root of the project:
+**IMPORTANT:** Run the command pasted below in the terminal while on the root of the project:
 ```bash
 docker exec -it fitiva-backend python manage.py shell -c "from api.models import CustomUser; accounts = ['User_TA', 'Trainer_TA', 'admin', 'trainer_TA2']; [ (u.set_password('TestingTA123!'), u.save()) for u in CustomUser.objects.filter(username__in=accounts) ]; print('All test passwords updated successfully!')"
 ```
