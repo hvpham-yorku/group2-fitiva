@@ -386,6 +386,18 @@ class UserSchedule(models.Model):
         help_text="Whether this is the user's active schedule",
     )
 
+    # ── NEW (US story: accept/reject/lock adjustments) ────────────────────
+    # When True, the AI suggestion system will not propose or apply any changes
+    # for the current cycle. The user can toggle this on/off at any time via
+    # the Lock Plan button in the schedule header.
+    is_locked = models.BooleanField(
+        default=False,
+        help_text=(
+            "When True, AI-suggested schedule adjustments are paused. "
+            "The user has explicitly locked this schedule for the current cycle."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

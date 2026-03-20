@@ -43,6 +43,7 @@ interface Schedule {
   end_date?: string;
   weekly_schedule: { [key: string]: number[] | string };
   is_active: boolean;
+  is_locked?: boolean; // ← NEW
   created_at: string;
   is_adjusted?: boolean;
   original_weekly_schedule?: { [key: string]: number[] | string };
@@ -61,16 +62,15 @@ interface NextWeekChange {
   reason?: string;
 }
 
-// ── NEW: Rich recovery option returned from backend ────────────────────────
 export interface RecoveryOption {
   id: 'rest_next' | 'shorter_workout' | 'lighter_focus' | 'rest_same_day' | 'keep_going';
   label: string;
   description: string;
   icon: string;
-  affected_day: string | null;   // which day changes
-  affected_date: string | null;  // ISO date that changes
+  affected_day: string | null;
+  affected_date: string | null;
   change_type: 'rest' | 'shorter' | 'lighter' | 'none';
-  duration_minutes?: number;     // for shorter_workout option
+  duration_minutes?: number;
 }
 
 interface ScheduleSuggestion {
@@ -80,7 +80,7 @@ interface ScheduleSuggestion {
   avg_fatigue: number;
   pain_reported: boolean;
   pain_day: string | null;
-  pain_session_date: string | null;        // ← ISO date of the session that had pain
+  pain_session_date: string | null;
   pain_next_workout_day: string | null;
   pain_next_workout_date: string | null;
   pain_day_cleared: string | null;
@@ -108,20 +108,12 @@ const ADJUSTMENT_META: Record<string, { emoji: string; label: string; color: str
   none:      { emoji: '✅', label: 'No Changes Needed',    color: '#6b7280' },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER: given the weekly_schedule and a pain day, find the CORRECT next
-// workout day — not a hardcoded +2 offset.
-// This mirrors the fix that also needs to happen in the backend.
-// ─────────────────────────────────────────────────────────────────────────────
 export function findNextWorkoutDay(
   weeklySchedule: { [key: string]: number[] | string },
   painDay: string
 ): string | null {
   const painIdx = DAY_INDEX[painDay.toLowerCase()];
   if (painIdx === undefined) return null;
-
-  // Walk forward through the week (wrapping around) to find the next day
-  // that has at least one program assigned (array with length > 0) and is not 'rest'
   for (let offset = 1; offset <= 7; offset++) {
     const candidateDay = DAYS_OF_WEEK[(painIdx + offset) % 7];
     const slot = weeklySchedule[candidateDay];
@@ -129,10 +121,9 @@ export function findNextWorkoutDay(
       Array.isArray(slot) ? slot.length > 0 : (slot !== 'rest' && slot !== '' && slot != null);
     if (isWorkout) return candidateDay;
   }
-  return null; // full rest week — shouldn't happen
+  return null;
 }
 
-// Returns true if the given day name is a workout day in the schedule
 function _isWorkoutDayInSchedule(
   weeklySchedule: { [key: string]: number[] | string },
   day: string
@@ -143,10 +134,6 @@ function _isWorkoutDayInSchedule(
   return slot !== 'rest' && slot !== '';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER: build the recovery options array on the frontend as a fallback
-// (backend should return these; this is a safety net / preview).
-// ─────────────────────────────────────────────────────────────────────────────
 export function buildRecoveryOptions(
   painDay: string,
   nextWorkoutDay: string,
@@ -246,7 +233,6 @@ const SchedulePage = () => {
 
   const [suggestion, setSuggestion] = useState<ScheduleSuggestion | null>(null);
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
-  // ← NEW: which recovery option the user has selected
   const [selectedRecoveryOption, setSelectedRecoveryOption] = useState<RecoveryOption | null>(null);
   const [applyingRecovery, setApplyingRecovery] = useState(false);
 
@@ -254,6 +240,10 @@ const SchedulePage = () => {
   const [showNextWeekBanner, setShowNextWeekBanner] = useState(false);
 
   const [monthOffset, setMonthOffset] = useState(0);
+
+  // ── NEW: Lock state ──────────────────────────────────────────────────────
+  const [scheduleLocked, setScheduleLocked] = useState(false);
+  const [lockingSchedule, setLockingSchedule] = useState(false);
 
   useEffect(() => { fetchSchedule(); }, []);
 
@@ -266,6 +256,10 @@ const SchedulePage = () => {
       if (response.ok) {
         const data = await response.json();
         setScheduleData(data);
+        // ── Sync lock status from backend ──────────────────────────────────
+        if (data.schedule?.is_locked !== undefined) {
+          setScheduleLocked(data.schedule.is_locked);
+        }
         if (data.next_week_changes && data.next_week_changes.length > 0) {
           setNextWeekChanges(data.next_week_changes);
           setShowNextWeekBanner(true);
@@ -275,6 +269,40 @@ const SchedulePage = () => {
       console.error('Error fetching schedule:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── NEW: Toggle lock via backend ─────────────────────────────────────────
+  const handleToggleLock = async () => {
+    if (!scheduleData?.schedule) return;
+    setLockingSchedule(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/${scheduleData.schedule.id}/lock/`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ locked: !scheduleLocked }),
+        }
+      );
+      if (!res.ok) throw new Error();
+      const newLocked = !scheduleLocked;
+      setScheduleLocked(newLocked);
+      setScheduleData(prev =>
+        prev && prev.schedule
+          ? { ...prev, schedule: { ...prev.schedule, is_locked: newLocked } }
+          : prev
+      );
+      showSuccess(
+        newLocked
+          ? '🔒 Schedule locked — AI adjustments paused for next cycle.'
+          : '🔓 Schedule unlocked — AI adjustments are enabled again.'
+      );
+    } catch {
+      showError('Could not update lock status. Please try again.');
+    } finally {
+      setLockingSchedule(false);
     }
   };
 
@@ -341,20 +369,17 @@ const SchedulePage = () => {
       if (response.ok) {
         showSuccess('End date updated!');
         setEditingEndDate(false);
-        // Immediately reflect the new end date in local state
         setScheduleData(prev =>
           prev && prev.schedule
             ? { ...prev, schedule: { ...prev.schedule, end_date: newEndDate } }
             : prev
         );
-        // Refresh from server — if server returns end_date correctly this will also work
         const refreshed = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/active`,
           { credentials: 'include' }
         );
         if (refreshed.ok) {
           const data = await refreshed.json();
-          // If the server didn't return end_date, keep our optimistic value
           if (data.schedule && !data.schedule.end_date) {
             data.schedule.end_date = newEndDate;
           }
@@ -427,21 +452,13 @@ const SchedulePage = () => {
     } catch { showError('Could not revert schedule.'); }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // PAIN FIX: Derive pain_day from the exact ISO date the user just rated.
-  // Never trust the backend's strftime output or "today" — both can produce
-  // the wrong weekday due to timezone offsets.
-  // ─────────────────────────────────────────────────────────────────────────
   const patchPainDaySuggestion = (
     raw: ScheduleSuggestion,
     weeklySchedule: { [key: string]: number[] | string },
-    ratedDateStr?: string,          // ISO date of the session being rated e.g. "2026-03-10"
+    ratedDateStr?: string,
   ): ScheduleSuggestion => {
     if (!raw.pain_reported) return raw;
 
-    // Step 1 — get pain_day from the rated session date (most reliable source).
-    // Priority: ratedDateStr (just submitted) > pain_session_date (from backend)
-    // Both use parseLocalDate which is timezone-safe (new Date(y, m-1, d)).
     let painDay: string;
     const sourceDateStr = ratedDateStr ?? raw.pain_session_date ?? null;
     if (sourceDateStr) {
@@ -453,11 +470,9 @@ const SchedulePage = () => {
       return raw;
     }
 
-    // Step 2 — find the correct next workout day by walking the schedule
     const correctNextWorkout = findNextWorkoutDay(weeklySchedule, painDay);
     if (!correctNextWorkout) return raw;
 
-    // Step 3 — compute next workout ISO date
     let nextWorkoutDate: string | null = null;
     const today = new Date();
     for (let i = 1; i <= 14; i++) {
@@ -474,7 +489,6 @@ const SchedulePage = () => {
       }
     }
 
-    // Step 4 — build recovery options with the corrected pain day
     const options = buildRecoveryOptions(painDay, correctNextWorkout, nextWorkoutDate);
 
     return {
@@ -487,12 +501,16 @@ const SchedulePage = () => {
     };
   };
 
-  // dateStr = the ISO date of the workout session the user just rated.
-  // This is the source of truth for pain_day — avoids all timezone/strftime issues.
+  // ── NEW: Guard suggestions when schedule is locked ───────────────────────
   const fetchScheduleSuggestion = async (ratedDateStr?: string) => {
     if (!scheduleData?.schedule) return;
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedule/regenerate/preview/`, { method: 'POST', credentials: 'include' });
+      // ── 423 = backend confirmed schedule is locked ──────────────────────
+      if (res.status === 423) {
+        showInfo('🔒 Your schedule is locked — AI adjustments are paused for this cycle.');
+        return;
+      }
       const data = await res.json();
       if (!res.ok || !data.regenerated) return;
       const patched = patchPainDaySuggestion(data, scheduleData.schedule.weekly_schedule, ratedDateStr);
@@ -501,7 +519,6 @@ const SchedulePage = () => {
     } catch { /* silent */ }
   };
 
-  // ── Apply a specific recovery option chosen by the user ──────────────────
   const handleApplyRecoveryOption = async (option: RecoveryOption) => {
     if (!suggestion) return;
     setApplyingRecovery(true);
@@ -549,7 +566,6 @@ const SchedulePage = () => {
   };
 
   const handleAcceptSuggestion = async () => {
-    // If it's a pain suggestion, require the user to pick an option
     if (suggestion?.adjustment === 'pain' && suggestion.recovery_options?.length > 0) {
       if (!selectedRecoveryOption) {
         showError('Please choose one of the recovery options below.');
@@ -558,10 +574,16 @@ const SchedulePage = () => {
       await handleApplyRecoveryOption(selectedRecoveryOption);
       return;
     }
-    // Non-pain path — original apply flow
     setApplyingRegen(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedule/regenerate/apply/`, { method: 'POST', credentials: 'include' });
+      // ── 423 guard on apply too ───────────────────────────────────────────
+      if (res.status === 423) {
+        showInfo('🔒 Schedule is locked — unlock it to apply changes.');
+        setShowSuggestionModal(false);
+        setSuggestion(null);
+        return;
+      }
       const data = await res.json();
       if (!res.ok) { showError(data.error || 'Failed to apply changes'); return; }
       showSuccess(`✅ Schedule updated! ${data.reason}`);
@@ -571,22 +593,40 @@ const SchedulePage = () => {
     finally { setApplyingRegen(false); }
   };
 
+  // ── NEW: Rich dismiss messaging explains what the user is opting out of ──
   const handleDismissSuggestion = () => {
     setShowSuggestionModal(false);
     setSuggestion(null);
     setSelectedRecoveryOption(null);
-    showInfo('Suggestion dismissed — your schedule was not changed.');
+
+    if (suggestion?.adjustment === 'pain') {
+      showInfo('⚠️ Suggestion dismissed — pain flag noted but no changes made. Monitor how you feel.');
+    } else if (suggestion?.adjustment === 'recovery' || suggestion?.adjustment === 'reduced') {
+      showInfo('📋 Dismissed — schedule unchanged. Consider reducing intensity manually if fatigue continues.');
+    } else if (suggestion?.adjustment === 'increased') {
+      showInfo('📋 Dismissed — progressive overload suggestion skipped. Keep up the great work!');
+    } else {
+      showInfo('Suggestion dismissed — your schedule was not changed.');
+    }
   };
 
+  // ── NEW: Guard regenerate button when locked ─────────────────────────────
   const handleRegenerateSchedule = async () => {
     if (!scheduleData?.schedule) return;
+    if (scheduleLocked) {
+      showInfo('🔒 Schedule is locked. Unlock it to allow AI adjustments.');
+      return;
+    }
     setRegenerating(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedule/regenerate/preview/`, { method: 'POST', credentials: 'include' });
+      if (res.status === 423) {
+        showInfo('🔒 Your schedule is locked — AI adjustments are paused for this cycle.');
+        return;
+      }
       const data = await res.json();
       if (!res.ok) { showError(data.error || 'Failed to analyze schedule'); return; }
       if (!data.regenerated) { showInfo(data.message || 'No recent feedback found. Complete workouts and rate them first.'); return; }
-      // Pass selectedDate so pain_day is derived from the clicked session, not "today"
       const patched = patchPainDaySuggestion(data, scheduleData.schedule.weekly_schedule, selectedDate ?? undefined);
       setSuggestion(patched);
       setShowSuggestionModal(true);
@@ -606,14 +646,12 @@ const SchedulePage = () => {
       });
       if (!res.ok) throw new Error('Failed to submit feedback');
       showSuccess(editingFeedback ? 'Feedback updated! ✏️' : 'Feedback submitted! 🙌');
-      setShowFeedbackForm(false); 
+      setShowFeedbackForm(false);
       setShowWorkoutModal(false);
       const hadPain = feedbackPain;
-      const wasEditing = editingFeedback; 
+      const wasEditing = editingFeedback;
       resetFeedbackForm();
       await fetchSchedule();
-      // Always trigger suggestion when pain is reported — pass the exact session
-      // date so the modal shows the correct rated day, not "today"
       if (!wasEditing && hadPain === true) await fetchScheduleSuggestion(dateStr);
     } catch { showError('Could not submit feedback. Please try again.'); }
     finally { setSubmittingFeedback(false); }
@@ -750,11 +788,46 @@ const SchedulePage = () => {
                 )}
               </div>
               <div className="schedule-header-actions">
-                <button className="btn-regenerate" onClick={handleRegenerateSchedule} disabled={regenerating} title="Analyzes your last 7 days of feedback and suggests adjustments">
+                {/* ── NEW: Lock Plan button ──────────────────────────────── */}
+                <button
+                  className="btn-regenerate"
+                  onClick={handleToggleLock}
+                  disabled={lockingSchedule}
+                  title={
+                    scheduleLocked
+                      ? 'Schedule is locked — click to allow AI adjustments again'
+                      : 'Lock schedule to prevent AI suggestions for next cycle'
+                  }
+                  style={scheduleLocked ? {
+                    background: 'var(--bg-tertiary)',
+                    color: '#f59e0b',
+                    border: '2px solid #f59e0b',
+                  } : undefined}
+                >
+                  {lockingSchedule ? '⏳' : scheduleLocked ? '🔒 Locked' : '🔓 Lock Plan'}
+                </button>
+
+                <button
+                  className="btn-regenerate"
+                  onClick={handleRegenerateSchedule}
+                  disabled={regenerating || scheduleLocked}
+                  title={
+                    scheduleLocked
+                      ? 'Unlock your schedule to allow AI adjustments'
+                      : 'Analyzes your last 7 days of feedback and suggests adjustments'
+                  }
+                  style={scheduleLocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                >
                   {regenerating ? '⏳ Analyzing...' : '🔄 Adjust Schedule'}
                 </button>
+
                 {schedule.is_adjusted && (
-                  <button className="btn-regenerate" onClick={() => setShowRevertConfirm(true)} style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '2px solid var(--border-medium)' }} title="Revert to your original default schedule">
+                  <button
+                    className="btn-regenerate"
+                    onClick={() => setShowRevertConfirm(true)}
+                    style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '2px solid var(--border-medium)' }}
+                    title="Revert to your original default schedule"
+                  >
                     ↩ Default Schedule
                   </button>
                 )}
@@ -813,7 +886,17 @@ const SchedulePage = () => {
 
             <h3 className="calendar-title" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               4-Week Schedule
-              {showNextWeekBanner && nextWeekChanges && nextWeekChanges.length > 0 && (
+              {scheduleLocked && (
+                <span style={{
+                  background: '#78350f', color: '#fcd34d',
+                  borderRadius: '6px', padding: '0.15rem 0.6rem',
+                  fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em',
+                  textTransform: 'uppercase', verticalAlign: 'middle',
+                }}>
+                  🔒 Locked
+                </span>
+              )}
+              {!scheduleLocked && showNextWeekBanner && nextWeekChanges && nextWeekChanges.length > 0 && (
                 <span style={{
                   background: '#1d4ed8', color: '#bfdbfe',
                   borderRadius: '6px', padding: '0.15rem 0.6rem',
@@ -858,9 +941,7 @@ const SchedulePage = () => {
                           </div>
                           {!isInRange ? (
                             <div className="day-content">
-                              <div className="outside-schedule-indicator">
-                                <span>—</span>
-                              </div>
+                              <div className="outside-schedule-indicator"><span>—</span></div>
                             </div>
                           ) : (
                             <div className="day-content">
@@ -906,7 +987,6 @@ const SchedulePage = () => {
                 </div>
               );
             })}
-
           </div>
 
           {/* ── Workout Detail Modal ─────────────────────────────────────── */}
@@ -1030,7 +1110,6 @@ const SchedulePage = () => {
             </div>
           )}
 
-
           {/* ── Suggestion / Pain Recovery Modal ────────────────────────── */}
           {showSuggestionModal && suggestion && suggestionMeta && (
             <div className="modal-overlay" onClick={handleDismissSuggestion}>
@@ -1049,7 +1128,6 @@ const SchedulePage = () => {
                     {suggestion.reason}
                   </p>
 
-                  {/* Pain day context */}
                   {isPainSuggestion && suggestion.pain_day && (
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#450a0a', border: '1px solid #b91c1c', borderRadius: '8px', padding: '0.6rem 0.85rem', marginBottom: '1.1rem' }}>
                       <span style={{ fontSize: '1.2rem' }}>⚠️</span>
@@ -1066,7 +1144,6 @@ const SchedulePage = () => {
                     </div>
                   )}
 
-                  {/* Stats row (non-pain) */}
                   {!isPainSuggestion && (
                     <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
                       {[{ label: 'Stress Score', value: suggestion.stress_score, icon: '📊' }, { label: 'Avg Difficulty', value: suggestion.avg_difficulty, icon: '💪' }, { label: 'Avg Fatigue', value: suggestion.avg_fatigue, icon: '😓' }].map((stat) => (
@@ -1079,7 +1156,6 @@ const SchedulePage = () => {
                     </div>
                   )}
 
-                  {/* ── PAIN: Recovery Option Cards ─────────────────────── */}
                   {isPainSuggestion && suggestion.recovery_options?.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '1.25rem' }}>
                       <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.2rem' }}>
@@ -1132,7 +1208,6 @@ const SchedulePage = () => {
                     </div>
                   )}
 
-                  {/* Non-pain: what will change */}
                   {!isPainSuggestion && (
                     <div style={{ background: 'var(--bg-tertiary)', borderRadius: '8px', padding: '0.85rem 1rem', marginBottom: '1.5rem', border: `1px solid ${suggestionMeta.color}44` }}>
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>What will change</p>
@@ -1143,10 +1218,15 @@ const SchedulePage = () => {
                         {suggestion.adjustment === 'none'      && 'No changes will be made — your current schedule is well-balanced.'}
                       </p>
                       <p style={{ fontSize: '0.8rem', color: '#60a5fa', marginTop: '0.5rem', marginBottom: 0 }}>ℹ️ Changes apply from <strong>next week</strong> — your current week is not affected.</p>
+                      {/* ── NEW: Dismiss impact messaging ───────────────── */}
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.4rem', marginBottom: 0, fontStyle: 'italic' }}>
+                        {suggestion.adjustment === 'recovery' && 'Dismissing this will keep your current workload — monitor fatigue carefully.'}
+                        {suggestion.adjustment === 'reduced'  && 'Dismissing this keeps your full schedule — consider reducing session intensity manually if needed.'}
+                        {suggestion.adjustment === 'increased' && 'Dismissing this skips the extra workout day — no changes will be made.'}
+                      </p>
                     </div>
                   )}
 
-                  {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
                     <button onClick={handleDismissSuggestion} style={{ flex: 1, padding: '0.7rem', borderRadius: '8px', border: '2px solid var(--border-medium)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
                       Dismiss

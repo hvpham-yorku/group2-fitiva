@@ -9,8 +9,7 @@ from . import views
 #   POST /programs/           → create
 #   GET  /programs/{id}/      → retrieve
 #   PUT  /programs/{id}/      → update
-#   DELETE /programs/{id}/    → destroy  ← this was previously shadowed by the
-#                                           manual get_program_detail path (now removed)
+#   DELETE /programs/{id}/    → destroy
 # ============================================================================
 router = DefaultRouter()
 router.register(r'programs', views.WorkoutProgramViewSet, basename='program')
@@ -55,8 +54,6 @@ urlpatterns = [
 
     # ========================================================================
     # Programs & Recommendations
-    # NOTE: get_program_detail has been removed — the router's retrieve action
-    # now handles GET /programs/{id}/ and avoids shadowing DELETE/PUT.
     # ========================================================================
     path('recommendations/', views.get_recommendations, name='recommendations'),
 
@@ -78,6 +75,9 @@ urlpatterns = [
     path('schedule/<int:schedule_id>/update-start-date/', views.update_schedule_start_date,  name='update-schedule-start-date'),
     path('schedule/<int:schedule_id>/update-end-date/',   views.update_schedule_end_date,    name='update-schedule-end-date'),
 
+    # Schedule — Lock / Unlock  ← NEW (US: accept/reject/lock adjustments)
+    path('schedule/<int:schedule_id>/lock/', views.lock_schedule, name='lock-schedule'),
+
     # Schedule — Regeneration (US 2.3)
     # Two-step flow: preview (no save) → user accepts → apply (saves)
     path('schedule/regenerate/preview/', views.regenerate_schedule_preview,  name='regenerate-schedule-preview'),
@@ -95,7 +95,7 @@ urlpatterns = [
     path('sessions/undo/<str:date_str>/',     views.undo_workout_session,     name='undo-session'),
     path('sessions/history/',                 views.workout_history,          name='session-history'),
     path('sessions/feedback/<str:date_str>/', views.workout_feedback,         name='session-feedback'),
-    
+
     # Other
     path('dashboard/summary/', views.dashboard_summary, name='dashboard-summary'),
 ]
