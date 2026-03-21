@@ -408,3 +408,73 @@ class UserSchedule(models.Model):
     def __str__(self):
         program_names = ', '.join([p.name for p in self.programs.all()[:3]])
         return f"{self.user.username}'s schedule: {program_names}"
+
+
+# ─────────────────────────────────────────────────────────
+# US 4.1 – Earn Points for Workout Completion
+# ─────────────────────────────────────────────────────────
+
+class UserPoints(models.Model):
+    """Tracks the total gamification points for a user."""
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='points',
+    )
+    total_points = models.IntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_points'
+
+    def __str__(self):
+        return f"{self.user.username} – {self.total_points} pts"
+
+
+class PointTransaction(models.Model):
+    """Records each time points were awarded so we can prevent duplicates."""
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='point_transactions',
+    )
+    session = models.OneToOneField(
+        WorkoutSession,
+        on_delete=models.CASCADE,
+        related_name='point_transaction',
+        null=True,
+        blank=True,
+    )
+    points_awarded = models.IntegerField(default=0)
+    reason = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'point_transactions'
+
+    def __str__(self):
+        return f"{self.user.username} +{self.points_awarded} ({self.reason})"
+
+
+# ─────────────────────────────────────────────────────────
+# US 4.2 – Unlock Achievement Badges
+# ─────────────────────────────────────────────────────────
+
+class UserBadge(models.Model):
+    """Records which badges a user has earned."""
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='badges',
+    )
+    # badge_id matches a key in BADGE_DEFINITIONS (see views.py / rewards helper)
+    badge_id = models.CharField(max_length=50)
+    earned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'user_badges'
+        # A user can only earn each badge once
+        unique_together = [('user', 'badge_id')]
+
+    def __str__(self):
+        return f"{self.user.username} – {self.badge_id}"

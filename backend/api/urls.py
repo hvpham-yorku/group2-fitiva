@@ -98,4 +98,10 @@ urlpatterns = [
     # ========================================
     path("auth/password-reset/", views.password_reset, name="password-reset"),
     path("auth/password-reset-confirm/", views.password_reset_confirm, name="password-reset-confirm"),
+
+    # ========================================
+    # US 4.1 / 4.2 – Rewards (Points & Badges)
+    # ========================================
+    path('rewards/points/', views.get_user_points, name='user-points'),
+    path('rewards/badges/', views.get_user_badges, name='user-badges'),
 ]

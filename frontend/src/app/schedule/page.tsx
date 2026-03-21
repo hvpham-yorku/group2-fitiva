@@ -1050,7 +1050,26 @@ const SchedulePage = () => {
                             <button className="btn-start-workout" onClick={async()=>{try{await startSession(workoutDetail.date);showSuccess('Workout started!');await fetchSchedule();await fetchWorkoutForDate(workoutDetail.date);}catch{showError('Could not start workout.');}}}>▶️ Start Workout</button>
                           )}
                           {workoutDetail.session_status === 'in_progress' && (
-                            <button className="btn-complete-workout" onClick={async()=>{try{await completeSession(workoutDetail.date);showSuccess('Workout completed! 🎉');await fetchSchedule();await fetchWorkoutForDate(workoutDetail.date);setShowFeedbackForm(true);}catch{showError('Could not complete workout.');}}}>✅ Complete</button>
+                            <button className="btn-complete-workout" onClick={async()=>{
+                              try {
+                                const data = await completeSession(workoutDetail.date);
+                                // US 4.2 – badge unlock toast takes priority
+                                if (data.newly_unlocked_badges && data.newly_unlocked_badges.length > 0) {
+                                  const names = data.newly_unlocked_badges
+                                    .map((b: { icon: string; name: string }) => `${b.icon} ${b.name}`)
+                                    .join(', ');
+                                  showSuccess(`Badge${data.newly_unlocked_badges.length > 1 ? 's' : ''} unlocked: ${names}!`);
+                                } else if (data.points_awarded > 0) {
+                                  // US 4.1 – points toast
+                                  showSuccess(`Workout completed! +${data.points_awarded} pts ⭐`);
+                                } else {
+                                  showSuccess('Workout completed! 🎉');
+                                }
+                                await fetchSchedule();
+                                await fetchWorkoutForDate(workoutDetail.date);
+                                setShowFeedbackForm(true);
+                              } catch { showError('Could not complete workout.'); }
+                            }}>✅ Complete</button>
                           )}
                         </div>
                       )}

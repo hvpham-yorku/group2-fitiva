@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileAPI, sessionAPI } from '@/library/api';
+import { profileAPI, sessionAPI, rewardsAPI } from '@/library/api';
 import Logo from '@/components/ui/Logo';
 import SettingsModal from '@/components/ui/SettingsModal';
 import './dashboard.css';
@@ -106,6 +106,9 @@ export default function DashboardPage() {
     // Member workout history + stats
   const [historySessions, setHistorySessions] = useState<WorkoutHistorySession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+
+  // US 4.1 / 4.2 – live badge count for the Achievements card
+  const [achievementsCount, setAchievementsCount] = useState(0);
 
 const buildMonSunWeekData = (sessions: WorkoutHistorySession[]) => {
   const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -241,6 +244,20 @@ useEffect(() => {
   };
   window.addEventListener('focus', onFocus);
   return () => window.removeEventListener('focus', onFocus);
+}, [user]);
+
+// US 4.2 – fetch badge count so the Achievements card shows the real number
+useEffect(() => {
+  const fetchBadgeCount = async () => {
+    if (!user || user.is_trainer) return;
+    try {
+      const data = await rewardsAPI.getBadges() as { total_earned: number };
+      setAchievementsCount(data.total_earned);
+    } catch {
+      // silently ignore – card just shows 0
+    }
+  };
+  fetchBadgeCount();
 }, [user]);
 
   // Close dropdown when clicking outside
@@ -430,8 +447,8 @@ useEffect(() => {
       icon: '🏆',
       iconColor: 'orange',
       label: 'Achievements',
-      value: 0,
-      subtext: 'Unlock your first badge!',
+      value: achievementsCount,
+      subtext: achievementsCount === 0 ? 'Unlock your first badge!' : `${achievementsCount} badge${achievementsCount !== 1 ? 's' : ''} earned!`,
     },
   ];
 
@@ -784,6 +801,14 @@ useEffect(() => {
                   <div className="action-button-title">View Recommendations</div>
                   <div className="action-button-description">
                     Discover workout plans for you
+                  </div>
+                </Link>
+
+                <Link href="/rewards" className="action-button">
+                  <div className="action-button-icon">🏆</div>
+                  <div className="action-button-title">My Rewards</div>
+                  <div className="action-button-description">
+                    View your points and achievement badges
                   </div>
                 </Link>
               </>

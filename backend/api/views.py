@@ -33,6 +33,9 @@ from .models import (
     Exercise,
     ExerciseSet,
     ExerciseTemplate,
+    UserPoints,
+    PointTransaction,
+    UserBadge,
 )
 
 from .serializers import (
@@ -49,6 +52,9 @@ from .serializers import (
     ExerciseSerializer,
     ExerciseSetSerializer,
     ExerciseTemplateSerializer,
+    UserPointsSerializer,
+    PointTransactionSerializer,
+    UserBadgeSerializer,
 )
 
 
@@ -225,6 +231,213 @@ def _build_recovery_options(pain_day, next_workout_day, next_workout_date, curre
     ]
 
     return options
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# US 4.1 – Points helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _calculate_points(session):
+    """
+    Work out how many points a completed session earns.
+    Base: 10 pts.  Long session (>= 45 min): +5.  Streak bonus: +2 per day (max 30).
+    """
+    points = 10  # every completed workout gives 10 base points
+
+    # Bonus for longer sessions
+    duration = session.duration_minutes or 0
+    if duration >= 45:
+        points += 5
+
+    # Count how many consecutive completed days lead into this session
+    streak = 0
+    check_date = session.date - timedelta(days=1)
+    past_dates = (
+        WorkoutSession.objects
+        .filter(user=session.user, is_completed=True)
+        .exclude(pk=session.pk)
+        .order_by('-date')
+        .values_list('date', flat=True)
+    )
+    for d in past_dates:
+        if d == check_date:
+            streak += 1
+            check_date = check_date - timedelta(days=1)
+        else:
+            break  # gap in streak – stop counting
+
+    points += min(streak, 30) * 2  # +2 per streak day, capped at 30
+
+    return points, streak
+
+
+def _award_points(session):
+    """
+    Award points for a completed workout session.
+    Silently returns (0, current_total) if points were already given (duplicate guard).
+    """
+    if PointTransaction.objects.filter(session=session).exists():
+        user_pts, _ = UserPoints.objects.get_or_create(user=session.user)
+        return 0, user_pts.total_points
+
+    points, streak = _calculate_points(session)
+
+    # Build a human-readable reason string
+    reason_parts = ["Completed workout"]
+    if (session.duration_minutes or 0) >= 45:
+        reason_parts.append("long session bonus")
+    if streak > 0:
+        reason_parts.append(f"{streak}-day streak bonus")
+    reason = " + ".join(reason_parts)
+
+    PointTransaction.objects.create(
+        user=session.user,
+        session=session,
+        points_awarded=points,
+        reason=reason,
+    )
+
+    user_pts, _ = UserPoints.objects.get_or_create(user=session.user)
+    user_pts.total_points += points
+    user_pts.save()
+
+    return points, user_pts.total_points
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# US 4.2 – Badge definitions + helper
+# ─────────────────────────────────────────────────────────────────────────────
+
+# All badge metadata lives here – no extra DB table needed for the definitions
+BADGE_DEFINITIONS = {
+    "first_workout": {
+        "name": "First Step",
+        "description": "Complete your very first workout",
+        "icon": "🎉",
+        "category": "milestone",
+    },
+    "five_workouts": {
+        "name": "Getting Started",
+        "description": "Complete 5 workouts total",
+        "icon": "💪",
+        "category": "milestone",
+    },
+    "ten_workouts": {
+        "name": "10 Workout Club",
+        "description": "Complete 10 workouts total",
+        "icon": "🏅",
+        "category": "milestone",
+    },
+    "twenty_five_workouts": {
+        "name": "Dedicated",
+        "description": "Complete 25 workouts total",
+        "icon": "🌟",
+        "category": "milestone",
+    },
+    "fifty_workouts": {
+        "name": "Iron Will",
+        "description": "Complete 50 workouts total",
+        "icon": "🏆",
+        "category": "milestone",
+    },
+    "streak_3": {
+        "name": "3-Day Streak",
+        "description": "Work out 3 days in a row",
+        "icon": "🔥",
+        "category": "streak",
+    },
+    "streak_7": {
+        "name": "Week Warrior",
+        "description": "Work out 7 days in a row",
+        "icon": "⚡",
+        "category": "streak",
+    },
+    "streak_14": {
+        "name": "Fortnight Fighter",
+        "description": "Work out 14 days in a row",
+        "icon": "🌊",
+        "category": "streak",
+    },
+    "streak_30": {
+        "name": "Monthly Legend",
+        "description": "Work out 30 days in a row",
+        "icon": "👑",
+        "category": "streak",
+    },
+}
+
+
+def _check_and_award_badges(user, session):
+    """
+    Check if the user just crossed any badge thresholds after completing a session.
+    Returns a list of newly-unlocked badge dicts for the response payload.
+    unique_together on UserBadge prevents accidental double-awarding.
+    """
+    newly_unlocked = []
+
+    total_completed = WorkoutSession.objects.filter(
+        user=user, is_completed=True
+    ).count()
+
+    # Re-compute streak the same way _calculate_points does
+    streak = 0
+    check_date = session.date - timedelta(days=1)
+    past_dates = (
+        WorkoutSession.objects
+        .filter(user=user, is_completed=True)
+        .exclude(pk=session.pk)
+        .order_by('-date')
+        .values_list('date', flat=True)
+    )
+    for d in past_dates:
+        if d == check_date:
+            streak += 1
+            check_date = check_date - timedelta(days=1)
+        else:
+            break
+    # +1 for the session we just completed
+    streak += 1
+
+    # Milestone badges
+    milestone_map = {
+        1: "first_workout",
+        5: "five_workouts",
+        10: "ten_workouts",
+        25: "twenty_five_workouts",
+        50: "fifty_workouts",
+    }
+    for threshold, badge_id in milestone_map.items():
+        if total_completed >= threshold:
+            badge_obj, created = UserBadge.objects.get_or_create(
+                user=user, badge_id=badge_id
+            )
+            if created:
+                newly_unlocked.append({
+                    "badge_id": badge_id,
+                    **BADGE_DEFINITIONS[badge_id],
+                    "earned_at": badge_obj.earned_at.isoformat(),
+                })
+
+    # Streak badges
+    streak_map = {
+        3: "streak_3",
+        7: "streak_7",
+        14: "streak_14",
+        30: "streak_30",
+    }
+    for threshold, badge_id in streak_map.items():
+        if streak >= threshold:
+            badge_obj, created = UserBadge.objects.get_or_create(
+                user=user, badge_id=badge_id
+            )
+            if created:
+                newly_unlocked.append({
+                    "badge_id": badge_id,
+                    **BADGE_DEFINITIONS[badge_id],
+                    "earned_at": badge_obj.earned_at.isoformat(),
+                })
+
+    return newly_unlocked
 
 
 # AUTHENTICATION VIEWS
@@ -985,6 +1198,13 @@ def complete_workout_session(request, date_str):
         except (UserSchedule.DoesNotExist, ProgramSection.DoesNotExist):
             pass
     session.save()
+
+    # US 4.1 – Award points (duplicate-safe)
+    points_awarded, total_points = _award_points(session)
+
+    # US 4.2 – Check and unlock any newly earned badges
+    newly_unlocked_badges = _check_and_award_badges(request.user, session)
+
     return Response({
         "message": "Workout session completed",
         "date": session.date.isoformat(),
@@ -993,6 +1213,11 @@ def complete_workout_session(request, date_str):
         "duration_minutes": session.duration_minutes,
         "notes": session.notes,
         "plan": session.plan.name if session.plan else None,
+        # US 4.1
+        "points_awarded": points_awarded,
+        "total_points": total_points,
+        # US 4.2
+        "newly_unlocked_badges": newly_unlocked_badges,
     }, status=status.HTTP_200_OK)
 
 
@@ -1633,3 +1858,60 @@ def trainer_program_feedback(request, program_id):
         "avg_fatigue": avg_fatigue, "pain_reported_count": pain_count,
         "weekly_trends": weekly_trends, "entries": entries,
     }, status=status.HTTP_200_OK)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# US 4.1 – GET /api/rewards/points/
+# ─────────────────────────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def get_user_points(request):
+    """
+    Return the authenticated user's current points total and their
+    last 20 transaction records so the frontend can show a history list.
+    """
+    user_pts, _ = UserPoints.objects.get_or_create(user=request.user)
+    transactions = (
+        PointTransaction.objects
+        .filter(user=request.user)
+        .order_by('-created_at')[:20]
+    )
+    return Response({
+        "total_points": user_pts.total_points,
+        "transactions": PointTransactionSerializer(transactions, many=True).data,
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# US 4.2 – GET /api/rewards/badges/
+# ─────────────────────────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def get_user_badges(request):
+    """
+    Return all badge definitions annotated with whether the current user
+    has earned them (earned=True/False) and when they earned them.
+    """
+    earned_qs = UserBadge.objects.filter(user=request.user)
+    earned_map = {b.badge_id: b.earned_at for b in earned_qs}
+
+    result = []
+    for badge_id, info in BADGE_DEFINITIONS.items():
+        is_earned = badge_id in earned_map
+        result.append({
+            "badge_id": badge_id,
+            "name": info["name"],
+            "description": info["description"],
+            "icon": info["icon"],
+            "category": info["category"],
+            "earned": is_earned,
+            "earned_at": earned_map[badge_id].isoformat() if is_earned else None,
+        })
+
+    return Response({
+        "total_earned": len(earned_map),
+        "badges": result,
+    })

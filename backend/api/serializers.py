@@ -583,3 +583,37 @@ class UserScheduleSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Invalid day: {day}")
 
         return value
+
+
+# ─────────────────────────────────────────────────────────
+# US 4.1 / 4.2 – Rewards serializers
+# ─────────────────────────────────────────────────────────
+
+from .models import UserPoints, PointTransaction, UserBadge
+
+
+class UserPointsSerializer(serializers.ModelSerializer):
+    """Serializes a user's current points total."""
+
+    class Meta:
+        model = UserPoints
+        fields = ['id', 'total_points', 'updated_at']
+        read_only_fields = ['id', 'total_points', 'updated_at']
+
+
+class PointTransactionSerializer(serializers.ModelSerializer):
+    """Serializes a single points transaction (one per completed workout)."""
+
+    class Meta:
+        model = PointTransaction
+        fields = ['id', 'points_awarded', 'reason', 'created_at']
+        read_only_fields = fields
+
+
+class UserBadgeSerializer(serializers.ModelSerializer):
+    """Serializes a badge that a user has earned."""
+
+    class Meta:
+        model = UserBadge
+        fields = ['id', 'badge_id', 'earned_at']
+        read_only_fields = fields

@@ -426,3 +426,13 @@ export const sessionAPI = {
     return fetchAPI(`/api/sessions/history/${qs ? `?${qs}` : ""}`, { method: "GET" });
   },
 };
+// ─────────────────────────────────────────────────────────
+// US 4.1 / 4.2 – Rewards API (points + badges)
+// ─────────────────────────────────────────────────────────
+export const rewardsAPI = {
+  /** Returns { total_points, transactions[] } */
+  getPoints: () => fetchAPI('/api/rewards/points/', { method: 'GET' }),
+
+  /** Returns { total_earned, badges[] } where each badge has earned: bool */
+  getBadges: () => fetchAPI('/api/rewards/badges/', { method: 'GET' }),
+};
