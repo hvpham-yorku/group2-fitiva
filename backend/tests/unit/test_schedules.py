@@ -979,11 +979,11 @@ class PainDayDerivationTests(ScheduleBaseTest):
         return self.client.post("/api/schedule/regenerate/preview/")
 
     def test_pain_day_is_tuesday(self):
-        # Find a Tuesday in the past week
         today = date.today()
-        tuesday = today - timedelta(days=(today.weekday() - 1) % 7 + 1)
-        if tuesday >= today:
-            tuesday -= timedelta(days=7)
+        days_back = (today.weekday() - 1) % 7
+        if days_back == 0:
+            days_back = 7
+        tuesday = today - timedelta(days=days_back)
         response = self._pain_on_day(tuesday)
         if response.data.get("regenerated") and response.data.get("pain_reported"):
             self.assertEqual(response.data["pain_day"], "tuesday")
@@ -991,9 +991,10 @@ class PainDayDerivationTests(ScheduleBaseTest):
 
     def test_pain_day_is_thursday(self):
         today = date.today()
-        thursday = today - timedelta(days=(today.weekday() - 3) % 7 + 1)
-        if thursday >= today:
-            thursday -= timedelta(days=7)
+        days_back = (today.weekday() - 3) % 7
+        if days_back == 0:
+            days_back = 7
+        thursday = today - timedelta(days=days_back)
         response = self._pain_on_day(thursday)
         if response.data.get("regenerated") and response.data.get("pain_reported"):
             self.assertEqual(response.data["pain_day"], "thursday")

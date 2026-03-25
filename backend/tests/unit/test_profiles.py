@@ -164,3 +164,20 @@ class UserProfileTests(APITestCase):
         profile = UserProfile.objects.get(user=self.user)
         self.assertEqual(len(profile.fitness_focus), 3)
         self.assertIn("flexibility", profile.fitness_focus)
+
+from repository.stub_repository import StubRepository
+
+class StubInjectionTests(APITestCase):
+    """Verifies that the stub repository can be injected in place of the real DB."""
+
+    def setUp(self):
+        self.repo = StubRepository()  # injecting stub — one line swap
+
+    def test_stub_get_all_users_returns_list(self):
+        users = self.repo.get_all_users()
+        self.assertIsInstance(users, list)
+
+    def test_stub_has_default_content(self):
+        """Stub should have same default content as the real DB seed."""
+        users = self.repo.get_all_users()
+        self.assertGreater(len(users), 0)

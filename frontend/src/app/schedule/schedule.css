@@ -1134,7 +1134,6 @@
   cursor: not-allowed;
 }
 
-
 .adjustment-lock-banner {
   display: flex;
   justify-content: space-between;
@@ -1200,4 +1199,30 @@
   color: var(--text-secondary);
   font-size: 0.84rem;
   line-height: 1.5;
+}
+
+.btn-start-workout:disabled,
+.btn-complete-workout:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(30%);
+}
+
+/* ── Out-of-range calendar days ──────────────────────────── */
+.calendar-day.outside-range {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+  background: var(--bg-secondary);
+  border-color: var(--border-light);
+}
+
+.outside-schedule-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
 }

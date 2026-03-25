@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 import os 
 from pathlib import Path
 
+# ── Database mode ──────────────────────────────────────────────────────────────
+# Change this ONE LINE to switch between real MySQL and stub (in-memory) database (REQ FROM ITR2)
+USE_STUB_DB = False   # Set to True to use stub data (no MySQL needed)
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

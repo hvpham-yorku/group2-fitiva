@@ -243,7 +243,7 @@ const TrainerProgramsPage = () => {
               {program.focus && program.focus.length > 0 ? (
                 program.focus.map((f) => (
                   <span key={f} className="focus-tag-small">
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                    {f.charAt(0).toUpperCase() + f.slice(1) + "\n"}
                   </span>
                 ))
               ) : (

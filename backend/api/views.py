@@ -1,3 +1,8 @@
+# The database source is controlled by repository/__init__.py
+# Switch between real DB and stub by changing ONE line there.
+# By default, using: DBRepository (real MySQL that loads seed data when running docker)
+from repository import Repository; db = Repository()
+
 import os
 from urllib.parse import urlencode
 from datetime import datetime, timedelta
@@ -90,10 +95,8 @@ def _is_workout_day(slot):
 
 def _find_next_workout_day(weekly_schedule, pain_day):
     """
-    BUG FIX: Was previously using a hardcoded +2 day offset which always
-    produced Monday→Wednesday, Tuesday→Thursday regardless of the actual
-    schedule. This version walks forward day by day from the pain day and
-    returns the first day that actually has workout sections assigned.
+    Walk forward day by day from the pain day and return the first day that
+    actually has workout sections assigned.
 
     Returns (day_name, iso_date_str) or (None, None) if no workout days exist.
     """
@@ -108,12 +111,10 @@ def _find_next_workout_day(weekly_schedule, pain_day):
         candidate_day = DAYS_OF_WEEK[(pain_idx + offset) % 7]
         slot = weekly_schedule.get(candidate_day)
         if _is_workout_day(slot):
-            # Compute the ISO date for the next occurrence of candidate_day
-            candidate_weekday = DAYS_OF_WEEK.index(candidate_day)  # 0=monday
-            # today.weekday() is also 0=monday, matching our list
+            candidate_weekday = DAYS_OF_WEEK.index(candidate_day)
             days_until = (candidate_weekday - today.weekday()) % 7
             if days_until == 0:
-                days_until = 7  # next occurrence, not today
+                days_until = 7
             next_date = today + timedelta(days=days_until)
             return candidate_day, next_date.isoformat()
 
@@ -520,19 +521,17 @@ def create_profile_view(request):
 @api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
 def profile_me_view(request):
-    try:
-        profile = request.user.profile
-    except UserProfile.DoesNotExist:
-        return Response({"detail": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
     if request.method == "GET":
-        return Response(UserProfileSerializer(profile).data, status=status.HTTP_200_OK)
-    serializer = UserProfileSerializer(profile, data=request.data, partial=True)
-    try:
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(UserProfileSerializer(profile).data, status=status.HTTP_200_OK)
-    except ValidationError as e:
-        return Response({"errors": format_validation_errors(e)}, status=status.HTTP_400_BAD_REQUEST)
+        profile = db.get_user_profile(request.user.id)
+        if not profile:
+            return Response({"detail": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(profile, status=status.HTTP_200_OK)
+
+    # PUT
+    updated = db.update_user_profile(request.user.id, request.data)
+    if not updated:
+        return Response({"detail": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
+    return Response(updated, status=status.HTTP_200_OK)
 
 
 # PUBLIC PROFILE VIEWS
@@ -540,42 +539,10 @@ def profile_me_view(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_public_profile(request, user_id):
-    try:
-        user = User.objects.get(id=user_id)
-    except User.DoesNotExist:
+    profile = db.get_public_profile(user_id, requesting_user_id=request.user.id)
+    if not profile:
         return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-    is_owner = request.user.id == user.id
-    user_profile = None
-    try:
-        profile = user.profile
-        user_profile = {
-            "age": profile.age,
-            "experience_level": profile.experience_level,
-            "training_location": profile.training_location,
-            "fitness_focus": profile.fitness_focus,
-        }
-    except UserProfile.DoesNotExist:
-        pass
-    trainer_profile = None
-    if user.is_trainer:
-        try:
-            trainer_profile = TrainerProfileSerializer(user.trainer_profile).data
-        except TrainerProfile.DoesNotExist:
-            pass
-    return Response(
-        {
-            "id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "email": user.email if is_owner else None,
-            "is_trainer": user.is_trainer,
-            "is_owner": is_owner,
-            "user_profile": user_profile,
-            "trainer_profile": trainer_profile,
-        },
-        status=status.HTTP_200_OK,
-    )
+    return Response(profile, status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
@@ -608,17 +575,10 @@ def update_trainer_profile(request):
             {"detail": "Only trainers can update trainer profiles"},
             status=status.HTTP_403_FORBIDDEN,
         )
-    try:
-        trainer_profile = request.user.trainer_profile
-    except TrainerProfile.DoesNotExist:
+    updated = db.update_trainer_profile(request.user.id, request.data)
+    if not updated:
         return Response({"detail": "Trainer profile not found"}, status=status.HTTP_404_NOT_FOUND)
-    serializer = TrainerProfileSerializer(trainer_profile, data=request.data, partial=True)
-    try:
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    except ValidationError as e:
-        return Response({"errors": format_validation_errors(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(updated, status=status.HTTP_200_OK)
 
 
 # WORKOUT VIEWSETS
@@ -861,7 +821,6 @@ def generate_schedule(request):
             else:
                 merged_schedule[day] = section_ids
         existing_schedule.weekly_schedule = merged_schedule
-        # Snapshot original schedule on first time only
         if not existing_schedule.original_weekly_schedule:
             existing_schedule.original_weekly_schedule = merged_schedule.copy()
         existing_schedule.save()
@@ -995,8 +954,14 @@ def get_active_schedule(request):
                         'session_status': status_by_date.get(event_date.isoformat()),
                         'has_feedback': feedback_by_date.get(event_date.isoformat(), False),
                     })
+
+        # ── NEW: include is_locked in the schedule payload so the frontend
+        # can sync its lock state on page load without an extra request.
+        schedule_data = serializer.data
+        schedule_data['is_locked'] = schedule.is_locked
+
         return Response(
-            {'schedule': serializer.data, 'calendar_events': calendar_events},
+            {'schedule': schedule_data, 'calendar_events': calendar_events},
             status=status.HTTP_200_OK,
         )
     except UserSchedule.DoesNotExist:
@@ -1036,7 +1001,7 @@ def update_schedule_end_date(request, schedule_id):
         schedule = UserSchedule.objects.get(id=schedule_id, user=request.user, is_active=True)
     except UserSchedule.DoesNotExist:
         return Response({"error": "Schedule not found"}, status=status.HTTP_404_NOT_FOUND)
-    new_end_date = request.data.get('end_date')
+    new_end_date = request.data.get('end_date') or request.data.get('enddate')
     if not new_end_date:
         return Response({"error": "end_date is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
@@ -1053,6 +1018,53 @@ def update_schedule_end_date(request, schedule_id):
     )
 
 
+# ============================================================================
+# NEW: Lock / Unlock schedule  (US: accept/reject/lock adjustments)
+# ============================================================================
+
+@api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def lock_schedule(request, schedule_id):
+    """
+    Toggle the is_locked flag on the user's active schedule.
+
+    Request body:
+        { "locked": true }   — lock   (pauses AI suggestions)
+        { "locked": false }  — unlock (re-enables AI suggestions)
+
+    Response:
+        { "is_locked": <bool>, "message": "<human-readable confirmation>" }
+    """
+    try:
+        schedule = UserSchedule.objects.get(id=schedule_id, user=request.user, is_active=True)
+    except UserSchedule.DoesNotExist:
+        return Response({"error": "Schedule not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    locked = request.data.get('locked')
+    if locked is None:
+        return Response({"error": "'locked' field is required (true or false)"}, status=status.HTTP_400_BAD_REQUEST)
+    if not isinstance(locked, bool):
+        # Accept string values from non-JSON clients as a convenience
+        if str(locked).lower() in ('true', '1'):
+            locked = True
+        elif str(locked).lower() in ('false', '0'):
+            locked = False
+        else:
+            return Response({"error": "'locked' must be a boolean"}, status=status.HTTP_400_BAD_REQUEST)
+
+    schedule.is_locked = locked
+    schedule.save(update_fields=['is_locked', 'updated_at'])
+
+    message = (
+        "Schedule locked — AI adjustments are paused for this cycle."
+        if locked
+        else "Schedule unlocked — AI adjustments are enabled again."
+    )
+
+    return Response({"is_locked": schedule.is_locked, "message": message}, status=status.HTTP_200_OK)
+
+
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1065,7 +1077,6 @@ def get_workout_for_date(request, date_str):
     session_status_val = session.status if session else None
     has_feedback = WorkoutFeedback.objects.filter(session=session).exists() if session else False
 
-    # Load feedback details so the frontend can pre-fill the edit form
     feedback_data = None
     if has_feedback:
         try:
@@ -1238,9 +1249,7 @@ def undo_workout_session(request, date_str):
     except WorkoutSession.DoesNotExist:
         return Response({"error": "No session found for this date"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Remove feedback first if it exists
     WorkoutFeedback.objects.filter(session=session).delete()
-
     session.status = "in_progress"
     session.is_completed = False
     session.save()
@@ -1265,7 +1274,6 @@ def workout_feedback(request, date_str):
     except WorkoutSession.DoesNotExist:
         return Response({"error": "No session found for this date"}, status=status.HTTP_404_NOT_FOUND)
 
-    # ── GET ──────────────────────────────────────────────────────────────────
     if request.method == 'GET':
         try:
             feedback = WorkoutFeedback.objects.get(session=session)
@@ -1273,14 +1281,12 @@ def workout_feedback(request, date_str):
         except WorkoutFeedback.DoesNotExist:
             return Response({"error": "No feedback found for this session"}, status=status.HTTP_404_NOT_FOUND)
 
-    # ── DELETE ───────────────────────────────────────────────────────────────
     if request.method == 'DELETE':
         deleted_count, _ = WorkoutFeedback.objects.filter(session=session).delete()
         if deleted_count == 0:
             return Response({"error": "No feedback found to delete"}, status=status.HTTP_404_NOT_FOUND)
         return Response({"message": "Feedback removed successfully"}, status=status.HTTP_200_OK)
 
-    # ── POST / PATCH ─────────────────────────────────────────────────────────
     if not session.is_completed:
         return Response(
             {"error": "Cannot submit feedback for an incomplete workout session"},
@@ -1338,14 +1344,16 @@ def _analyze_feedback(user):
     Analyze the last 7 days of feedback and compute what the new schedule
     should look like. Returns (schedule, suggestion_dict, error_str).
     Does NOT save anything to the database.
-
-    FIXED: Pain day now uses _find_next_workout_day() instead of a hardcoded
-    +2 day offset that always wrongly produced Monday→Wednesday, Tuesday→Thursday.
     """
     try:
         schedule = UserSchedule.objects.get(user=user, is_active=True)
     except UserSchedule.DoesNotExist:
         return None, None, "No active schedule found"
+
+    # ── NEW: if the user has locked their schedule, surface a clear message
+    # instead of silently returning no suggestion.
+    if schedule.is_locked:
+        return schedule, None, None  # caller will check is_locked separately
 
     week_ago = datetime.now().date() - timedelta(days=7)
     recent_feedback = WorkoutFeedback.objects.filter(
@@ -1365,8 +1373,6 @@ def _analyze_feedback(user):
     avg_fatigue    = sum(fatigue_levels) / len(fatigue_levels)         if fatigue_levels     else avg_difficulty
     stress_score   = (avg_difficulty + avg_fatigue) / 2
 
-    # ── FIXED: find the actual pain day, then walk the schedule for the
-    # correct next workout day (not a hardcoded +2 offset) ──────────────────
     pain_day = None
     pain_session_date      = None
     pain_next_workout_day  = None
@@ -1378,22 +1384,12 @@ def _analyze_feedback(user):
             recent_feedback.filter(pain_reported=True).order_by('-session__date').first()
         )
         if pain_feedback:
-            # Use isoweekday()-based lookup (Monday=1 ... Sunday=7) instead of
-            # strftime('%A').lower() which can be affected by locale/timezone settings
-            # and produce the wrong day name (e.g. "wednesday" for a monday session).
-            weekday_to_name = {
-                1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
-                5: 'friday', 6: 'saturday', 7: 'sunday',
-            }
-            pain_day = weekday_to_name[pain_feedback.session.date.isoweekday()]
-            # Also store the raw ISO date so the frontend can re-derive pain_day
-            # client-side using parseLocalDate (zero timezone offset)
+            pain_day = DAYS_OF_WEEK[pain_feedback.session.date.weekday()]
             pain_session_date = pain_feedback.session.date.isoformat()
             pain_next_workout_day, pain_next_workout_date = _find_next_workout_day(
                 schedule.weekly_schedule, pain_day
             )
-            # Look up the current session_length for the affected program (if any)
-            current_duration = 45  # sensible default
+            current_duration = 45
             day_sections = schedule.weekly_schedule.get(pain_next_workout_day or '', [])
             if isinstance(day_sections, list) and day_sections:
                 try:
@@ -1416,7 +1412,6 @@ def _analyze_feedback(user):
         f"— your schedule looks balanced, no changes needed."
     )
 
-    # Pain takes priority — surface the options modal instead of auto-removing
     if pain_reported and pain_day:
         adjustment = "pain"
         reason = (
@@ -1424,7 +1419,6 @@ def _analyze_feedback(user):
             f"{'Your next workout day is ' + pain_next_workout_day.capitalize() + '.' if pain_next_workout_day else ''} "
             f"Choose how you'd like to handle it below."
         )
-    # Stress-score adjustments (only when no pain)
     elif stress_score >= 4.0:
         days_to_remove = min(2, max(0, len(workout_days) - 2))
         removed = []
@@ -1476,9 +1470,7 @@ def _analyze_feedback(user):
         "avg_difficulty":           round(avg_difficulty, 1),
         "avg_fatigue":              round(avg_fatigue, 1),
         "pain_reported":            pain_reported,
-        # Legacy field kept for non-pain paths
         "pain_day_cleared":         pain_next_workout_day,
-        # New explicit fields
         "pain_day":                 pain_day,
         "pain_session_date":        pain_session_date if pain_reported else None,
         "pain_next_workout_day":    pain_next_workout_day,
@@ -1486,7 +1478,6 @@ def _analyze_feedback(user):
         "recovery_options":         recovery_options,
         "workout_days_count":       workout_days_after,
         "reason":                   reason,
-        # Internal — stripped before sending to frontend
         "_new_schedule":            new_schedule,
     }
     return schedule, suggestion, None
@@ -1498,28 +1489,39 @@ def _analyze_feedback(user):
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def regenerate_schedule_preview(request):
-    """Looks at recent feedback and returns a preview only."""
-    try:
-        active_schedule = UserSchedule.objects.get(user=request.user, is_active=True)
-    except UserSchedule.DoesNotExist:
-        return Response({"error": "No active schedule found"}, status=status.HTTP_404_NOT_FOUND)
+    """
+    Analyze last 7 days of feedback and return a suggestion.
+    Does NOT modify the schedule.
 
-    if _is_adjustment_lock_active(active_schedule):
+    Returns locked=True when the schedule is locked (is_locked) or when a
+    cycle adjustment lock is active, so the frontend can show a clear toast.
+    """
+    schedule, suggestion, error = _analyze_feedback(request.user)
+    if error:
+        return Response({"error": error}, status=status.HTTP_404_NOT_FOUND)
+
+    if schedule and _is_adjustment_lock_active(schedule):
         return Response({
             "message": (
                 f"Your current plan is locked for the next cycle until "
-                f"{active_schedule.adjustments_locked_until.isoformat()}. "
+                f"{schedule.adjustments_locked_until.isoformat()}. "
                 f"Recommended adjustments are paused."
             ),
             "regenerated": False,
             "locked": True,
-            "locked_until": active_schedule.adjustments_locked_until.isoformat(),
-            "lock_note": active_schedule.adjustment_lock_note,
+            "locked_until": schedule.adjustments_locked_until.isoformat(),
+            "lock_note": schedule.adjustment_lock_note,
         }, status=status.HTTP_200_OK)
 
-    schedule, suggestion, error = _analyze_feedback(request.user)
-    if error:
-        return Response({"error": error}, status=status.HTTP_404_NOT_FOUND)
+    if schedule and schedule.is_locked and suggestion is None:
+        return Response({
+            "regenerated": False,
+            "locked": True,
+            "message": (
+                "Your schedule is locked — AI adjustments are paused for this cycle. "
+                "Unlock your schedule to enable suggestions."
+            ),
+        }, status=status.HTTP_200_OK)
 
     if suggestion is None:
         return Response({
@@ -1541,10 +1543,23 @@ def regenerate_schedule_apply(request):
     """
     Re-run the analysis and apply the result (non-pain path only).
     Called when the user clicks "Accept" for stress-score adjustments.
+
+    NEW: blocked when schedule is locked.
     """
     schedule, suggestion, error = _analyze_feedback(request.user)
     if error:
         return Response({"error": error}, status=status.HTTP_404_NOT_FOUND)
+
+    # ── NEW: locked schedule guard ─────────────────────────────────────────
+    if schedule and schedule.is_locked:
+        return Response(
+            {
+                "error": "Schedule is locked. Unlock it to apply AI adjustments.",
+                "locked": True,
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     if suggestion is None:
         return Response({"message": "No recent feedback found.", "regenerated": False}, status=status.HTTP_200_OK)
 
@@ -1560,14 +1575,12 @@ def regenerate_schedule_apply(request):
             status=status.HTTP_423_LOCKED,
         )
 
-    # Pain suggestions go through apply_recovery_option instead
     if suggestion.get('adjustment') == 'pain':
         return Response(
             {"error": "Pain recovery requires choosing an option via /schedule/apply-recovery-option/"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Snapshot original before first adjustment
     if not schedule.original_weekly_schedule:
         schedule.original_weekly_schedule = schedule.weekly_schedule.copy()
 
@@ -1578,7 +1591,6 @@ def regenerate_schedule_apply(request):
     response_data = {k: v for k, v in suggestion.items() if not k.startswith('_')}
     response_data["message"] = "Schedule updated based on your feedback"
 
-    # Build next_week_changes for the banner
     original = schedule.original_weekly_schedule or {}
     next_week_changes = []
     for day in DAYS_OF_WEEK:
@@ -1605,11 +1617,11 @@ def apply_recovery_option(request):
     Apply the specific pain recovery option the user chose in the modal.
 
     option_id values:
-      rest_next      — make the next workout day a rest day
-      shorter_workout — record a duration override for that day (future-session hint)
-      lighter_focus  — swap that day to a mobility/lighter section
-      rest_same_day  — mark the pain day itself as rest
-      keep_going     — no changes
+      rest_next       — make the next workout day a rest day
+      shorter_workout — record a duration override for that day
+      lighter_focus   — swap that day to a mobility/lighter section
+      rest_same_day   — mark the pain day itself as rest
+      keep_going      — no changes
     """
     try:
         schedule = UserSchedule.objects.get(user=request.user, is_active=True)
@@ -1649,7 +1661,6 @@ def apply_recovery_option(request):
             "next_week_changes": [],
         }, status=status.HTTP_200_OK)
 
-    # Snapshot original before first adjustment
     if not schedule.original_weekly_schedule:
         schedule.original_weekly_schedule = schedule.weekly_schedule.copy()
 
@@ -1663,10 +1674,6 @@ def apply_recovery_option(request):
         reason = f"{affected_day.capitalize()} switched to a rest day to support your recovery."
 
     elif option_id == 'shorter_workout' and affected_day and affected_day in DAYS_OF_WEEK:
-        # We keep the section IDs intact so exercises still show up;
-        # the duration hint is stored in schedule.duration_overrides (add this
-        # JSON field to your model if you want to persist it, or use a session note).
-        # For now we annotate the schedule with a day-level duration override.
         overrides = schedule.duration_overrides if hasattr(schedule, 'duration_overrides') and schedule.duration_overrides else {}
         overrides[affected_day] = int(duration_mins) if duration_mins else 27
         if hasattr(schedule, 'duration_overrides'):
@@ -1675,8 +1682,6 @@ def apply_recovery_option(request):
         reason = f"{affected_day.capitalize()}'s workout shortened to {overrides[affected_day]} minutes."
 
     elif option_id == 'lighter_focus' and affected_day and affected_day in DAYS_OF_WEEK:
-        # Tag the day in a focus_overrides dict so the frontend/session can
-        # display "mobility day". The section IDs remain so exercises still load.
         focus_overrides = schedule.focus_overrides if hasattr(schedule, 'focus_overrides') and schedule.focus_overrides else {}
         focus_overrides[affected_day] = 'mobility'
         if hasattr(schedule, 'focus_overrides'):
@@ -1794,7 +1799,6 @@ def revert_schedule(request):
 
     schedule.weekly_schedule = schedule.original_weekly_schedule.copy()
     schedule.is_adjusted = False
-    # Clear any per-day overrides if your model has them
     if hasattr(schedule, 'duration_overrides'):
         schedule.duration_overrides = {}
     if hasattr(schedule, 'focus_overrides'):
@@ -1915,3 +1919,32 @@ def get_user_badges(request):
         "total_earned": len(earned_map),
         "badges": result,
     })
+
+
+# ============================================================================
+# OTHER VIEWS
+# ============================================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_summary(request):
+    sessions = WorkoutSession.objects.filter(
+        user=request.user,
+        is_completed=True
+    )
+    total_workouts = sessions.count()
+    total_time = sum(s.duration_minutes or 0 for s in sessions)
+
+    chart_data = [
+        {
+            "date": s.date.isoformat(),
+            "duration_minutes": s.duration_minutes or 0
+        }
+        for s in sessions.order_by('date')
+    ]
+
+    return Response({
+        "total_workouts": total_workouts,
+        "total_time_trained": total_time,
+        "chart_data": chart_data,
+    }, status=status.HTTP_200_OK)

@@ -666,7 +666,10 @@ export default function ProfileViewPage() {
                     <p className="program-description">{program.description}</p>
                     <div className="program-meta">
                       <span className="program-badge">{program.difficulty}</span>
-                      <span className="program-badge">{program.focus}</span>
+                      {program.focus.map((f) => (
+                        <span key={f} className="program-badge">{f}</span>
+                      ))}
+
                     </div>
                     <div className="program-details">
                       <span>{program.weekly_frequency}x per week</span>

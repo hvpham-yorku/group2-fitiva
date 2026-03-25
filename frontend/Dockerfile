@@ -6,6 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
+ENV PYTHONDONTWRITEBYTECODE=1
+
 # Copy the rest of the app
 COPY . .
 

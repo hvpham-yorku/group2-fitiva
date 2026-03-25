@@ -1,0 +1,2001 @@
+[
+{
+  "model": "auth.group",
+  "fields": {
+    "name": "user",
+    "permissions": [
+      [
+        "add_customuser",
+        "api",
+        "customuser"
+      ],
+      [
+        "change_customuser",
+        "api",
+        "customuser"
+      ],
+      [
+        "delete_customuser",
+        "api",
+        "customuser"
+      ],
+      [
+        "view_customuser",
+        "api",
+        "customuser"
+      ]
+    ]
+  }
+},
+{
+  "model": "api.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$600000$AU0usCGeO4nIUUkltandno$TvPE9qy4It2sC9JG1VQ+83N6oXXXQAnG/+NURLc9lGQ=",
+    "last_login": "2026-03-07T03:20:15.717Z",
+    "is_superuser": false,
+    "username": "User_TA",
+    "first_name": "User",
+    "last_name": "TA",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-03-07T03:20:06.228Z",
+    "is_trainer": false,
+    "email": "user_ta@gmail.com",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$600000$4ycgXDVMvzrPRQEKcyCJze$TTpWOavANVQw5GWABY92YrcSO1cVxs3jJQn3PmicpbQ=",
+    "last_login": "2026-03-07T04:26:45.244Z",
+    "is_superuser": false,
+    "username": "Trainer_TA",
+    "first_name": "Trainer",
+    "last_name": "TA",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-03-07T03:21:43.931Z",
+    "is_trainer": true,
+    "email": "trainer_ta@gmail.com",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$600000$mrl1Q0WM1GBUaM99qsMTiP$8ksGy64vfU+494hG1fiIZYfnipw1aZT6sTaLRqtVebs=",
+    "last_login": "2026-03-07T03:43:00.136Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "",
+    "last_name": "",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-03-07T03:42:53.854Z",
+    "is_trainer": false,
+    "email": "admin@gmail.com",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$600000$xLG2wKhBkIZeAbux0rju8B$V9lsSZlam5LhimVhFtak6Mn9DYOpJGCORSEOFyS0wsU=",
+    "last_login": "2026-03-07T04:01:53.967Z",
+    "is_superuser": false,
+    "username": "trainer_TA2",
+    "first_name": "Trainer2",
+    "last_name": "TA",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-03-07T04:01:41.597Z",
+    "is_trainer": true,
+    "email": "trainer_ta2@gmail.com",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "api.userprofile",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "User_TA"
+    ],
+    "age": null,
+    "experience_level": "beginner",
+    "training_location": "home",
+    "fitness_focus": [],
+    "created_at": "2026-03-07T03:20:06.313Z",
+    "updated_at": "2026-03-07T03:20:06.313Z"
+  }
+},
+{
+  "model": "api.userprofile",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "Trainer_TA"
+    ],
+    "age": null,
+    "experience_level": "beginner",
+    "training_location": "home",
+    "fitness_focus": [],
+    "created_at": "2026-03-07T03:21:44.029Z",
+    "updated_at": "2026-03-07T03:21:44.029Z"
+  }
+},
+{
+  "model": "api.userprofile",
+  "pk": 5,
+  "fields": {
+    "user": [
+      "trainer_TA2"
+    ],
+    "age": null,
+    "experience_level": "beginner",
+    "training_location": "home",
+    "fitness_focus": [],
+    "created_at": "2026-03-07T04:01:41.695Z",
+    "updated_at": "2026-03-07T04:01:41.695Z"
+  }
+},
+{
+  "model": "api.trainerprofile",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "Trainer_TA"
+    ],
+    "bio": "I am a trainer TA. I want to help people workout.",
+    "years_of_experience": 2,
+    "specialty_strength": true,
+    "specialty_cardio": false,
+    "specialty_flexibility": true,
+    "specialty_sports": false,
+    "specialty_rehabilitation": false,
+    "certifications": "ACE-CPT, ISSA-CPT",
+    "created_at": "2026-03-07T03:21:44.030Z",
+    "updated_at": "2026-03-07T03:21:44.030Z"
+  }
+},
+{
+  "model": "api.trainerprofile",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "trainer_TA2"
+    ],
+    "bio": "I am trainer ta2, here to help!",
+    "years_of_experience": 3,
+    "specialty_strength": true,
+    "specialty_cardio": true,
+    "specialty_flexibility": false,
+    "specialty_sports": false,
+    "specialty_rehabilitation": true,
+    "certifications": "ISSA-CPT, Exercise is Medicine Credential, Cancer Exercise Specialist",
+    "created_at": "2026-03-07T04:01:41.697Z",
+    "updated_at": "2026-03-07T04:01:41.697Z"
+  }
+},
+{
+  "model": "api.workoutplan",
+  "pk": 1,
+  "fields": {
+    "name": "Default Program 1",
+    "description": "Program created with default exercises already in the website.",
+    "focus": [
+      "strength"
+    ],
+    "difficulty": "intermediate",
+    "weekly_frequency": 5,
+    "session_length": 50,
+    "is_published": true,
+    "is_deleted": false,
+    "trainer": [
+      "Trainer_TA"
+    ],
+    "created_at": "2026-03-07T03:31:46.757Z",
+    "updated_at": "2026-03-07T03:31:46.757Z"
+  }
+},
+{
+  "model": "api.workoutplan",
+  "pk": 2,
+  "fields": {
+    "name": "Custom Program 1",
+    "description": "A program created with some custom exercises created by Trainer TA",
+    "focus": [
+      "balance",
+      "flexibility"
+    ],
+    "difficulty": "beginner",
+    "weekly_frequency": 6,
+    "session_length": 45,
+    "is_published": true,
+    "is_deleted": false,
+    "trainer": [
+      "Trainer_TA"
+    ],
+    "created_at": "2026-03-07T03:33:59.834Z",
+    "updated_at": "2026-03-07T03:33:59.834Z"
+  }
+},
+{
+  "model": "api.workoutplan",
+  "pk": 3,
+  "fields": {
+    "name": "Second TA Program",
+    "description": "Default Exercises are used in this program",
+    "focus": [
+      "cardio",
+      "flexibility"
+    ],
+    "difficulty": "advanced",
+    "weekly_frequency": 5,
+    "session_length": 45,
+    "is_published": true,
+    "is_deleted": false,
+    "trainer": [
+      "trainer_TA2"
+    ],
+    "created_at": "2026-03-07T04:02:39.005Z",
+    "updated_at": "2026-03-07T04:02:39.005Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 1,
+  "fields": {
+    "name": "Push-ups",
+    "description": "Start in a plank position with hands shoulder-width apart. Lower your body until chest nearly touches the floor, then push back up.",
+    "muscle_groups": [
+      "chest",
+      "triceps"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "3 sets of 8-15 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.393Z",
+    "updated_at": "2026-03-07T03:25:08.393Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 2,
+  "fields": {
+    "name": "Bench Press",
+    "description": "Lie on bench, lower barbell/dumbbell to chest, press up to starting position.",
+    "muscle_groups": [
+      "chest",
+      "triceps",
+      "shoulders"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "4 sets of 6-10 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.400Z",
+    "updated_at": "2026-03-07T03:25:08.400Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 3,
+  "fields": {
+    "name": "Pull-ups",
+    "description": "Hang from bar with overhand grip, pull body up until chin is over bar.",
+    "muscle_groups": [
+      "back",
+      "biceps"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "3 sets of 5-12 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.403Z",
+    "updated_at": "2026-03-07T03:25:08.403Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 4,
+  "fields": {
+    "name": "Barbell Row",
+    "description": "Bend at hips with barbell, pull weight to lower chest, lower with control.",
+    "muscle_groups": [
+      "back",
+      "biceps"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "4 sets of 8-12 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.404Z",
+    "updated_at": "2026-03-07T03:25:08.404Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 5,
+  "fields": {
+    "name": "Squats",
+    "description": "Stand with feet shoulder-width apart, lower hips back and down, drive through heels to stand.",
+    "muscle_groups": [
+      "quads/hamstrings"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "4 sets of 8-12 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.406Z",
+    "updated_at": "2026-03-07T03:25:08.406Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 6,
+  "fields": {
+    "name": "Lunges",
+    "description": "Step forward, lower back knee toward ground, push back to start.",
+    "muscle_groups": [
+      "quads/hamstrings"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "3 sets of 10-15 reps per leg",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.407Z",
+    "updated_at": "2026-03-07T03:25:08.407Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 7,
+  "fields": {
+    "name": "Overhead Press",
+    "description": "Press weight from shoulders overhead, lower with control.",
+    "muscle_groups": [
+      "shoulders",
+      "triceps"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "4 sets of 8-12 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.409Z",
+    "updated_at": "2026-03-07T03:25:08.409Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 8,
+  "fields": {
+    "name": "Lateral Raises",
+    "description": "Raise dumbbells to sides until arms parallel to floor.",
+    "muscle_groups": [
+      "shoulders"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "3 sets of 12-15 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.411Z",
+    "updated_at": "2026-03-07T03:25:08.411Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 9,
+  "fields": {
+    "name": "Bicep Curls",
+    "description": "Curl weight toward shoulders, keeping elbows stationary.",
+    "muscle_groups": [
+      "biceps"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "3 sets of 10-15 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.412Z",
+    "updated_at": "2026-03-07T03:25:08.412Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 10,
+  "fields": {
+    "name": "Tricep Dips",
+    "description": "Lower body by bending elbows, push back up.",
+    "muscle_groups": [
+      "triceps"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "3 sets of 8-12 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.414Z",
+    "updated_at": "2026-03-07T03:25:08.414Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 11,
+  "fields": {
+    "name": "Plank",
+    "description": "Hold body in straight line from head to heels, engaging core.",
+    "muscle_groups": [
+      "core"
+    ],
+    "exercise_type": "time",
+    "default_recommendations": "3 sets of 30-60 seconds",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.415Z",
+    "updated_at": "2026-03-07T03:25:08.415Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 12,
+  "fields": {
+    "name": "Crunches",
+    "description": "Lie on back, lift shoulders off ground using abs.",
+    "muscle_groups": [
+      "core"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "3 sets of 15-25 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.416Z",
+    "updated_at": "2026-03-07T03:25:08.416Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 13,
+  "fields": {
+    "name": "Running",
+    "description": "Maintain steady pace with proper form.",
+    "muscle_groups": [
+      "quads/hamstrings",
+      "full body"
+    ],
+    "exercise_type": "time",
+    "default_recommendations": "20-30 minutes",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.417Z",
+    "updated_at": "2026-03-07T03:25:08.417Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 14,
+  "fields": {
+    "name": "Jumping Jacks",
+    "description": "Jump while spreading legs and raising arms overhead.",
+    "muscle_groups": [
+      "full body"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "3 sets of 20-30 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.419Z",
+    "updated_at": "2026-03-07T03:25:08.419Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 15,
+  "fields": {
+    "name": "Burpees",
+    "description": "Drop to plank, do push-up, jump feet to hands, jump up.",
+    "muscle_groups": [
+      "full body"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "3 sets of 10-15 reps",
+    "image_url": null,
+    "trainer": null,
+    "is_default": true,
+    "created_at": "2026-03-07T03:25:08.420Z",
+    "updated_at": "2026-03-07T03:25:08.420Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 16,
+  "fields": {
+    "name": "Custom Exercise 1",
+    "description": "A custom exercise created by Trainer TA",
+    "muscle_groups": [
+      "chest"
+    ],
+    "exercise_type": "reps",
+    "default_recommendations": "2 sets of 8-10 reps",
+    "image_url": null,
+    "trainer": [
+      "Trainer_TA"
+    ],
+    "is_default": false,
+    "created_at": "2026-03-07T03:32:22.950Z",
+    "updated_at": "2026-03-07T03:32:22.950Z"
+  }
+},
+{
+  "model": "api.exercisetemplate",
+  "pk": 17,
+  "fields": {
+    "name": "Custom Exercise 2",
+    "description": "A second custom exercise created by Trainer TA",
+    "muscle_groups": [
+      "full body",
+      "core"
+    ],
+    "exercise_type": "time",
+    "default_recommendations": "2 sets of 3 minutes",
+    "image_url": null,
+    "trainer": [
+      "Trainer_TA"
+    ],
+    "is_default": false,
+    "created_at": "2026-03-07T03:32:52.823Z",
+    "updated_at": "2026-03-07T03:33:04.046Z"
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 1,
+  "fields": {
+    "program": 1,
+    "format": "Monday",
+    "type": "Upper",
+    "is_rest_day": false,
+    "order": 0
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 2,
+  "fields": {
+    "program": 1,
+    "format": "Tuesday",
+    "type": "Lower",
+    "is_rest_day": false,
+    "order": 1
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 3,
+  "fields": {
+    "program": 1,
+    "format": "Wednesday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 2
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 4,
+  "fields": {
+    "program": 1,
+    "format": "Thursday",
+    "type": "Push",
+    "is_rest_day": false,
+    "order": 3
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 5,
+  "fields": {
+    "program": 1,
+    "format": "Friday",
+    "type": "Pull",
+    "is_rest_day": false,
+    "order": 4
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 6,
+  "fields": {
+    "program": 1,
+    "format": "Saturday",
+    "type": "Legs",
+    "is_rest_day": false,
+    "order": 5
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 7,
+  "fields": {
+    "program": 1,
+    "format": "Sunday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 6
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 8,
+  "fields": {
+    "program": 2,
+    "format": "Monday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 0
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 9,
+  "fields": {
+    "program": 2,
+    "format": "Tuesday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 1
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 10,
+  "fields": {
+    "program": 2,
+    "format": "Wednesday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 2
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 11,
+  "fields": {
+    "program": 2,
+    "format": "Thursday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 3
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 12,
+  "fields": {
+    "program": 2,
+    "format": "Friday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 4
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 13,
+  "fields": {
+    "program": 2,
+    "format": "Saturday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 5
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 14,
+  "fields": {
+    "program": 2,
+    "format": "Sunday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 6
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 15,
+  "fields": {
+    "program": 3,
+    "format": "Monday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 0
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 16,
+  "fields": {
+    "program": 3,
+    "format": "Tuesday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 1
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 17,
+  "fields": {
+    "program": 3,
+    "format": "Wednesday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 2
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 18,
+  "fields": {
+    "program": 3,
+    "format": "Thursday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 3
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 19,
+  "fields": {
+    "program": 3,
+    "format": "Friday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 4
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 20,
+  "fields": {
+    "program": 3,
+    "format": "Saturday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 5
+  }
+},
+{
+  "model": "api.programsection",
+  "pk": 21,
+  "fields": {
+    "program": 3,
+    "format": "Sunday",
+    "type": "",
+    "is_rest_day": false,
+    "order": 6
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 1,
+  "fields": {
+    "section": 1,
+    "name": "Burpees",
+    "order": 0,
+    "created_at": "2026-03-07T03:31:46.766Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 2,
+  "fields": {
+    "section": 1,
+    "name": "Plank",
+    "order": 1,
+    "created_at": "2026-03-07T03:31:46.795Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 3,
+  "fields": {
+    "section": 1,
+    "name": "Jumping Jacks",
+    "order": 2,
+    "created_at": "2026-03-07T03:31:46.800Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 4,
+  "fields": {
+    "section": 2,
+    "name": "Crunches",
+    "order": 0,
+    "created_at": "2026-03-07T03:31:46.807Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 5,
+  "fields": {
+    "section": 2,
+    "name": "Lunges",
+    "order": 1,
+    "created_at": "2026-03-07T03:31:46.812Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 6,
+  "fields": {
+    "section": 2,
+    "name": "Squats",
+    "order": 2,
+    "created_at": "2026-03-07T03:31:46.817Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 7,
+  "fields": {
+    "section": 4,
+    "name": "Bench Press",
+    "order": 0,
+    "created_at": "2026-03-07T03:31:46.823Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 8,
+  "fields": {
+    "section": 4,
+    "name": "Jumping Jacks",
+    "order": 1,
+    "created_at": "2026-03-07T03:31:46.827Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 9,
+  "fields": {
+    "section": 5,
+    "name": "Pull-ups",
+    "order": 0,
+    "created_at": "2026-03-07T03:31:46.832Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 10,
+  "fields": {
+    "section": 5,
+    "name": "Bicep Curls",
+    "order": 1,
+    "created_at": "2026-03-07T03:31:46.836Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 11,
+  "fields": {
+    "section": 6,
+    "name": "Squats",
+    "order": 0,
+    "created_at": "2026-03-07T03:31:46.842Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 12,
+  "fields": {
+    "section": 8,
+    "name": "Custom Exercise 1",
+    "order": 0,
+    "created_at": "2026-03-07T03:33:59.842Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 13,
+  "fields": {
+    "section": 8,
+    "name": "Custom Exercise 2",
+    "order": 1,
+    "created_at": "2026-03-07T03:33:59.850Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 14,
+  "fields": {
+    "section": 9,
+    "name": "Custom Exercise 1",
+    "order": 0,
+    "created_at": "2026-03-07T03:33:59.857Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 15,
+  "fields": {
+    "section": 10,
+    "name": "Custom Exercise 2",
+    "order": 0,
+    "created_at": "2026-03-07T03:33:59.865Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 16,
+  "fields": {
+    "section": 11,
+    "name": "Custom Exercise 1",
+    "order": 0,
+    "created_at": "2026-03-07T03:33:59.872Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 17,
+  "fields": {
+    "section": 12,
+    "name": "Burpees",
+    "order": 0,
+    "created_at": "2026-03-07T03:33:59.877Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 18,
+  "fields": {
+    "section": 13,
+    "name": "Custom Exercise 2",
+    "order": 0,
+    "created_at": "2026-03-07T03:33:59.883Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 19,
+  "fields": {
+    "section": 15,
+    "name": "Burpees",
+    "order": 0,
+    "created_at": "2026-03-07T04:02:39.013Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 20,
+  "fields": {
+    "section": 16,
+    "name": "Lunges",
+    "order": 0,
+    "created_at": "2026-03-07T04:02:39.021Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 21,
+  "fields": {
+    "section": 17,
+    "name": "Push-ups",
+    "order": 0,
+    "created_at": "2026-03-07T04:02:39.027Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 22,
+  "fields": {
+    "section": 20,
+    "name": "Barbell Row",
+    "order": 0,
+    "created_at": "2026-03-07T04:02:39.035Z"
+  }
+},
+{
+  "model": "api.exercise",
+  "pk": 23,
+  "fields": {
+    "section": 21,
+    "name": "Running",
+    "order": 0,
+    "created_at": "2026-03-07T04:02:39.042Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 1,
+  "fields": {
+    "exercise": 1,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.789Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 2,
+  "fields": {
+    "exercise": 1,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.791Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 3,
+  "fields": {
+    "exercise": 1,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.793Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 4,
+  "fields": {
+    "exercise": 2,
+    "set_number": 1,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.795Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 5,
+  "fields": {
+    "exercise": 2,
+    "set_number": 2,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.797Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 6,
+  "fields": {
+    "exercise": 2,
+    "set_number": 3,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.799Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 7,
+  "fields": {
+    "exercise": 3,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.802Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 8,
+  "fields": {
+    "exercise": 3,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.803Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 9,
+  "fields": {
+    "exercise": 3,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.804Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 10,
+  "fields": {
+    "exercise": 4,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.808Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 11,
+  "fields": {
+    "exercise": 4,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.809Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 12,
+  "fields": {
+    "exercise": 4,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.811Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 13,
+  "fields": {
+    "exercise": 5,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.813Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 14,
+  "fields": {
+    "exercise": 5,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.814Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 15,
+  "fields": {
+    "exercise": 5,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.816Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 16,
+  "fields": {
+    "exercise": 6,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.818Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 17,
+  "fields": {
+    "exercise": 6,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.819Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 18,
+  "fields": {
+    "exercise": 6,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.820Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 19,
+  "fields": {
+    "exercise": 7,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.824Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 20,
+  "fields": {
+    "exercise": 7,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.825Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 21,
+  "fields": {
+    "exercise": 7,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.826Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 22,
+  "fields": {
+    "exercise": 8,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.828Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 23,
+  "fields": {
+    "exercise": 8,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.829Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 24,
+  "fields": {
+    "exercise": 8,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.830Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 25,
+  "fields": {
+    "exercise": 9,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.833Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 26,
+  "fields": {
+    "exercise": 9,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.834Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 27,
+  "fields": {
+    "exercise": 9,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.835Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 28,
+  "fields": {
+    "exercise": 10,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.838Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 29,
+  "fields": {
+    "exercise": 10,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.839Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 30,
+  "fields": {
+    "exercise": 10,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.840Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 31,
+  "fields": {
+    "exercise": 11,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.842Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 32,
+  "fields": {
+    "exercise": 11,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.844Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 33,
+  "fields": {
+    "exercise": 11,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:31:46.844Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 34,
+  "fields": {
+    "exercise": 12,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.844Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 35,
+  "fields": {
+    "exercise": 12,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.846Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 36,
+  "fields": {
+    "exercise": 12,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.848Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 37,
+  "fields": {
+    "exercise": 13,
+    "set_number": 1,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.851Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 38,
+  "fields": {
+    "exercise": 13,
+    "set_number": 2,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.853Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 39,
+  "fields": {
+    "exercise": 13,
+    "set_number": 3,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.855Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 40,
+  "fields": {
+    "exercise": 14,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.860Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 41,
+  "fields": {
+    "exercise": 14,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.861Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 42,
+  "fields": {
+    "exercise": 14,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.863Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 43,
+  "fields": {
+    "exercise": 15,
+    "set_number": 1,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.867Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 44,
+  "fields": {
+    "exercise": 15,
+    "set_number": 2,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.868Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 45,
+  "fields": {
+    "exercise": 15,
+    "set_number": 3,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.869Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 46,
+  "fields": {
+    "exercise": 16,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.873Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 47,
+  "fields": {
+    "exercise": 16,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.874Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 48,
+  "fields": {
+    "exercise": 16,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.875Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 49,
+  "fields": {
+    "exercise": 17,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.879Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 50,
+  "fields": {
+    "exercise": 17,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.880Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 51,
+  "fields": {
+    "exercise": 17,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.881Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 52,
+  "fields": {
+    "exercise": 18,
+    "set_number": 1,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.884Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 53,
+  "fields": {
+    "exercise": 18,
+    "set_number": 2,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.885Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 54,
+  "fields": {
+    "exercise": 18,
+    "set_number": 3,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T03:33:59.886Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 55,
+  "fields": {
+    "exercise": 19,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.015Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 56,
+  "fields": {
+    "exercise": 19,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.016Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 57,
+  "fields": {
+    "exercise": 19,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.018Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 58,
+  "fields": {
+    "exercise": 20,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.022Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 59,
+  "fields": {
+    "exercise": 20,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.023Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 60,
+  "fields": {
+    "exercise": 20,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.025Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 61,
+  "fields": {
+    "exercise": 21,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.028Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 62,
+  "fields": {
+    "exercise": 21,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.029Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 63,
+  "fields": {
+    "exercise": 21,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.031Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 64,
+  "fields": {
+    "exercise": 22,
+    "set_number": 1,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.037Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 65,
+  "fields": {
+    "exercise": 22,
+    "set_number": 2,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.038Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 66,
+  "fields": {
+    "exercise": 22,
+    "set_number": 3,
+    "reps": 10,
+    "time": null,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.039Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 67,
+  "fields": {
+    "exercise": 23,
+    "set_number": 1,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.043Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 68,
+  "fields": {
+    "exercise": 23,
+    "set_number": 2,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.044Z"
+  }
+},
+{
+  "model": "api.exerciseset",
+  "pk": 69,
+  "fields": {
+    "exercise": 23,
+    "set_number": 3,
+    "reps": null,
+    "time": 30,
+    "rest": 60,
+    "created_at": "2026-03-07T04:02:39.045Z"
+  }
+},
+{
+  "model": "api.workoutsession",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "Trainer_TA"
+    ],
+    "plan": 2,
+    "date": "2026-03-06",
+    "status": "completed",
+    "duration_minutes": 45,
+    "is_completed": true,
+    "notes": "",
+    "created_at": "2026-03-07T03:38:13.256Z"
+  }
+},
+{
+  "model": "api.workoutfeedback",
+  "pk": 1,
+  "fields": {
+    "session": 1,
+    "difficulty_rating": 3,
+    "fatigue_level": 2,
+    "pain_reported": false,
+    "notes": "good",
+    "created_at": "2026-03-07T03:38:19.435Z"
+  }
+},
+{
+  "model": "api.userschedule",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "Trainer_TA"
+    ],
+    "start_date": "2026-03-06",
+    "end_date": null,
+    "weekly_schedule": {
+      "friday": [
+        12
+      ],
+      "monday": [
+        8
+      ],
+      "sunday": [],
+      "tuesday": [
+        9
+      ],
+      "saturday": [
+        13
+      ],
+      "thursday": [
+        11
+      ],
+      "wednesday": [
+        10
+      ]
+    },
+    "original_weekly_schedule": {
+      "friday": [
+        12
+      ],
+      "monday": [
+        8
+      ],
+      "sunday": [],
+      "tuesday": [
+        9
+      ],
+      "saturday": [
+        13
+      ],
+      "thursday": [
+        11
+      ],
+      "wednesday": [
+        10
+      ]
+    },
+    "is_adjusted": false,
+    "duration_overrides": {},
+    "focus_overrides": {},
+    "is_active": false,
+    "created_at": "2026-03-07T03:37:12.995Z",
+    "updated_at": "2026-03-07T03:38:44.760Z",
+    "programs": [
+      2
+    ]
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 1,
+  "fields": {
+    "action_time": "2026-03-07T03:43:38.877Z",
+    "user": [
+      "admin"
+    ],
+    "content_type": [
+      "auth",
+      "group"
+    ],
+    "object_id": "1",
+    "object_repr": "user",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 2,
+  "fields": {
+    "action_time": "2026-03-07T03:46:56.741Z",
+    "user": [
+      "admin"
+    ],
+    "content_type": [
+      "api",
+      "customuser"
+    ],
+    "object_id": "3",
+    "object_repr": "trainer_ta2@gmail.com",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 3,
+  "fields": {
+    "action_time": "2026-03-07T04:00:39.643Z",
+    "user": [
+      "admin"
+    ],
+    "content_type": [
+      "api",
+      "customuser"
+    ],
+    "object_id": "5",
+    "object_repr": "trainer_ta2@gmail.com",
+    "action_flag": 3,
+    "change_message": ""
+  }
+}
+]

@@ -1,5 +1,7 @@
 from django.core.management.base import BaseCommand
 from api.models import ExerciseTemplate
+from django.db.models import Count
+
 
 class Command(BaseCommand):
     help = 'Seeds default exercise templates'
@@ -125,12 +127,23 @@ class Command(BaseCommand):
                 'default_recommendations': '3 sets of 10-15 reps'
             },
         ]
-        
+
+        # Step 1: Remove duplicate default exercises (keep only the first of each name)
+        dupes = (ExerciseTemplate.objects
+            .values('name')
+            .annotate(count=Count('id'))
+            .filter(count__gt=1, is_default=True))
+
+        for d in dupes:
+            templates = ExerciseTemplate.objects.filter(name=d['name'], is_default=True)
+            templates.exclude(pk=templates.first().pk).delete()
+            self.stdout.write(f"Removed duplicate: {d['name']}")
+
+        # Step 2: Upsert exercises
         created_count = 0
         for exercise_data in default_exercises:
-            _, created = ExerciseTemplate.objects.get_or_create(
+            _, created = ExerciseTemplate.objects.update_or_create(
                 name=exercise_data['name'],
-                is_default=True,
                 defaults={
                     **exercise_data,
                     'is_default': True,
@@ -139,7 +152,7 @@ class Command(BaseCommand):
             )
             if created:
                 created_count += 1
-        
+
         self.stdout.write(
             self.style.SUCCESS(f'Successfully seeded {created_count} default exercises')
         )
