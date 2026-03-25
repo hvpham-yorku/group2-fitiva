@@ -579,3 +579,23 @@
   font-size: 0.875rem;
   font-weight: 500;
 }
+
+/* US 4.1 / 4.2 – rewards summary on own profile */
+.profile-rewards-section .profile-rewards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.profile-rewards-hint {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0.5rem 0 0;
+  line-height: 1.45;
+}
+
+a.profile-rewards-link.edit-section-button {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}

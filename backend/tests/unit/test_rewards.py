@@ -133,6 +133,19 @@ class UserStory41EarnPointsTests(APITestCase):
         session = WorkoutSession.objects.get(user=self.user, date=self.today)
         self.assertTrue(PointTransaction.objects.filter(session=session).exists())
 
+    def test_trainer_account_earns_points_on_completion(self):
+        """Trainers use the same completion + points logic as members (profile parity)."""
+        self.client.force_authenticate(user=self.trainer)
+        _build_schedule_for_date(self.trainer, self.section, self.today)
+        response = self.client.post(
+            f"/api/sessions/complete/{self.today_str}/",
+            {"duration_minutes": 30},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(response.data["points_awarded"], 10)
+        self.assertTrue(UserPoints.objects.filter(user=self.trainer).exists())
+
     # ── Long-session bonus ────────────────────────────────
 
     def test_long_session_awards_fifteen_points(self):

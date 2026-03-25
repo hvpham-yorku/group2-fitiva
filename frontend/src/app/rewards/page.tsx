@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +29,58 @@ interface Badge {
   earned_at: string | null;
 }
 
+/** US 4.3 – how the achievement gallery is ordered */
+type GallerySort = 'date_newest' | 'category' | 'name';
+
+function formatCategoryLabel(category: string): string {
+  if (!category) return 'Other';
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+/** Group badges by category; within each group: earned (newest first) then locked (by name). */
+function groupBadgesByCategory(all: Badge[]): { category: string; badges: Badge[] }[] {
+  const map = new Map<string, Badge[]>();
+  for (const b of all) {
+    const key = b.category || 'other';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(b);
+  }
+  const keys = [...map.keys()].sort((a, b) => a.localeCompare(b));
+  return keys.map((category) => {
+    const group = map.get(category)!;
+    const earned = group
+      .filter((b) => b.earned)
+      .sort((a, b) => (b.earned_at || '').localeCompare(a.earned_at || ''));
+    const locked = group
+      .filter((b) => !b.earned)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return { category, badges: [...earned, ...locked] };
+  });
+}
+
+/** Flat list: earned by date (newest first), then locked by category + name. */
+function sortBadgesByDate(all: Badge[]): Badge[] {
+  const earned = all
+    .filter((b) => b.earned)
+    .sort((a, b) => (b.earned_at || '').localeCompare(a.earned_at || ''));
+  const locked = all
+    .filter((b) => !b.earned)
+    .sort(
+      (a, b) =>
+        (a.category || '').localeCompare(b.category || '') || a.name.localeCompare(b.name),
+    );
+  return [...earned, ...locked];
+}
+
+/** Earned first (by date), then locked, all alphabetically by name within each band. */
+function sortBadgesByName(all: Badge[]): Badge[] {
+  const earned = all
+    .filter((b) => b.earned)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const locked = all.filter((b) => !b.earned).sort((a, b) => a.name.localeCompare(b.name));
+  return [...earned, ...locked];
+}
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -47,8 +99,11 @@ export default function RewardsPage() {
   const [totalEarned, setTotalEarned]     = useState(0);
   const [badgesLoading, setBadgesLoading] = useState(true);
 
-  // Active tab
-  const [activeTab, setActiveTab] = useState<'points' | 'badges'>('points');
+  // US 4.3 – gallery sort
+  const [gallerySort, setGallerySort] = useState<GallerySort>('date_newest');
+
+  // Active tab (gallery = US 4.3 achievement gallery)
+  const [activeTab, setActiveTab] = useState<'points' | 'gallery'>('points');
 
   // ========================================
   // Data fetching
@@ -93,8 +148,41 @@ export default function RewardsPage() {
   // Derived values
   // ========================================
 
-  const earnedBadges = badges.filter(b => b.earned);
-  const lockedBadges = badges.filter(b => !b.earned);
+  const earnedBadges = badges.filter((b) => b.earned);
+  const lockedBadges = badges.filter((b) => !b.earned);
+
+  const galleryByCategory = useMemo(() => groupBadgesByCategory(badges), [badges]);
+  const galleryByDate = useMemo(() => sortBadgesByDate(badges), [badges]);
+  const galleryByName = useMemo(() => sortBadgesByName(badges), [badges]);
+
+  function renderBadgeTile(badge: Badge) {
+    const earned = badge.earned;
+    return (
+      <div
+        key={badge.badge_id}
+        className={`rewards-badge-card ${earned ? 'rewards-badge-earned' : 'rewards-badge-locked'}`}
+      >
+        <div className={`rewards-badge-icon ${earned ? '' : 'rewards-badge-icon-locked'}`}>
+          {badge.icon}
+        </div>
+        <div className={`rewards-badge-name ${earned ? '' : 'rewards-badge-name-locked'}`}>
+          {badge.name}
+        </div>
+        <div className="rewards-badge-desc">{badge.description}</div>
+        {!earned && <span className="rewards-badge-locked-pill">Locked</span>}
+        {earned && badge.earned_at && (
+          <div className="rewards-badge-date">
+            Earned{' '}
+            {new Date(badge.earned_at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // ========================================
   // Render
@@ -115,12 +203,13 @@ export default function RewardsPage() {
           <h1>My Rewards</h1>
           {user && (
             <p className="rewards-header-sub">
-              Welcome back, {user.first_name}! Keep completing workouts to earn points and unlock badges.
+              Welcome back, {user.first_name}! Track points, then browse your{' '}
+              <strong>achievement gallery</strong>—earned and locked badges in one place.
             </p>
           )}
         </div>
 
-        <div className="rewards-content">
+        <div className={`rewards-content${activeTab === 'gallery' ? ' rewards-content--gallery' : ''}`}>
 
           {/* Summary bar */}
           <div className="rewards-summary-bar">
@@ -152,16 +241,18 @@ export default function RewardsPage() {
           {/* Tabs */}
           <div className="rewards-tabs">
             <button
+              type="button"
               className={`rewards-tab${activeTab === 'points' ? ' active' : ''}`}
               onClick={() => setActiveTab('points')}
             >
               Points
             </button>
             <button
-              className={`rewards-tab${activeTab === 'badges' ? ' active' : ''}`}
-              onClick={() => setActiveTab('badges')}
+              type="button"
+              className={`rewards-tab${activeTab === 'gallery' ? ' active' : ''}`}
+              onClick={() => setActiveTab('gallery')}
             >
-              Badges
+              Achievement gallery
             </button>
           </div>
 
@@ -251,75 +342,82 @@ export default function RewardsPage() {
             </div>
           )}
 
-          {/* BADGES TAB – US 4.2 */}
-          {activeTab === 'badges' && (
-            <div className="rewards-tab-content">
+          {/* ACHIEVEMENT GALLERY – US 4.3 (builds on US 4.2 badge data) */}
+          {activeTab === 'gallery' && (
+            <div className="rewards-tab-content rewards-gallery-tab">
               {badgesLoading ? (
-                <p className="rewards-loading-text">Loading badges...</p>
+                <p className="rewards-loading-text">Loading achievement gallery...</p>
+              ) : badges.length === 0 ? (
+                <div className="rewards-card">
+                  <div className="rewards-empty-state">
+                    <p className="rewards-empty-title">No badges to show yet</p>
+                    <p className="rewards-empty-text">
+                      Complete a workout to start unlocking achievements.
+                    </p>
+                    <Link href="/schedule" className="rewards-empty-link">
+                      Go to Schedule
+                    </Link>
+                  </div>
+                </div>
               ) : (
                 <>
-                  <div className="rewards-card">
-                    <div className="rewards-card-header">
-                      <h2 className="rewards-card-title">Earned Badges</h2>
-                      <span className="rewards-badge-count-chip">
-                        {earnedBadges.length} / {badges.length}
-                      </span>
-                    </div>
+                  <p className="rewards-gallery-lead">
+                    Every badge in one gallery. <strong>Earned</strong> badges are highlighted;{' '}
+                    <strong>Locked</strong> ones are greyed out until you hit the milestone.
+                  </p>
 
-                    {earnedBadges.length === 0 ? (
-                      <div className="rewards-empty-state">
-                        <p className="rewards-empty-title">No badges yet</p>
-                        <p className="rewards-empty-text">
-                          Complete your first workout to unlock your first badge!
-                        </p>
-                        <Link href="/schedule" className="rewards-empty-link">
-                          Go to Schedule
-                        </Link>
+                  <div className="rewards-card rewards-gallery-toolbar-card">
+                    <div className="rewards-gallery-toolbar">
+                      <div className="rewards-gallery-toolbar-text">
+                        <span className="rewards-gallery-progress">
+                          {earnedBadges.length} earned · {lockedBadges.length} locked · {badges.length}{' '}
+                          total
+                        </span>
                       </div>
-                    ) : (
-                      <div className="rewards-badge-grid">
-                        {earnedBadges.map((badge) => (
-                          <div
-                            key={badge.badge_id}
-                            className="rewards-badge-card rewards-badge-earned"
-                          >
-                            <div className="rewards-badge-icon">{badge.icon}</div>
-                            <div className="rewards-badge-name">{badge.name}</div>
-                            <div className="rewards-badge-desc">{badge.description}</div>
-                            {badge.earned_at && (
-                              <div className="rewards-badge-date">
-                                {'Earned '}
-                                {new Date(badge.earned_at).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day:   'numeric',
-                                  year:  'numeric',
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                      <label className="rewards-gallery-sort-label" htmlFor="gallery-sort">
+                        Sort by
+                        <select
+                          id="gallery-sort"
+                          className="rewards-gallery-sort-select"
+                          value={gallerySort}
+                          onChange={(e) => setGallerySort(e.target.value as GallerySort)}
+                          aria-label="Sort achievement gallery"
+                        >
+                          <option value="date_newest">Date earned (newest first)</option>
+                          <option value="category">Category</option>
+                          <option value="name">Name (A–Z)</option>
+                        </select>
+                      </label>
+                    </div>
                   </div>
 
-                  {lockedBadges.length > 0 && (
-                    <div className="rewards-card">
-                      <h2 className="rewards-card-title">Locked Badges</h2>
-                      <div className="rewards-badge-grid">
-                        {lockedBadges.map((badge) => (
-                          <div
-                            key={badge.badge_id}
-                            className="rewards-badge-card rewards-badge-locked"
-                          >
-                            <div className="rewards-badge-icon rewards-badge-icon-locked">
-                              {badge.icon}
-                            </div>
-                            <div className="rewards-badge-name rewards-badge-name-locked">
-                              {badge.name}
-                            </div>
-                            <div className="rewards-badge-desc">{badge.description}</div>
+                  {gallerySort === 'category' ? (
+                    <div className="rewards-gallery-sections">
+                      {galleryByCategory.map(({ category, badges: group }) => (
+                        <div key={category} className="rewards-card rewards-gallery-category-block">
+                          <h2 className="rewards-gallery-category-title">
+                            {formatCategoryLabel(category)}
+                          </h2>
+                          <p className="rewards-gallery-category-sub">
+                            {group.filter((b) => b.earned).length} earned in this category
+                          </p>
+                          <div className="rewards-badge-grid rewards-badge-grid--gallery">
+                            {group.map((badge) => renderBadgeTile(badge))}
                           </div>
-                        ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rewards-card rewards-gallery-unified">
+                      <h2 className="rewards-card-title rewards-gallery-unified-title">
+                        {gallerySort === 'date_newest'
+                          ? 'Timeline (newest unlocks first)'
+                          : 'All badges A–Z'}
+                      </h2>
+                      <div className="rewards-badge-grid rewards-badge-grid--gallery">
+                        {(gallerySort === 'date_newest' ? galleryByDate : galleryByName).map(
+                          (badge) => renderBadgeTile(badge),
+                        )}
                       </div>
                     </div>
                   )}

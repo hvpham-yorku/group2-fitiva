@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0015_userschedule_duration_overrides_and_more'),
+        ('api', '0002_userschedule_is_locked'),
     ]
 
     operations = [

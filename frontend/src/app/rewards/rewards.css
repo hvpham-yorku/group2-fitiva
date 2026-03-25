@@ -59,6 +59,11 @@
   padding: 2rem 1.5rem 3rem;
 }
 
+/* US 4.3 – wider canvas for the achievement gallery grid */
+.rewards-content--gallery {
+  max-width: 1100px;
+}
+
 /* ── Summary bar ── */
 .rewards-summary-bar {
   background-color: var(--bg-secondary);
@@ -359,6 +364,112 @@
   flex-shrink: 0;
 }
 
+/* ── US 4.3 Achievement gallery ── */
+.rewards-gallery-lead {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0 0 0.25rem;
+  max-width: 52rem;
+  transition: color 0.3s ease;
+}
+
+.rewards-gallery-toolbar-card {
+  padding: 1rem 1.25rem;
+}
+
+.rewards-gallery-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.rewards-gallery-progress {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+.rewards-gallery-sort-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: color 0.3s ease;
+}
+
+.rewards-gallery-sort-select {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  padding: 0.45rem 2rem 0.45rem 0.65rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.rewards-gallery-sort-select:hover,
+.rewards-gallery-sort-select:focus {
+  border-color: var(--fitiva-red);
+  outline: none;
+}
+
+.rewards-gallery-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.rewards-gallery-category-block {
+  padding-bottom: 1.5rem;
+}
+
+.rewards-gallery-category-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+  transition: color 0.3s ease;
+}
+
+.rewards-gallery-category-sub {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0 0 1rem;
+  transition: color 0.3s ease;
+}
+
+.rewards-gallery-unified-title {
+  margin-bottom: 1rem;
+}
+
+.rewards-badge-grid--gallery {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 1rem;
+}
+
+.rewards-badge-locked-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  margin-top: 0.15rem;
+}
+
 /* ── Badge gallery ── */
 .rewards-badge-count-chip {
   font-size: 0.8rem;
@@ -483,5 +594,23 @@
 
   .rewards-badge-grid {
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+
+  .rewards-badge-grid--gallery {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .rewards-gallery-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rewards-gallery-sort-label {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rewards-gallery-sort-select {
+    width: 100%;
   }
 }

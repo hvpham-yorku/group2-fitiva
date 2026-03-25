@@ -621,6 +621,30 @@ def update_trainer_profile(request):
         return Response({"errors": format_validation_errors(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def trainer_trainee_count(request):
+    """
+    Members (excluding self) with an active schedule that includes at least one
+    of this trainer's programs — used for the trainer dashboard Total Trainees card.
+    """
+    if not request.user.is_trainer:
+        return Response(
+            {'detail': 'Only trainers can access this'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    trainee_count = (
+        CustomUser.objects.filter(
+            schedules__is_active=True,
+            schedules__programs__trainer=request.user,
+        )
+        .exclude(id=request.user.id)
+        .distinct()
+        .count()
+    )
+    return Response({'trainee_count': trainee_count})
+
+
 # WORKOUT VIEWSETS
 
 class WorkoutProgramViewSet(viewsets.ModelViewSet):

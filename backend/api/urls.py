@@ -50,6 +50,7 @@ urlpatterns = [
     # Trainer-Only
     # ========================================================================
     path('trainer/profile/',                                views.update_trainer_profile,    name='update_trainer_profile'),
+    path('trainer/trainee-count/',                          views.trainer_trainee_count,     name='trainer-trainee-count'),
     path('trainer/programs/<int:program_id>/feedback/',     views.trainer_program_feedback,  name='trainer-program-feedback'),
 
     # ========================================================================
