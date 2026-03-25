@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileAPI, sessionAPI } from '@/library/api';
+import { profileAPI, sessionAPI, rewardsAPI } from '@/library/api';
 import Logo from '@/components/ui/Logo';
 import SettingsModal from '@/components/ui/SettingsModal';
 import './dashboard.css';
@@ -16,7 +16,6 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts';
-
 
 // ============================================================================
 // TYPES
@@ -38,15 +37,27 @@ interface Program {
   created_at: string;
 }
 
+interface TrainerExerciseRow {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+}
 interface WorkoutHistorySession {
   id: number;
-  date: string;
+  date: string;                 // "YYYY-MM-DD"
   plan_name?: string | null;
   duration_minutes?: number | null;
   notes?: string;
 }
 
-
+interface EarnedBadgeSummary {
+  badge_id: string;
+  name: string;
+  description: string;
+  icon: string;
+  earned_at: string | null;
+}
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -84,61 +95,6 @@ const USER_STATS: StatCard[] = [
   },
 ];
 
-
-// ============================================================================
-// DARK MODE HOOK
-// ============================================================================
-
-function useDarkMode() {
-  const [isDark, setIsDark] = useState(false);
-  useEffect(() => {
-    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
-    check();
-    const observer = new MutationObserver(check);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
-  return isDark;
-}
-
-
-// ============================================================================
-// CUSTOM CHART TOOLTIP
-// ============================================================================
-
-function ChartTooltip({
-  active,
-  payload,
-  label,
-  isDark,
-}: {
-  active?: boolean;
-  payload?: Array<{ value: number }>;
-  label?: string;
-  isDark: boolean;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      style={{
-        backgroundColor: isDark ? '#1e293b' : '#ffffff',
-        border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
-        borderRadius: '8px',
-        padding: '8px 12px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-      }}
-    >
-      <p style={{ margin: 0, fontWeight: 600, color: isDark ? '#f1f5f9' : '#1e293b', fontSize: '13px' }}>
-        {label}
-      </p>
-      <p style={{ margin: '4px 0 0', color: isDark ? '#a78bfa' : '#7c3aed', fontSize: '13px' }}>
-        {payload[0].value} min
-      </p>
-    </div>
-  );
-}
-
-
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -146,169 +102,286 @@ function ChartTooltip({
 export default function DashboardPage() {
   const { user, logout, isLoading } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const isDark = useDarkMode();
-
+  
   // UI state
-  const [isDropdownOpen, setIsDropdownOpen]   = useState(false);
-  const [isLoggingOut, setIsLoggingOut]       = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen]   = useState(false);
-  const [openStatDetail, setOpenStatDetail]   = useState<null | 'time' | 'workouts' | 'streak'>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [openStatDetail, setOpenStatDetail] = useState<
+    | null
+    | 'time'
+    | 'workouts'
+    | 'streak'
+    | 'achievements'
+    | 'programs_created'
+    | 'exercises_created'
+    | 'active_programs'
+    | 'total_trainees'
+  >(null);
 
   // Profile state
   const [hasCompletedProfile, setHasCompletedProfile] = useState(false);
-  const [profileLoading, setProfileLoading]           = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   // Trainer stats state
-  const [programsCount, setProgramsCount]             = useState(0);
+  const [programsCount, setProgramsCount] = useState(0);
   const [activeProgramsCount, setActiveProgramsCount] = useState(0);
-  const [statsLoading, setStatsLoading]               = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [trainerProgramsList, setTrainerProgramsList] = useState<Program[]>([]);
+  const [trainerExercisesList, setTrainerExercisesList] = useState<TrainerExerciseRow[]>([]);
+  const [traineeCount, setTraineeCount] = useState(0);
 
-  // Member workout history + stats
+    // Member workout history + stats
   const [historySessions, setHistorySessions] = useState<WorkoutHistorySession[]>([]);
-  const [historyLoading, setHistoryLoading]   = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
+  // US 4.1 / 4.2 – live badge count for the Achievements card
+  const [achievementsCount, setAchievementsCount] = useState(0);
+  const [earnedBadgesList, setEarnedBadgesList] = useState<EarnedBadgeSummary[]>([]);
 
-  const buildMonSunWeekData = (sessions: WorkoutHistorySession[]) => {
-    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const buildMonSunWeekData = (sessions: WorkoutHistorySession[]) => {
+  const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    const toLocalISODate = (dt: Date) => {
-      const y = dt.getFullYear();
-      const m = String(dt.getMonth() + 1).padStart(2, '0');
-      const d = String(dt.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    };
-
-    const anchor = sessions.length
-      ? new Date(sessions.map(s => s.date).sort().slice(-1)[0] + 'T12:00:00')
-      : new Date();
-
-    const day = anchor.getDay();
-    const diffToMonday = (day + 6) % 7;
-
-    const monday = new Date(anchor);
-    monday.setHours(0, 0, 0, 0);
-    monday.setDate(anchor.getDate() - diffToMonday);
-
-    const minutesByDate = new Map<string, number>();
-    for (const s of sessions) {
-      const m = typeof s.duration_minutes === 'number' ? s.duration_minutes : 0;
-      minutesByDate.set(s.date, (minutesByDate.get(s.date) ?? 0) + m);
-    }
-
-    const week = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const iso = toLocalISODate(d);
-      const minutes = minutesByDate.get(iso) ?? 0;
-      week.push({ day: labels[i], minutes, iso });
-    }
-
-    return week;
+  const toLocalISODate = (dt: Date) => {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
-  const weeklyChartData = buildMonSunWeekData(historySessions);
+  // ✅ Anchor week to latest session date if we have any
+  const anchor = sessions.length
+    ? new Date(sessions.map(s => s.date).sort().slice(-1)[0] + "T12:00:00")
+    : new Date();
 
+  const day = anchor.getDay();
+  const diffToMonday = (day + 6) % 7;
+
+  const monday = new Date(anchor);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(anchor.getDate() - diffToMonday);
+
+  const minutesByDate = new Map<string, number>();
+  for (const s of sessions) {
+    const m = typeof s.duration_minutes === 'number' ? s.duration_minutes : 0;
+    minutesByDate.set(s.date, (minutesByDate.get(s.date) ?? 0) + m);
+  }
+
+  const week = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const iso = toLocalISODate(d);
+
+    const minutes = minutesByDate.get(iso) ?? 0;
+    week.push({ day: labels[i], minutes, iso });
+  }
+
+  return week;
+};
+
+const weeklyChartData = buildMonSunWeekData(historySessions);
 
   // ========================================
   // Effects
   // ========================================
 
+  // Check if user has completed their profile
   useEffect(() => {
     const checkProfile = async () => {
       try {
         const profile = await profileAPI.getProfile();
-        const isComplete =
-        !!profile.experience_level &&
-        !!profile.training_location &&
-        (profile.fitness_focus?.length ?? 0) > 0;
-        setHasCompletedProfile(isComplete);
+        setHasCompletedProfile(!!profile.age);
       } catch {
         setHasCompletedProfile(false);
       } finally {
         setProfileLoading(false);
       }
     };
+
     checkProfile();
   }, []);
 
+// Fetch trainer stats: programs, custom exercises, trainee count
   useEffect(() => {
     const fetchTrainerStats = async () => {
       if (!user?.is_trainer || !user?.id) {
         setStatsLoading(false);
+        setTrainerProgramsList([]);
+        setTrainerExercisesList([]);
+        setTraineeCount(0);
+        setProgramsCount(0);
+        setActiveProgramsCount(0);
         return;
       }
+
+      setStatsLoading(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/programs/`, {
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const data = await response.json();
+        const [programsRes, exercisesRes, traineesRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/programs/`, { credentials: 'include' }),
+          fetch(`${API_BASE_URL}/exercise-templates/`, { credentials: 'include' }),
+          fetch(`${API_BASE_URL}/trainer/trainee-count/`, { credentials: 'include' }),
+        ]);
+
+        if (programsRes.ok) {
+          const data = await programsRes.json();
           const programs = Array.isArray(data)
             ? data
             : Array.isArray(data.results)
-            ? data.results
-            : [];
-          const myPrograms     = programs.filter((p: Program) => String(p.trainer) === String(user.id));
+              ? data.results
+              : [];
+          const myPrograms = programs.filter(
+            (p: Program) => String(p.trainer) === String(user.id)
+          );
           const activePrograms = myPrograms.filter((p: Program) => !p.is_deleted);
           setProgramsCount(myPrograms.length);
           setActiveProgramsCount(activePrograms.length);
+          setTrainerProgramsList(
+            [...myPrograms].sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            )
+          );
+        } else {
+          setProgramsCount(0);
+          setActiveProgramsCount(0);
+          setTrainerProgramsList([]);
+        }
+
+        if (exercisesRes.ok) {
+          const exData = await exercisesRes.json();
+          const raw = Array.isArray(exData.exercises) ? exData.exercises : [];
+          const own = raw
+            .filter((e: { is_default?: boolean }) => !e.is_default)
+            .map((e: { id: number; name: string; description?: string; created_at: string }) => ({
+              id: e.id,
+              name: e.name,
+              description: e.description || '',
+              created_at: e.created_at,
+            }))
+            .sort(
+              (a: TrainerExerciseRow, b: TrainerExerciseRow) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+          setTrainerExercisesList(own);
+        } else {
+          setTrainerExercisesList([]);
+        }
+
+        if (traineesRes.ok) {
+          const t = await traineesRes.json();
+          setTraineeCount(typeof t.trainee_count === 'number' ? t.trainee_count : 0);
+        } else {
+          setTraineeCount(0);
         }
       } catch (error) {
         console.error('Error fetching trainer stats:', error);
+        setTrainerProgramsList([]);
+        setTrainerExercisesList([]);
+        setTraineeCount(0);
       } finally {
         setStatsLoading(false);
       }
     };
+
     fetchTrainerStats();
   }, [user?.id, user?.is_trainer]);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (!user) {
-        setHistoryLoading(false);
-        return;
-      }
-      setHistoryLoading(true);
-      try {
-        const data = await sessionAPI.getWorkoutHistory() as {
-          total?: number;
-          sessions?: WorkoutHistorySession[];
-        };
-        setHistorySessions(Array.isArray(data.sessions) ? data.sessions : []);
-      } catch {
-        setHistorySessions([]);
-      } finally {
-        setHistoryLoading(false);
-      }
-    };
-    fetchHistory();
-    const onFocus = () => { if (user) fetchHistory(); };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [user]);
+useEffect(() => {
+  const fetchHistory = async () => {
+    if (!user) {
+      setHistoryLoading(false);
+      return;
+    }
 
+    setHistoryLoading(true);
+    try {
+      const data = await sessionAPI.getWorkoutHistory() as { total?: number; sessions?: WorkoutHistorySession[] };
+      setHistorySessions(Array.isArray(data.sessions) ? data.sessions : []);
+    } catch {
+      setHistorySessions([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  fetchHistory();
+
+  const onFocus = () => {
+    if (user) fetchHistory();
+  };
+  window.addEventListener('focus', onFocus);
+  return () => window.removeEventListener('focus', onFocus);
+}, [user]);
+
+// US 4.2 / 4.3 – badge count + earned list for Achievements card modal (members + trainers)
+useEffect(() => {
+  const fetchBadges = async () => {
+    if (!user) return;
+    try {
+      const data = await rewardsAPI.getBadges() as {
+        total_earned: number;
+        badges: Array<{
+          badge_id: string;
+          name: string;
+          description: string;
+          icon: string;
+          earned: boolean;
+          earned_at: string | null;
+        }>;
+      };
+      setAchievementsCount(data.total_earned);
+      const earned = (data.badges || [])
+        .filter((b) => b.earned)
+        .sort((a, b) => (b.earned_at || '').localeCompare(a.earned_at || ''))
+        .map((b) => ({
+          badge_id: b.badge_id,
+          name: b.name,
+          description: b.description,
+          icon: b.icon,
+          earned_at: b.earned_at,
+        }));
+      setEarnedBadgesList(earned);
+    } catch {
+      setAchievementsCount(0);
+      setEarnedBadgesList([]);
+    }
+  };
+  fetchBadges();
+}, [user]);
+
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
       }
     };
+
     if (isDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isDropdownOpen]);
 
-
   // ========================================
   // Event Handlers
   // ========================================
 
-  const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
-  const handleLogout   = async () => { setIsLoggingOut(true); setIsDropdownOpen(false); await logout(); };
-  const openSettings   = () => { setIsDropdownOpen(false); setIsSettingsOpen(true); };
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    setIsDropdownOpen(false);
+    await logout();
+  };
+
+  const openSettings = () => {
+    setIsDropdownOpen(false);
+    setIsSettingsOpen(true);
+  };
 
   // ========================================
   // Loading & Auth States
@@ -322,14 +395,15 @@ export default function DashboardPage() {
     );
   }
 
-  if (!user) return null;
-
+  if (!user) {
+    return null;
+  }
 
   // ========================================
   // Render Helpers
   // ========================================
 
-  const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase()
+  const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() 
     || user.username[0].toUpperCase();
 
   const totalWorkouts = historySessions.length;
@@ -340,8 +414,8 @@ export default function DashboardPage() {
   }, 0);
 
   const toLocalDateString = (d: Date) => {
-    const y   = d.getFullYear();
-    const m   = String(d.getMonth() + 1).padStart(2, '0');
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   };
@@ -350,25 +424,30 @@ export default function DashboardPage() {
     const result = { count: 0, dates: [] as string[] };
     if (!sessions.length) return result;
 
-    const dates      = Array.from(new Set(sessions.map(s => s.date))).sort().reverse();
-    const today      = new Date();
+    const dates = Array.from(new Set(sessions.map(s => s.date))).sort().reverse();
+
+    const today = new Date();
     const todayLocal = toLocalDateString(today);
-    const yesterday  = new Date(today);
+    const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
     const yesterdayLocal = toLocalDateString(yesterday);
 
     let current: Date | null =
-      dates[0] === todayLocal ? today : dates[0] === yesterdayLocal ? yesterday : null;
+      dates[0] === todayLocal ? today : (dates[0] === yesterdayLocal ? yesterday : null);
     if (!current) return result;
 
     for (const d of dates) {
       if (!current) break;
+
       const currentLocal = toLocalDateString(current);
+
       if (d === currentLocal) {
         result.count++;
         result.dates.push(d);
-        const prev = new Date(current);
+
+        const prev: Date = new Date(current);
         prev.setDate(current.getDate() - 1);
+
         current = prev;
       } else {
         break;
@@ -377,7 +456,7 @@ export default function DashboardPage() {
     return result;
   };
 
-  const streakInfo    = getStreakInfo(historySessions);
+  const streakInfo = getStreakInfo(historySessions);
   const currentStreak = streakInfo.count;
 
   const TRAINER_STATS: StatCard[] = [
@@ -392,8 +471,11 @@ export default function DashboardPage() {
       icon: '🏋️',
       iconColor: 'green',
       label: 'Exercises Created',
-      value: 0,
-      subtext: 'Build your exercise library',
+      value: statsLoading ? '...' : trainerExercisesList.length,
+      subtext:
+        trainerExercisesList.length === 0
+          ? 'Build your exercise library'
+          : `${trainerExercisesList.length} custom exercise${trainerExercisesList.length !== 1 ? 's' : ''}`,
     },
     {
       icon: '💪',
@@ -406,8 +488,11 @@ export default function DashboardPage() {
       icon: '🏆',
       iconColor: 'orange',
       label: 'Total Trainees',
-      value: 0,
-      subtext: 'See how many people follow your workouts!',
+      value: statsLoading ? '...' : traineeCount,
+      subtext:
+        traineeCount === 0
+          ? 'See how many people follow your workouts!'
+          : `${traineeCount} member${traineeCount !== 1 ? 's' : ''} on your programs`,
     },
     {
       icon: '📊',
@@ -431,11 +516,14 @@ export default function DashboardPage() {
       subtext: 'Every minute counts',
     },
     {
-      icon: '🥇',
+      icon: '🏆',
       iconColor: 'orange',
       label: 'Achievements',
-      value: 0,
-      subtext: 'Unlock your first badge!',
+      value: achievementsCount,
+      subtext:
+        achievementsCount === 0
+          ? 'Unlock your first badge!'
+          : `${achievementsCount} badge${achievementsCount !== 1 ? 's' : ''} earned!`,
     },
   ];
 
@@ -465,13 +553,25 @@ export default function DashboardPage() {
       icon: '🏆',
       iconColor: 'orange',
       label: 'Achievements',
-      value: 0,
-      subtext: 'Unlock your first badge!',
+      value: achievementsCount,
+      subtext: achievementsCount === 0 ? 'Unlock your first badge!' : `${achievementsCount} badge${achievementsCount !== 1 ? 's' : ''} earned!`,
     },
   ];
 
   const stats = user.is_trainer ? TRAINER_STATS : MEMBER_STATS;
 
+  const statDetailByLabel: Record<string, NonNullable<typeof openStatDetail>> = {
+    'Total Time': 'time',
+    'Total Workouts': 'workouts',
+    'Current Streak': 'streak',
+    Achievements: 'achievements',
+    'Programs Created': 'programs_created',
+    'Exercises Created': 'exercises_created',
+    'Active Programs': 'active_programs',
+    'Total Trainees': 'total_trainees',
+  };
+
+  const trainerActiveProgramsList = trainerProgramsList.filter((p) => !p.is_deleted);
 
   // ========================================
   // Render
@@ -479,65 +579,73 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard-container">
-
       {/* Header */}
       <header className="dashboard-header">
-        <Link href="/" className="dashboard-logo-link" style={{ textDecoration: 'none' }}>
-          <div className="dashboard-logo">
-            <Logo variant="text" size="sm" />
-          </div>
-        </Link>
-
+        <div className="dashboard-logo">
+          <Logo variant="text" size="sm" />
+        </div>
+        
         <nav className="dashboard-nav">
+          {/* User Menu with Dropdown */}
           <div className="user-menu" ref={dropdownRef}>
-            <button
-              className="user-menu-trigger"
+            <button 
+              className="user-menu-trigger" 
               onClick={toggleDropdown}
               aria-label="User menu"
               aria-expanded={isDropdownOpen}
             >
               <div className="user-avatar">{initials}</div>
               <div className="user-details">
-                <div className="user-name">{user.first_name} {user.last_name}</div>
+                <div className="user-name">
+                  {user.first_name} {user.last_name}
+                </div>
                 <div className="user-email">{user.email}</div>
                 <span className={`user-badge ${user.is_trainer ? 'trainer' : ''}`}>
                   {user.is_trainer ? 'Trainer' : 'Member'}
                 </span>
               </div>
-              <svg
+              <svg 
                 className={`dropdown-icon ${isDropdownOpen ? 'open' : ''}`}
-                fill="none"
-                viewBox="0 0 24 24"
+                fill="none" 
+                viewBox="0 0 24 24" 
                 stroke="currentColor"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
 
+            {/* Dropdown Menu */}
             <div className={`user-menu-dropdown ${isDropdownOpen ? 'open' : ''}`}>
               <div className="dropdown-header">
                 <div className="dropdown-user-name">{user.first_name} {user.last_name}</div>
                 <div className="dropdown-user-email">{user.email}</div>
               </div>
+              
               <ul className="dropdown-menu-items">
                 <li>
-                  <Link href="/" className="dropdown-menu-item" onClick={() => setIsDropdownOpen(false)}>
-                    <span>Landing Page</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/profile" className="dropdown-menu-item" onClick={() => setIsDropdownOpen(false)}>
+                  <Link 
+                    href="/profile" 
+                    className="dropdown-menu-item"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
                     <span>Profile</span>
                   </Link>
                 </li>
                 <li>
-                  <button className="dropdown-menu-item" onClick={openSettings}>
+                  <button 
+                    className="dropdown-menu-item"
+                    onClick={openSettings}
+                  >
                     <span>Settings</span>
                   </button>
                 </li>
                 <div className="dropdown-divider"></div>
                 <li>
-                  <button onClick={handleLogout} disabled={isLoggingOut} className="dropdown-menu-item danger">
+                  <button 
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="dropdown-menu-item danger"
+                  >
                     <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
                   </button>
                 </li>
@@ -549,38 +657,35 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="dashboard-main">
-
         {/* Welcome Section */}
         <section className="welcome-section">
-          <h1 className="welcome-title">Welcome back, {user.first_name}! 👋</h1>
+          <h1 className="welcome-title">
+            Welcome back, {user.first_name}! 👋
+          </h1>
           <p className="welcome-subtitle">
-            {user.is_trainer
-              ? 'Ready to inspire and train your clients today?'
-              : 'Ready to crush your fitness goals today?'}
+            {user.is_trainer 
+              ? "Ready to inspire and train your clients today?" 
+              : "Ready to crush your fitness goals today?"}
           </p>
           <div className="welcome-message">
             <span className="welcome-icon">🎯</span>
             {user.is_trainer ? (
               <>
-                <strong>Trainer Journey:</strong> Manage your workout programs, track client progress,
+                <strong>Trainer Journey:</strong> Manage your workout programs, track client progress, 
                 and share your expertise with the Fitiva community.
               </>
             ) : (
               <>
-                <strong>Your Fitness Journey:</strong> Complete your profile to get personalized workout
+                <strong>Your Fitness Journey:</strong> Complete your profile to get personalized workout 
                 recommendations tailored to your goals and experience level.
               </>
             )}
           </div>
         </section>
 
-        {/* Stat Cards */}
         <section className="stats-grid">
           {stats.map((stat) => {
-            const detailKey =
-              stat.label === 'Total Time'     ? 'time'     :
-              stat.label === 'Total Workouts' ? 'workouts' :
-              stat.label === 'Current Streak' ? 'streak'   : null;
+            const detailKey = statDetailByLabel[stat.label] ?? null;
             const isClickable = detailKey !== null;
             const cardContent = (
               <>
@@ -608,7 +713,6 @@ export default function DashboardPage() {
           })}
         </section>
 
-        {/* Stat Detail Modal */}
         {openStatDetail && (
           <div
             className="time-breakdown-overlay"
@@ -620,9 +724,14 @@ export default function DashboardPage() {
             <div className="time-breakdown-content" onClick={(e) => e.stopPropagation()}>
               <div className="time-breakdown-header">
                 <h2 id="stat-detail-title" className="time-breakdown-title">
-                  {openStatDetail === 'time'     && 'Total Time'}
+                  {openStatDetail === 'time' && 'Total Time'}
                   {openStatDetail === 'workouts' && 'Total Workouts'}
-                  {openStatDetail === 'streak'   && 'Current Streak'}
+                  {openStatDetail === 'streak' && 'Current Streak'}
+                  {openStatDetail === 'achievements' && 'Achievements'}
+                  {openStatDetail === 'programs_created' && 'Programs Created'}
+                  {openStatDetail === 'exercises_created' && 'Exercises Created'}
+                  {openStatDetail === 'active_programs' && 'Active Programs'}
+                  {openStatDetail === 'total_trainees' && 'Total Trainees'}
                 </h2>
                 <button
                   type="button"
@@ -642,13 +751,18 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="time-breakdown-total">Total: {totalMinutes} min</div>
+                      <div className="time-breakdown-total">
+                        Total: {totalMinutes} min
+                      </div>
                       <ul className="time-breakdown-list">
                         {historySessions.map((s) => (
                           <li key={s.id} className="time-breakdown-row">
                             <span className="time-breakdown-date">
                               {new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', {
-                                weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
                               })}
                             </span>
                             <span className="time-breakdown-plan">{s.plan_name || 'Workout'}</span>
@@ -673,7 +787,10 @@ export default function DashboardPage() {
                         <li key={s.id} className="time-breakdown-row">
                           <span className="time-breakdown-date">
                             {new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', {
-                              weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
                             })}
                           </span>
                           <span className="time-breakdown-plan">{s.plan_name || 'Workout'}</span>
@@ -691,8 +808,7 @@ export default function DashboardPage() {
                       {currentStreak} {currentStreak === 1 ? 'day' : 'days'}
                     </div>
                     <p className="time-breakdown-streak-explanation">
-                      Current streak is the number of consecutive days you worked out, including today or
-                      yesterday. If your most recent workout was more than one day ago, the streak resets to zero.
+                      Current streak is the number of consecutive days you worked out, including today or yesterday. If your most recent workout was more than one day ago, the streak resets to zero.
                     </p>
                     {currentStreak === 0 ? (
                       <div className="time-breakdown-empty">
@@ -705,7 +821,10 @@ export default function DashboardPage() {
                           <li key={dateStr} className="time-breakdown-row time-breakdown-row-single">
                             <span className="time-breakdown-date">
                               {new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
-                                weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
                               })}
                             </span>
                           </li>
@@ -714,101 +833,358 @@ export default function DashboardPage() {
                     )}
                   </>
                 )}
+                {openStatDetail === 'achievements' && (
+                  <>
+                    <div className="time-breakdown-total">
+                      {achievementsCount}{' '}
+                      {achievementsCount === 1 ? 'badge' : 'badges'} earned
+                    </div>
+                    {earnedBadgesList.length === 0 ? (
+                      <div className="time-breakdown-empty">
+                        <p className="time-breakdown-empty-text">No badges yet</p>
+                        <p className="time-breakdown-empty-sub">
+                          Complete a workout from your schedule to earn your first badge.
+                        </p>
+                        <Link href="/schedule" className="dashboard-stat-modal-link">
+                          Go to Schedule
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <ul className="dashboard-achievements-list">
+                          {earnedBadgesList.map((b) => (
+                            <li key={b.badge_id} className="dashboard-achievement-row">
+                              <span className="dashboard-achievement-icon" aria-hidden>
+                                {b.icon}
+                              </span>
+                              <div className="dashboard-achievement-text">
+                                <span className="dashboard-achievement-name">{b.name}</span>
+                                <span className="dashboard-achievement-desc">{b.description}</span>
+                                {b.earned_at && (
+                                  <span className="dashboard-achievement-date">
+                                    Earned{' '}
+                                    {new Date(b.earned_at).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="dashboard-stat-modal-footer">
+                          <Link href="/rewards" className="dashboard-stat-modal-link">
+                            Open achievement gallery
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {openStatDetail === 'programs_created' && (
+                  <>
+                    <div className="time-breakdown-total">
+                      {programsCount} program{programsCount !== 1 ? 's' : ''} created
+                    </div>
+                    {trainerProgramsList.length === 0 ? (
+                      <div className="time-breakdown-empty">
+                        <p className="time-breakdown-empty-text">No programs yet</p>
+                        <p className="time-breakdown-empty-sub">
+                          Create a workout program to share with the community.
+                        </p>
+                        <Link href="/create-program" className="dashboard-stat-modal-link">
+                          Create a program
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <ul className="dashboard-achievements-list">
+                          {trainerProgramsList.map((p) => (
+                            <li key={p.id} className="dashboard-achievement-row">
+                              <span className="dashboard-achievement-icon" aria-hidden>
+                                📋
+                              </span>
+                              <div className="dashboard-achievement-text">
+                                <span className="dashboard-achievement-name">{p.name}</span>
+                                {p.is_deleted && (
+                                  <span className="dashboard-achievement-desc">Archived</span>
+                                )}
+                                <span className="dashboard-achievement-date">
+                                  Created{' '}
+                                  {new Date(p.created_at).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  })}
+                                </span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="dashboard-stat-modal-footer">
+                          <Link href="/trainer-programs" className="dashboard-stat-modal-link">
+                            Browse your programs
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {openStatDetail === 'active_programs' && (
+                  <>
+                    <div className="time-breakdown-total">
+                      {activeProgramsCount} active program{activeProgramsCount !== 1 ? 's' : ''}
+                    </div>
+                    {trainerActiveProgramsList.length === 0 ? (
+                      <div className="time-breakdown-empty">
+                        <p className="time-breakdown-empty-text">No active programs</p>
+                        <p className="time-breakdown-empty-sub">
+                          Published programs you haven&apos;t archived appear here.
+                        </p>
+                        <Link href="/create-program" className="dashboard-stat-modal-link">
+                          Create a program
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <ul className="dashboard-achievements-list">
+                          {trainerActiveProgramsList.map((p) => (
+                            <li key={p.id} className="dashboard-achievement-row">
+                              <span className="dashboard-achievement-icon" aria-hidden>
+                                💪
+                              </span>
+                              <div className="dashboard-achievement-text">
+                                <span className="dashboard-achievement-name">{p.name}</span>
+                                <span className="dashboard-achievement-date">
+                                  Created{' '}
+                                  {new Date(p.created_at).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  })}
+                                </span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="dashboard-stat-modal-footer">
+                          <Link href="/trainer-programs" className="dashboard-stat-modal-link">
+                            Manage programs
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {openStatDetail === 'exercises_created' && (
+                  <>
+                    <div className="time-breakdown-total">
+                      {trainerExercisesList.length} custom exercise
+                      {trainerExercisesList.length !== 1 ? 's' : ''}
+                    </div>
+                    {trainerExercisesList.length === 0 ? (
+                      <div className="time-breakdown-empty">
+                        <p className="time-breakdown-empty-text">No custom exercises yet</p>
+                        <p className="time-breakdown-empty-sub">
+                          Build your library—default catalog exercises don&apos;t count here.
+                        </p>
+                        <Link href="/add-exercise" className="dashboard-stat-modal-link">
+                          Add an exercise
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <ul className="dashboard-achievements-list">
+                          {trainerExercisesList.map((ex) => (
+                            <li key={ex.id} className="dashboard-achievement-row">
+                              <span className="dashboard-achievement-icon" aria-hidden>
+                                🏋️
+                              </span>
+                              <div className="dashboard-achievement-text">
+                                <span className="dashboard-achievement-name">{ex.name}</span>
+                                {ex.description ? (
+                                  <span className="dashboard-achievement-desc">{ex.description}</span>
+                                ) : null}
+                                <span className="dashboard-achievement-date">
+                                  Added{' '}
+                                  {new Date(ex.created_at).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  })}
+                                </span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="dashboard-stat-modal-footer">
+                          <Link href="/add-exercise" className="dashboard-stat-modal-link">
+                            Add another exercise
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {openStatDetail === 'total_trainees' && (
+                  <>
+                    <div className="time-breakdown-total">
+                      {traineeCount} {traineeCount === 1 ? 'trainee' : 'trainees'}
+                    </div>
+                    {traineeCount === 0 ? (
+                      <div className="time-breakdown-empty">
+                        <p className="time-breakdown-empty-text">No trainees yet</p>
+                        <p className="time-breakdown-empty-sub">
+                          When members add your programs to an active schedule, they count here
+                          (your own schedule is excluded).
+                        </p>
+                        <Link href="/trainer-programs" className="dashboard-stat-modal-link">
+                          View your programs
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="time-breakdown-streak-explanation">
+                          Members with an active schedule that includes at least one of your programs.
+                          Your own account is not counted.
+                        </p>
+                        <div className="dashboard-stat-modal-footer">
+                          <Link href="/trainer-programs" className="dashboard-stat-modal-link">
+                            Browse your programs
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
         )}
-
-        {/* Weekly Activity Chart — shown for both trainers and members */}
         <section className="dashboard-trends-section">
-          <h2 className="section-title">Weekly Activity</h2>
-          <div className="dashboard-chart-card">
-            {historyLoading ? (
-              <p className="dashboard-chart-loading">Loading...</p>
-            ) : historySessions.length === 0 ? (
-              <div className="dashboard-chart-empty">
-                <p className="dashboard-chart-empty-title">No completed workouts yet</p>
-                <p className="dashboard-chart-empty-text">
-                  Complete a workout from your schedule to see your activity here.
-                </p>
-                <Link href="/schedule" className="dashboard-chart-empty-link">Go to Schedule</Link>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={weeklyChartData} margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" tickMargin={8} />
-                  <YAxis
-                    tickMargin={8}
-                    label={{ value: 'Minutes', angle: -90, position: 'insideLeft' }}
-                    domain={[0, 'auto']}
-                  />
-                  <Tooltip content={<ChartTooltip isDark={isDark} />} />
-                  <Line type="monotone" dataKey="minutes" strokeWidth={3} dot={{ r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </section>
+    <h2 className="section-title">Weekly Activity</h2>
+
+    <div className="dashboard-chart-card">
+      {historyLoading ? (
+        <p className="dashboard-chart-loading">Loading...</p>
+      ) : historySessions.length === 0 ? (
+        <div className="dashboard-chart-empty">
+          <p className="dashboard-chart-empty-title">No completed workouts yet</p>
+          <p className="dashboard-chart-empty-text">Complete a workout from your schedule to see your activity here.</p>
+          <Link href="/schedule" className="dashboard-chart-empty-link">Go to Schedule</Link>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={weeklyChartData} margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="day" tickMargin={8} />
+            <YAxis tickMargin={8}
+              label={{ value: "Minutes", angle: -90, position: "insideLeft" }}
+              domain={[0, 'auto']}
+            />
+            <Tooltip formatter={(value: number | undefined) => [value ?? 0, 'Minutes']} />
+            <Line
+              type="monotone"
+              dataKey="minutes"
+              strokeWidth={3}
+              dot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  </section>
 
         {/* Quick Actions */}
         <section className="quick-actions">
           <h2 className="section-title">Quick Actions</h2>
           <div className="action-buttons">
-            {!hasCompletedProfile && (
-              <Link href="/profile" className="action-button">
-                <div className="action-button-icon">👤</div>
-                <div className="action-button-title">Complete Profile</div>
-                <div className="action-button-description">
-                  Add your fitness details to get started
-                </div>
-              </Link>
-            )}
+            {/* Profile Action */}
+            <Link href="/profile" className="action-button">
+              <div className="action-button-icon">👤</div>
+              <div className="action-button-title">
+                {hasCompletedProfile ? 'Edit your profile' : 'Complete Profile'}
+              </div>
+              <div className="action-button-description">
+                {hasCompletedProfile 
+                  ? 'Change your fitness details to customize for your new preferences'
+                  : 'Add your fitness details to get started'}
+              </div>
+            </Link>
 
+            {/* Browse Programs Action */}
             <Link href="/trainer-programs" className="action-button">
               <div className="action-button-icon">💪</div>
               <div className="action-button-title">Browse Programs</div>
-              <div className="action-button-description">Explore trainer-created workouts</div>
+              <div className="action-button-description">
+                Explore trainer-created workouts
+              </div>
             </Link>
-
+            
             {user.is_trainer ? (
               <>
                 <Link href="/add-exercise" className="action-button">
                   <div className="action-button-icon">🏋️</div>
                   <div className="action-button-title">Add Exercise</div>
-                  <div className="action-button-description">Create exercises for your programs</div>
+                  <div className="action-button-description">
+                    Create exercises for your programs
+                  </div>
                 </Link>
+                
                 <Link href="/create-program" className="action-button">
                   <div className="action-button-icon">✨</div>
                   <div className="action-button-title">Create Program</div>
-                  <div className="action-button-description">Design a new workout plan</div>
+                  <div className="action-button-description">
+                    Design a new workout plan
+                  </div>
                 </Link>
-                <Link href="/recommendations" className="action-button">
-                  <div className="action-button-icon">🎯</div>
-                  <div className="action-button-title">View Recommendations</div>
-                  <div className="action-button-description">Discover workout plans tailored for you</div>
+
+                <Link href="/rewards" className="action-button">
+                  <div className="action-button-icon">🏆</div>
+                  <div className="action-button-title">My Rewards</div>
+                  <div className="action-button-description">
+                    View your points
+                  </div>
                 </Link>
               </>
             ) : (
-              <Link href="/recommendations" className="action-button">
-                <div className="action-button-icon">🎯</div>
-                <div className="action-button-title">View Recommendations</div>
-                <div className="action-button-description">Discover workout plans for you</div>
-              </Link>
-            )}
+              <>
+                
+                <Link href="/recommendations" className="action-button">
+                  <div className="action-button-icon">🎯</div>
+                  <div className="action-button-title">View Recommendations</div>
+                  <div className="action-button-description">
+                    Discover workout plans for you
+                  </div>
+                </Link>
 
+                <Link href="/rewards" className="action-button">
+                  <div className="action-button-icon">🏆</div>
+                  <div className="action-button-title">My Rewards</div>
+                  <div className="action-button-description">
+                    View your points and achievement badges
+                  </div>
+                </Link>
+              </>
+            )}
             <Link href="/schedule" className="action-button">
-              <div className="action-button-icon">📅</div>
-              <div className="action-button-title">My Workout Schedule</div>
-              <div className="action-button-description">View and manage your personalized calendar</div>
-            </Link>
+                  <div className="action-button-icon">📅</div>
+                  <div className="action-button-title">My Workout Schedule</div>
+                  <div className="action-button-description">
+                    View and manage your personalized calendar
+                  </div>
+                </Link>
           </div>
         </section>
-
       </main>
 
       {/* Settings Modal */}
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
     </div>
   );
 }

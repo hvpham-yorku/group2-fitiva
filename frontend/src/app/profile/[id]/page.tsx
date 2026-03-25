@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileAPI, publicProfileAPI, ApiError } from '@/library/api';
+import { profileAPI, publicProfileAPI, rewardsAPI, ApiError } from '@/library/api';
 import EditProfileModal from '@/components/ui/EditProfileModal';
 import EditTrainerProfileModal from '@/components/ui/EditTrainerProfileModal';
 import './profile.css';
@@ -144,6 +144,11 @@ export default function ProfileViewPage() {
   const [setupErrors, setSetupErrors] = useState<Record<string, string>>({});
   const [setupSaving, setSetupSaving] = useState(false);
 
+  // US 4.1 / 4.2 – own rewards summary (same APIs as member dashboard; trainers were missing UI)
+  const [rewardsPoints, setRewardsPoints] = useState<number | null>(null);
+  const [rewardsBadgesEarned, setRewardsBadgesEarned] = useState<number | null>(null);
+  const [rewardsLoading, setRewardsLoading] = useState(false);
+
   const isOwnProfile = user && String(user.id) === profileId;
 
   // ========================================
@@ -186,6 +191,35 @@ export default function ProfileViewPage() {
       loadProfile();
     }
   }, [user, authLoading, profileId, isOwnProfile]);
+
+  useEffect(() => {
+    if (!isOwnProfile) return;
+    let cancelled = false;
+    const loadRewards = async () => {
+      setRewardsLoading(true);
+      try {
+        const [pointsData, badgesData] = await Promise.all([
+          rewardsAPI.getPoints() as Promise<{ total_points: number }>,
+          rewardsAPI.getBadges() as Promise<{ total_earned: number }>,
+        ]);
+        if (!cancelled) {
+          setRewardsPoints(pointsData.total_points);
+          setRewardsBadgesEarned(badgesData.total_earned);
+        }
+      } catch {
+        if (!cancelled) {
+          setRewardsPoints(0);
+          setRewardsBadgesEarned(0);
+        }
+      } finally {
+        if (!cancelled) setRewardsLoading(false);
+      }
+    };
+    loadRewards();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwnProfile]);
 
   // ========================================
   // Event Handlers - Profile Updates
@@ -443,6 +477,38 @@ export default function ProfileViewPage() {
             </button>
           )}
         </div>
+
+        {/* Points & badges (own profile only) – US 4.1 / 4.2 for trainers and members */}
+        {isOwnProfile && (
+          <div className="profile-section profile-rewards-section">
+            <div className="section-header">
+              <h2 className="section-title">Points &amp; achievements</h2>
+              <Link href="/rewards" className="edit-section-button profile-rewards-link">
+                View rewards
+              </Link>
+            </div>
+            <div className="profile-rewards-grid">
+              <div className="info-card">
+                <span className="info-label">Total points</span>
+                <span className="info-value">
+                  {rewardsLoading ? '…' : rewardsPoints ?? '—'}
+                </span>
+                <p className="profile-rewards-hint">
+                  Earned when you complete workouts from your schedule.
+                </p>
+              </div>
+              <div className="info-card">
+                <span className="info-label">Badges earned</span>
+                <span className="info-value">
+                  {rewardsLoading ? '…' : rewardsBadgesEarned ?? '—'}
+                </span>
+                <p className="profile-rewards-hint">
+                  Unlocked automatically as you hit milestones and streaks.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Trainer Profile Section */}
         {profile.is_trainer && profile.trainer_profile && (
