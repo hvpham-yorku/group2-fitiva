@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileAPI, publicProfileAPI, ApiError } from '@/library/api';
+import { profileAPI, publicProfileAPI, ApiError, rewardsAPI } from '@/library/api';
 import EditProfileModal from '@/components/ui/EditProfileModal';
 import EditTrainerProfileModal from '@/components/ui/EditTrainerProfileModal';
 import './profile.css';
@@ -133,6 +133,13 @@ export default function ProfileViewPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditTrainerModal, setShowEditTrainerModal] = useState(false);
 
+  // US 4.1 / 4.2 – own trainer: show points & badges summary (same as member rewards  in the trainer dashboard)
+  const [rewardsSummary, setRewardsSummary] = useState<{
+    total_points: number;
+    total_badges: number;
+  } | null>(null);
+  const [rewardsSummaryLoading, setRewardsSummaryLoading] = useState(false);
+
   // First-time setup state
   const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false);
   const [setupForm, setSetupForm] = useState<ProfileForm>({
@@ -186,6 +193,32 @@ export default function ProfileViewPage() {
       loadProfile();
     }
   }, [user, authLoading, profileId, isOwnProfile]);
+
+  useEffect(() => {
+    const loadRewards = async () => {
+      if (!profile || !isOwnProfile || !profile.is_trainer) {
+        setRewardsSummary(null);
+        setRewardsSummaryLoading(false);
+        return;
+      }
+      setRewardsSummaryLoading(true);
+      try {
+        const [pointsData, badgesData] = await Promise.all([
+          rewardsAPI.getPoints() as Promise<{ total_points: number }>,
+          rewardsAPI.getBadges() as Promise<{ total_earned: number }>,
+        ]);
+        setRewardsSummary({
+          total_points: pointsData.total_points ?? 0,
+          total_badges: badgesData.total_earned ?? 0,
+        });
+      } catch {
+        setRewardsSummary(null);
+      } finally {
+        setRewardsSummaryLoading(false);
+      }
+    };
+    void loadRewards();
+  }, [isOwnProfile, profile?.is_trainer, profile?.id]);
 
   // ========================================
   // Event Handlers - Profile Updates
@@ -504,6 +537,45 @@ export default function ProfileViewPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Points & badges (trainer own profile – same engager logic as members) */}
+        {isOwnProfile && profile.is_trainer && (
+          <div className="profile-section">
+            <div className="section-header">
+              <h2 className="section-title">Rewards &amp; achievements</h2>
+              <Link href="/rewards" className="create-program button">
+                <button type="button" className="create-program-button">
+                  View details
+                </button>
+              </Link>
+            </div>
+            <div className="trainer-info-grid">
+              <div className="info-card">
+                <span className="info-label">Total points</span>
+                <span className="info-value">
+                  {rewardsSummaryLoading
+                    ? '…'
+                    : rewardsSummary !== null
+                      ? rewardsSummary.total_points.toLocaleString()
+                      : '—'}
+                </span>
+              </div>
+              <div className="info-card">
+                <span className="info-label">Badges earned</span>
+                <span className="info-value">
+                  {rewardsSummaryLoading
+                    ? '…'
+                    : rewardsSummary !== null
+                      ? rewardsSummary.total_badges
+                      : '—'}
+                </span>
+              </div>
+            </div>
+            <p className="info-text" style={{ marginTop: '0.75rem' }}>
+              Complete workouts from your schedule to earn points and unlock badges—same as members.
+            </p>
           </div>
         )}
 

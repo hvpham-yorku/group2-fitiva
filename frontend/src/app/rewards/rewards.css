@@ -359,6 +359,97 @@
   flex-shrink: 0;
 }
 
+/* ── US 4.3 Achievement gallery ── */
+.rewards-gallery-intro {
+  margin-bottom: 0.25rem;
+}
+
+.rewards-gallery-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.35rem;
+  transition: color 0.3s ease;
+}
+
+.rewards-gallery-lead {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0 0 1rem;
+  max-width: 42rem;
+  transition: color 0.3s ease;
+}
+
+.rewards-gallery-sort {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.rewards-gallery-sort-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+.rewards-gallery-sort-select {
+  min-width: 200px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.rewards-gallery-sort-select:hover {
+  border-color: var(--fitiva-red);
+}
+
+.rewards-gallery-sort-select:focus {
+  outline: 2px solid rgba(239, 62, 54, 0.35);
+  outline-offset: 2px;
+}
+
+.rewards-gallery-sort-hint {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  margin: 0 0 0.5rem;
+  line-height: 1.35;
+  transition: color 0.3s ease;
+}
+
+.rewards-locked-hint {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: -0.6rem 0 1rem;
+  line-height: 1.35;
+  transition: color 0.3s ease;
+}
+
+.rewards-badge-category-chip {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fitiva-red);
+  background: rgba(239, 62, 54, 0.1);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.rewards-badge-category-chip-locked {
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
 /* ── Badge gallery ── */
 .rewards-badge-count-chip {
   font-size: 0.8rem;
@@ -483,5 +574,15 @@
 
   .rewards-badge-grid {
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+
+  .rewards-gallery-sort {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rewards-gallery-sort-select {
+    width: 100%;
+    min-width: 0;
   }
 }

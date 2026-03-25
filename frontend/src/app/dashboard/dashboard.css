@@ -356,6 +356,162 @@
   grid-template-columns: 1fr;
 }
 
+/* Achievements detail modal (stat card) */
+.stat-detail-badge-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+}
+
+.stat-detail-badge-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-detail-badge-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.stat-detail-badge-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.stat-detail-badge-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  transition: color 0.3s ease;
+}
+
+.stat-detail-badge-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  transition: color 0.3s ease;
+}
+
+.stat-detail-badge-date {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--fitiva-red);
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding-top: 0.15rem;
+}
+
+.stat-detail-badge-footer {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-light);
+  text-align: center;
+}
+
+.dashboard-stat-detail-link {
+  display: inline-block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--fitiva-red);
+  text-decoration: none;
+}
+
+.dashboard-stat-detail-link:hover {
+  text-decoration: underline;
+}
+
+.time-breakdown-empty .dashboard-stat-detail-link {
+  margin-top: 0.75rem;
+}
+
+/* Programs Created modal (trainer) */
+.stat-detail-program-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+}
+
+.stat-detail-program-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-detail-program-link:hover {
+  border-color: var(--fitiva-red);
+  box-shadow: 0 2px 8px rgba(239, 62, 54, 0.12);
+}
+
+.stat-detail-program-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  transition: color 0.3s ease;
+}
+
+.stat-detail-program-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.stat-detail-program-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+}
+
+.stat-detail-program-date {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.stat-detail-program-chevron {
+  font-size: 1rem;
+  color: var(--fitiva-red);
+  font-weight: 700;
+}
+
 /* Quick Actions */
 .quick-actions {
   background-color: var(--bg-primary);

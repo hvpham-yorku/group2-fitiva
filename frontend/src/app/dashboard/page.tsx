@@ -36,12 +36,31 @@ interface Program {
   is_deleted: boolean;
   created_at: string;
 }
+
+/** Trainer-owned exercise template (from /api/exercise-templates/) */
+interface ExerciseTemplateSummary {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  is_default: boolean;
+  trainer: number;
+}
 interface WorkoutHistorySession {
   id: number;
   date: string;                 // "YYYY-MM-DD"
   plan_name?: string | null;
   duration_minutes?: number | null;
   notes?: string;
+}
+
+interface EarnedBadgeRow {
+  badge_id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  earned_at: string | null;
 }
 // ============================================================================
 // CONSTANTS
@@ -92,7 +111,15 @@ export default function DashboardPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [openStatDetail, setOpenStatDetail] = useState<null | 'time' | 'workouts' | 'streak'>(null);
+  const [openStatDetail, setOpenStatDetail] = useState<
+    | null
+    | 'time'
+    | 'workouts'
+    | 'streak'
+    | 'achievements'
+    | 'programs_created'
+    | 'exercises_created'
+  >(null);
 
   // Profile state
   const [hasCompletedProfile, setHasCompletedProfile] = useState(false);
@@ -102,13 +129,18 @@ export default function DashboardPage() {
   const [programsCount, setProgramsCount] = useState(0);
   const [activeProgramsCount, setActiveProgramsCount] = useState(0);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [trainerProgramsList, setTrainerProgramsList] = useState<Program[]>([]);
+  const [exercisesCount, setExercisesCount] = useState(0);
+  const [exercisesLoading, setExercisesLoading] = useState(true);
+  const [trainerExercisesList, setTrainerExercisesList] = useState<ExerciseTemplateSummary[]>([]);
 
     // Member workout history + stats
   const [historySessions, setHistorySessions] = useState<WorkoutHistorySession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  // US 4.1 / 4.2 – live badge count for the Achievements card
+  // US 4.1 / 4.2 – live badge count + earned list for Achievements detail modal
   const [achievementsCount, setAchievementsCount] = useState(0);
+  const [earnedBadgesList, setEarnedBadgesList] = useState<EarnedBadgeRow[]>([]);
 
 const buildMonSunWeekData = (sessions: WorkoutHistorySession[]) => {
   const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -173,11 +205,12 @@ const weeklyChartData = buildMonSunWeekData(historySessions);
     checkProfile();
   }, []);
 
-// Fetch trainer stats (programs count)
+// Fetch trainer stats (programs count + list for Programs Created modal)
 useEffect(() => {
   const fetchTrainerStats = async () => {
     if (!user?.is_trainer || !user?.id) {
       setStatsLoading(false);
+      setTrainerProgramsList([]);
       return;
     }
 
@@ -208,15 +241,76 @@ useEffect(() => {
         
         setProgramsCount(myPrograms.length);
         setActiveProgramsCount(activePrograms.length);
+        const sorted = [...myPrograms].sort((a, b) => {
+          const ta = new Date(a.created_at).getTime();
+          const tb = new Date(b.created_at).getTime();
+          return tb - ta;
+        });
+        setTrainerProgramsList(sorted);
+      } else {
+        setTrainerProgramsList([]);
       }
     } catch (error) {
       console.error('Error fetching trainer stats:', error);
+      setTrainerProgramsList([]);
     } finally {
       setStatsLoading(false);
     }
   };
 
   fetchTrainerStats();
+  const onFocus = () => {
+    if (user?.is_trainer && user?.id) fetchTrainerStats();
+  };
+  window.addEventListener('focus', onFocus);
+  return () => window.removeEventListener('focus', onFocus);
+}, [user?.id, user?.is_trainer]);
+
+// Trainer exercise templates (Exercises Created card + modal)
+useEffect(() => {
+  const fetchTrainerExercises = async () => {
+    if (!user?.is_trainer || !user?.id) {
+      setTrainerExercisesList([]);
+      setExercisesCount(0);
+      setExercisesLoading(false);
+      return;
+    }
+    setExercisesLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/exercise-templates/`, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const raw = Array.isArray(data.exercises) ? data.exercises : [];
+        const mine = raw.filter(
+          (e: ExerciseTemplateSummary) =>
+            !e.is_default && String(e.trainer) === String(user.id),
+        );
+        mine.sort((a: ExerciseTemplateSummary, b: ExerciseTemplateSummary) => {
+          const ta = new Date(a.created_at).getTime();
+          const tb = new Date(b.created_at).getTime();
+          return tb - ta;
+        });
+        setTrainerExercisesList(mine);
+        setExercisesCount(mine.length);
+      } else {
+        setTrainerExercisesList([]);
+        setExercisesCount(0);
+      }
+    } catch {
+      setTrainerExercisesList([]);
+      setExercisesCount(0);
+    } finally {
+      setExercisesLoading(false);
+    }
+  };
+  fetchTrainerExercises();
+  const onFocus = () => {
+    if (user?.is_trainer && user?.id) fetchTrainerExercises();
+  };
+  window.addEventListener('focus', onFocus);
+  return () => window.removeEventListener('focus', onFocus);
 }, [user?.id, user?.is_trainer]);
 
 useEffect(() => {
@@ -246,18 +340,34 @@ useEffect(() => {
   return () => window.removeEventListener('focus', onFocus);
 }, [user]);
 
-// US 4.2 – fetch badge count so the Achievements card shows the real number
+// US 4.2 – badges for Achievements card + detail modal (members and trainers)
 useEffect(() => {
-  const fetchBadgeCount = async () => {
-    if (!user || user.is_trainer) return;
+  const fetchBadges = async () => {
+    if (!user) return;
     try {
-      const data = await rewardsAPI.getBadges() as { total_earned: number };
+      const data = await rewardsAPI.getBadges() as {
+        total_earned: number;
+        badges: Array<EarnedBadgeRow & { earned: boolean }>;
+      };
+      const earned = data.badges.filter((b) => b.earned);
+      earned.sort((a, b) => {
+        const ta = a.earned_at ? new Date(a.earned_at).getTime() : 0;
+        const tb = b.earned_at ? new Date(b.earned_at).getTime() : 0;
+        return tb - ta;
+      });
+      setEarnedBadgesList(earned);
       setAchievementsCount(data.total_earned);
     } catch {
-      // silently ignore – card just shows 0
+      setEarnedBadgesList([]);
+      setAchievementsCount(0);
     }
   };
-  fetchBadgeCount();
+  fetchBadges();
+  const onFocus = () => {
+    if (user) fetchBadges();
+  };
+  window.addEventListener('focus', onFocus);
+  return () => window.removeEventListener('focus', onFocus);
 }, [user]);
 
   // Close dropdown when clicking outside
@@ -381,8 +491,11 @@ useEffect(() => {
       icon: '🏋️',
       iconColor: 'green',
       label: 'Exercises Created',
-      value: 0,
-      subtext: 'Build your exercise library',
+      value: exercisesLoading ? '...' : exercisesCount,
+      subtext:
+        exercisesCount === 0
+          ? 'Create your first exercise!'
+          : 'Build your exercise library',
     },
     {
       icon: '💪',
@@ -418,6 +531,16 @@ useEffect(() => {
       label: 'Total Time',
       value: historyLoading ? '...' : `${totalMinutes} min`,
       subtext: 'Every minute counts',
+    },
+    {
+      icon: '🏆',
+      iconColor: 'orange',
+      label: 'Achievements',
+      value: achievementsCount,
+      subtext:
+        achievementsCount === 0
+          ? 'Unlock your first badge!'
+          : `${achievementsCount} badge${achievementsCount !== 1 ? 's' : ''} earned!`,
     },
   ];
 
@@ -566,7 +689,20 @@ useEffect(() => {
 
         <section className="stats-grid">
           {stats.map((stat) => {
-            const detailKey = stat.label === 'Total Time' ? 'time' : stat.label === 'Total Workouts' ? 'workouts' : stat.label === 'Current Streak' ? 'streak' : null;
+            const detailKey =
+              stat.label === 'Total Time'
+                ? 'time'
+                : stat.label === 'Total Workouts'
+                  ? 'workouts'
+                  : stat.label === 'Current Streak'
+                    ? 'streak'
+                    : stat.label === 'Achievements'
+                      ? 'achievements'
+                      : stat.label === 'Programs Created'
+                        ? 'programs_created'
+                        : stat.label === 'Exercises Created'
+                          ? 'exercises_created'
+                          : null;
             const isClickable = detailKey !== null;
             const cardContent = (
               <>
@@ -608,6 +744,9 @@ useEffect(() => {
                   {openStatDetail === 'time' && 'Total Time'}
                   {openStatDetail === 'workouts' && 'Total Workouts'}
                   {openStatDetail === 'streak' && 'Current Streak'}
+                  {openStatDetail === 'achievements' && 'Achievements'}
+                  {openStatDetail === 'programs_created' && 'Programs Created'}
+                  {openStatDetail === 'exercises_created' && 'Exercises Created'}
                 </h2>
                 <button
                   type="button"
@@ -709,12 +848,179 @@ useEffect(() => {
                     )}
                   </>
                 )}
+                {openStatDetail === 'programs_created' && (
+                  <>
+                    {trainerProgramsList.length === 0 ? (
+                      <div className="time-breakdown-empty">
+                        <p className="time-breakdown-empty-text">No programs yet.</p>
+                        <p className="time-breakdown-empty-sub">
+                          Create a workout program to see it listed here.
+                        </p>
+                        <Link href="/create-program" className="dashboard-stat-detail-link">
+                          Create a program
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="time-breakdown-total">
+                          {trainerProgramsList.length} program
+                          {trainerProgramsList.length !== 1 ? 's' : ''} total
+                          {' '}
+                          ({activeProgramsCount} active)
+                        </div>
+                        <ul className="stat-detail-program-list">
+                          {trainerProgramsList.map((p) => (
+                            <li key={p.id}>
+                              <Link
+                                href={`/program/${p.id}`}
+                                className="stat-detail-program-link"
+                                onClick={() => setOpenStatDetail(null)}
+                              >
+                                <span className="stat-detail-program-name">{p.name}</span>
+                                <span className="stat-detail-program-meta">
+                                  {p.is_deleted ? (
+                                    <span className="stat-detail-program-badge">Archived</span>
+                                  ) : null}
+                                  <span className="stat-detail-program-date">
+                                    {new Date(p.created_at).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })}
+                                  </span>
+                                  <span className="stat-detail-program-chevron" aria-hidden>
+                                    →
+                                  </span>
+                                </span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="stat-detail-badge-footer">
+                          <Link
+                            href="/trainer-programs"
+                            className="dashboard-stat-detail-link"
+                            onClick={() => setOpenStatDetail(null)}
+                          >
+                            View all in Trainer Programs
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {openStatDetail === 'exercises_created' && (
+                  <>
+                    {trainerExercisesList.length === 0 ? (
+                      <div className="time-breakdown-empty">
+                        <p className="time-breakdown-empty-text">No custom exercises yet.</p>
+                        <p className="time-breakdown-empty-sub">
+                          Add exercises to reuse them when you build programs.
+                        </p>
+                        <Link href="/add-exercise" className="dashboard-stat-detail-link">
+                          Add exercise
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="time-breakdown-total">
+                          {trainerExercisesList.length} exercise
+                          {trainerExercisesList.length !== 1 ? 's' : ''} in your library
+                        </div>
+                        <ul className="stat-detail-program-list">
+                          {trainerExercisesList.map((ex) => (
+                            <li key={ex.id}>
+                              <Link
+                                href={`/add-exercise?edit=${ex.id}`}
+                                className="stat-detail-program-link"
+                                onClick={() => setOpenStatDetail(null)}
+                              >
+                                <span className="stat-detail-program-name">{ex.name}</span>
+                                <span className="stat-detail-program-meta">
+                                  <span className="stat-detail-program-date">
+                                    {new Date(ex.created_at).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })}
+                                  </span>
+                                  <span className="stat-detail-program-chevron" aria-hidden>
+                                    →
+                                  </span>
+                                </span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="stat-detail-badge-footer">
+                          <Link
+                            href="/add-exercise"
+                            className="dashboard-stat-detail-link"
+                            onClick={() => setOpenStatDetail(null)}
+                          >
+                            Open exercise library
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {openStatDetail === 'achievements' && (
+                  <>
+                    {earnedBadgesList.length === 0 ? (
+                      <div className="time-breakdown-empty">
+                        <p className="time-breakdown-empty-text">No badges earned yet.</p>
+                        <p className="time-breakdown-empty-sub">
+                          Complete workouts from your schedule to unlock achievement badges.
+                        </p>
+                        <Link href="/schedule" className="dashboard-stat-detail-link">
+                          Go to Schedule
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="time-breakdown-total">
+                          {earnedBadgesList.length} badge{earnedBadgesList.length !== 1 ? 's' : ''} earned
+                        </div>
+                        <p className="time-breakdown-streak-explanation">
+                          Badges reward milestones and streaks. Open the gallery for the full list including locked badges.
+                        </p>
+                        <ul className="stat-detail-badge-list">
+                          {earnedBadgesList.map((b) => (
+                            <li key={b.badge_id} className="stat-detail-badge-item">
+                              <span className="stat-detail-badge-icon" aria-hidden>
+                                {b.icon}
+                              </span>
+                              <div className="stat-detail-badge-text">
+                                <span className="stat-detail-badge-name">{b.name}</span>
+                                <span className="stat-detail-badge-desc">{b.description}</span>
+                              </div>
+                              {b.earned_at && (
+                                <span className="stat-detail-badge-date">
+                                  {new Date(b.earned_at).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  })}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="stat-detail-badge-footer">
+                          <Link href="/rewards" className="dashboard-stat-detail-link">
+                            Open achievement gallery
+                          </Link>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
         )}
-        {!user.is_trainer && (
-  <section className="dashboard-trends-section">
+        <section className="dashboard-trends-section">
     <h2 className="section-title">Weekly Activity</h2>
 
     <div className="dashboard-chart-card">
@@ -747,7 +1053,6 @@ useEffect(() => {
       )}
     </div>
   </section>
-)}
 
         {/* Quick Actions */}
         <section className="quick-actions">
@@ -790,6 +1095,14 @@ useEffect(() => {
                   <div className="action-button-title">Create Program</div>
                   <div className="action-button-description">
                     Design a new workout plan
+                  </div>
+                </Link>
+
+                <Link href="/rewards" className="action-button">
+                  <div className="action-button-icon">🏆</div>
+                  <div className="action-button-title">My Rewards</div>
+                  <div className="action-button-description">
+                    View your points and achievement badges
                   </div>
                 </Link>
               </>

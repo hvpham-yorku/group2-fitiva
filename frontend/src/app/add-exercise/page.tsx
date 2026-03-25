@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import './add-exercise.css';
@@ -31,6 +31,7 @@ interface ExerciseTemplate {
   exercise_type: 'reps' | 'time';
   default_recommendations: string;
   is_default: boolean;
+  trainer?: number;
   created_at: string;
   updated_at: string;
 }
@@ -46,8 +47,10 @@ const MUSCLE_GROUP_OPTIONS = [
   { value: 'full body', label: 'Full Body' },
 ];
 
-const AddExercisePage = () => {
+function AddExercisePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editFromQuery = searchParams.get('edit');
   const { user } = useAuth();
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +83,48 @@ const AddExercisePage = () => {
       fetchExercises();
     }
   }, [user]);
+
+  // Open edit form when linked from dashboard (?edit=id)
+  useEffect(() => {
+    if (!user?.is_trainer || !editFromQuery) return;
+    const id = parseInt(editFromQuery, 10);
+    if (Number.isNaN(id)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/exercise-templates/${id}/`,
+          { credentials: 'include' },
+        );
+        if (!res.ok || cancelled) return;
+        const exercise: ExerciseTemplate = await res.json();
+        if (cancelled || exercise.is_default) return;
+        if (
+          exercise.trainer != null &&
+          String(exercise.trainer) !== String(user.id)
+        ) {
+          return;
+        }
+        setEditingExercise(exercise);
+        setFormData({
+          name: exercise.name,
+          description: exercise.description,
+          muscle_groups: exercise.muscle_groups,
+          exercise_type: exercise.exercise_type,
+          default_recommendations: exercise.default_recommendations,
+        });
+        setShowCreateForm(true);
+        setTimeout(() => {
+          formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, editFromQuery]);
 
   const fetchExercises = async (search = '') => {
     try {
@@ -553,6 +598,18 @@ const AddExercisePage = () => {
       </div>
     </ProtectedRoute>
   );
-};
+}
 
-export default AddExercisePage;
+export default function AddExercisePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="loading-container">
+          <div className="loading-spinner" />
+        </div>
+      }
+    >
+      <AddExercisePageContent />
+    </Suspense>
+  );
+}
