@@ -1134,28 +1134,70 @@
   cursor: not-allowed;
 }
 
-.btn-start-workout:disabled,
-.btn-complete-workout:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  filter: grayscale(30%);
-}
 
-/* ── Out-of-range calendar days ──────────────────────────── */
-.calendar-day.outside-range {
-  opacity: 0.3;
-  cursor: default;
-  pointer-events: none;
-  background: var(--bg-secondary);
-  border-color: var(--border-light);
-}
-
-.outside-schedule-indicator {
+.adjustment-lock-banner {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  min-height: 40px;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  border-radius: 14px;
+  border: 1px solid rgba(239, 62, 54, 0.25);
+  background: linear-gradient(135deg, rgba(239, 62, 54, 0.10) 0%, rgba(255, 146, 52, 0.12) 100%);
+}
+
+.adjustment-lock-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.adjustment-lock-copy h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.adjustment-lock-copy p {
+  margin: 0;
   color: var(--text-secondary);
-  font-size: 1.1rem;
-  letter-spacing: 0.05em;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.btn-lock-plan {
+  padding: 0.65rem 1.15rem;
+  background: transparent;
+  border: 2px solid #FF9234;
+  color: #FF9234;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-lock-plan:hover:not(:disabled) {
+  background: #FF9234;
+  color: white;
+}
+
+.btn-lock-plan:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.suggestion-impact-note {
+  margin-bottom: 1.2rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  border-left: 4px solid #FF9234;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }

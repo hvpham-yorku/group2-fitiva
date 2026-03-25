@@ -77,6 +77,7 @@ urlpatterns = [
 
     # Schedule — Lock / Unlock  ← NEW (US: accept/reject/lock adjustments)
     path('schedule/<int:schedule_id>/lock/', views.lock_schedule, name='lock-schedule'),
+    path('schedule/lock-adjustments/', views.schedule_adjustment_lock, name='schedule-adjustment-lock'),
 
     # Schedule — Regeneration (US 2.3)
     # Two-step flow: preview (no save) → user accepts → apply (saves)
@@ -96,6 +97,9 @@ urlpatterns = [
     path('sessions/history/',                 views.workout_history,          name='session-history'),
     path('sessions/feedback/<str:date_str>/', views.workout_feedback,         name='session-feedback'),
 
-    # Other
-    path('dashboard/summary/', views.dashboard_summary, name='dashboard-summary'),
+    # ========================================================================
+    # Rewards
+    # ========================================================================
+    path('rewards/points/', views.get_user_points, name='user-points'),
+    path('rewards/badges/', views.get_user_badges, name='user-badges'),
 ]
