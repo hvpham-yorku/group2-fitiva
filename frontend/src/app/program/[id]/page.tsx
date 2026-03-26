@@ -10,6 +10,7 @@ import './program-details.css';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { programAPI } from '@/library/api';
 
+
 interface ExerciseSet {
   id: number;
   set_number: number;
@@ -212,10 +213,14 @@ const fetchProgramFeedback = async () => {
     );
   };
 
-  // Bug fix #2: sends user-selected rest_days (was hardcoded ['sunday'])
   const handleConfirmAddToSchedule = async () => {
     if (!program) return;
     setAddingToSchedule(true);
+    
+    // Calculate today's date in YYYY-MM-DD format
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/generate/`,
@@ -226,6 +231,7 @@ const fetchProgramFeedback = async () => {
           body: JSON.stringify({
             program_id: program.id,
             rest_days: selectedRestDays,
+            start_date: todayStr, // <-- explicitly pass the start date
           }),
         }
       );

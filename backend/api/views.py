@@ -830,39 +830,50 @@ def password_reset(request):
 @permission_classes([IsAuthenticated])
 def generate_schedule(request):
     program_id = request.data.get('program_id')
-    start_date_str = request.data.get('start_date')
+    start_date_str = request.data.get('start_date') 
     rest_days = request.data.get('rest_days', [])
+    
+    # 1. Validation block
     if not program_id:
         return Response({"error": "program_id is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         program = WorkoutPlan.objects.get(id=program_id, is_deleted=False)
     except WorkoutPlan.DoesNotExist:
         return Response({"error": "Program not found"}, status=status.HTTP_404_NOT_FOUND)
+        
     try:
         existing_schedule = UserSchedule.objects.get(user=request.user, is_active=True)
         if program in existing_schedule.programs.all():
             return Response({"error": "This program is already in your schedule"}, status=status.HTTP_400_BAD_REQUEST)
     except UserSchedule.DoesNotExist:
         existing_schedule = None
+        
     sections = program.sections.filter(is_rest_day=False).order_by('order')
     if sections.count() == 0:
         return Response({"error": "Program has no workout sections"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    # 2. Aggressive Date Handling Block
+    # We force the date to the provided string, ONLY falling back if it's completely missing.
     if start_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        if existing_schedule:
-            start_date = existing_schedule.start_date
-        else:
-            today = datetime.now().date()
-            days_until_monday = (7 - today.weekday()) % 7
-            if days_until_monday == 0:
-                days_until_monday = 7
-            start_date = today + timedelta(days=days_until_monday)
+        # If no date is sent, just start TODAY!
+        start_date = datetime.now().date()
+            
+    # 3. Schedule Generation Block
     program_schedule = {}
     frequency = min(program.weekly_frequency, 7)
     section_index = 0
     days_scheduled = 0
-    for day in DAYS_OF_WEEK:
+    
+    # Calculate offset so we map workouts starting from the correct day
+    start_weekday = start_date.weekday()
+    ordered_days = DAYS_OF_WEEK[start_weekday:] + DAYS_OF_WEEK[:start_weekday]
+    
+    for day in ordered_days:
         if day in [d.lower() for d in rest_days]:
             program_schedule[day] = []
         elif days_scheduled < frequency and section_index < sections.count():
@@ -873,6 +884,8 @@ def generate_schedule(request):
                 section_index = 0
         else:
             program_schedule[day] = []
+            
+    # 4. Save Block
     if existing_schedule:
         merged_schedule = existing_schedule.weekly_schedule.copy()
         for day, section_ids in program_schedule.items():
@@ -880,14 +893,18 @@ def generate_schedule(request):
                 merged_schedule[day] = []
             elif merged_schedule[day] == 'rest':
                 merged_schedule[day] = []
+                
             if isinstance(merged_schedule[day], list):
                 merged_schedule[day].extend(section_ids)
             else:
                 merged_schedule[day] = section_ids
+                
         existing_schedule.weekly_schedule = merged_schedule
-        # Snapshot original schedule on first time only
+        existing_schedule.start_date = start_date # ALWAYS overwrite the old date
+        
         if not existing_schedule.original_weekly_schedule:
             existing_schedule.original_weekly_schedule = merged_schedule.copy()
+            
         existing_schedule.save()
         existing_schedule.programs.add(program)
         schedule = existing_schedule
@@ -900,6 +917,7 @@ def generate_schedule(request):
             is_active=True,
         )
         schedule.programs.add(program)
+        
     return Response(
         {"message": "Program added to your schedule", "schedule": UserScheduleSerializer(schedule).data},
         status=status.HTTP_201_CREATED,
@@ -975,50 +993,56 @@ def get_active_schedule(request):
             WorkoutFeedback.objects.filter(session__in=sessions_list).values_list('session__date', flat=True)
         )
         feedback_by_date = {d.isoformat(): True for d in sessions_with_feedback}
-        for week in range(4):
-            for day_index, day_name in enumerate(DAYS_OF_WEEK):
-                event_date = start_date + timedelta(days=week * 7 + day_index)
-                section_ids = schedule.weekly_schedule.get(day_name, [])
-                if not section_ids or section_ids == 'rest':
-                    calendar_events.append({
-                        'date': event_date.isoformat(),
-                        'day': day_name,
-                        'sections': [],
-                        'section_type': 'rest',
-                        'exercise_count': 0,
-                        'session_status': status_by_date.get(event_date.isoformat()),
-                        'has_feedback': feedback_by_date.get(event_date.isoformat(), False),
-                    })
-                else:
-                    sections = []
-                    total_exercises = 0
-                    if not isinstance(section_ids, list):
-                        section_ids = [section_ids] if section_ids != 'rest' else []
-                    for section_id in section_ids:
-                        try:
-                            section = ProgramSection.objects.get(id=section_id)
-                            exercise_count = section.exercises.count()
-                            total_exercises += exercise_count
-                            sections.append({
-                                'id': section.id,
-                                'name': section.format,
-                                'type': section.type,
-                                'exercise_count': exercise_count,
-                                'program_id': section.program.id,
-                                'program_name': section.program.name,
-                                'focus': section.program.focus,
-                            })
-                        except ProgramSection.DoesNotExist:
-                            pass
-                    calendar_events.append({
-                        'date': event_date.isoformat(),
-                        'day': day_name,
-                        'sections': sections,
-                        'section_type': 'workout' if sections else 'rest',
-                        'exercise_count': total_exercises,
-                        'session_status': status_by_date.get(event_date.isoformat()),
-                        'has_feedback': feedback_by_date.get(event_date.isoformat(), False),
-                    })
+        # Just looping 28 days flat, calculates the day name dynamically
+        for day_offset in range(28):
+            event_date = start_date + timedelta(days=day_offset)
+            day_name = event_date.strftime('%A').lower() # 'monday', 'tuesday', etc.
+            
+            section_ids = schedule.weekly_schedule.get(day_name, [])
+            
+            if not section_ids or section_ids == 'rest':
+                calendar_events.append({
+                    'date': event_date.isoformat(),
+                    'day': day_name,
+                    'sections': [],
+                    'section_type': 'rest',
+                    'exercise_count': 0,
+                    'session_status': status_by_date.get(event_date.isoformat()),
+                    'has_feedback': feedback_by_date.get(event_date.isoformat(), False),
+                })
+            else:
+                sections = []
+                total_exercises = 0
+                if not isinstance(section_ids, list):
+                    section_ids = [section_ids] if section_ids != 'rest' else []
+                    
+                for section_id in section_ids:
+                    try:
+                        section = ProgramSection.objects.get(id=section_id)
+                        exercise_count = section.exercises.count()
+                        total_exercises += exercise_count
+                        sections.append({
+                            'id': section.id,
+                            'name': section.format,
+                            'type': section.type,
+                            'exercise_count': exercise_count,
+                            'program_id': section.program.id,
+                            'program_name': section.program.name,
+                            'focus': section.program.focus,
+                        })
+                    except ProgramSection.DoesNotExist:
+                        pass
+                        
+                calendar_events.append({
+                    'date': event_date.isoformat(),
+                    'day': day_name,
+                    'sections': sections,
+                    'section_type': 'workout' if sections else 'rest',
+                    'exercise_count': total_exercises,
+                    'session_status': status_by_date.get(event_date.isoformat()),
+                    'has_feedback': feedback_by_date.get(event_date.isoformat(), False),
+                })
+
         return Response(
             {'schedule': serializer.data, 'calendar_events': calendar_events},
             status=status.HTTP_200_OK,
