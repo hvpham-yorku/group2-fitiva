@@ -1092,10 +1092,64 @@
   transition: all 0.2s;
 }
 
-  /* ADD THESE */
-  min-height: 120px;          /* adjust 120/130/140 until it looks right */
-  display: flex;
-  flex-direction: column;
+.btn-skip-feedback:hover {
+  border-color: var(--border-dark);
+  color: var(--text-primary);
+}
+
+.workout-completed-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #4caf50;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-add-feedback {
+  padding: 0.6rem 1.25rem;
+  background: transparent;
+  border: 2px solid var(--border-medium);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-start-workout {
+  padding: 1rem 3rem;
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 700;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(239, 62, 54, 0.3);
+}
+
+.btn-start-workout:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(239, 62, 54, 0.4);
+}
+
+.btn-complete-workout {
+  padding: 1rem 3rem;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.btn-complete-workout:hover {
+  opacity: 0.9;
 }
 
 /* =========================================
@@ -1258,6 +1312,58 @@
 }
 
 /* =========================================
+   Empty Challenges State
+   ========================================= */
+
+.empty-challenges {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem 2rem;
+  background: var(--bg-secondary);
+  border: 2px dashed var(--border-medium);
+  border-radius: 12px;
+  text-align: center;
+  transition: border-color 0.2s ease;
+}
+
+.empty-challenges:hover {
+  border-color: var(--border-light);
+}
+
+.empty-challenges .empty-icon {
+  font-size: 3.5rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.9;
+}
+
+.empty-challenges .empty-text {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1.25rem 0;
+}
+
+.empty-challenges .empty-link {
+  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(239, 62, 54, 0.2);
+}
+
+.empty-challenges .empty-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(239, 62, 54, 0.35);
+}
+
+
+/* =========================================
    Challenge Tooltip (Hover Effect)
    ========================================= */
 
@@ -1301,62 +1407,4 @@
   opacity: 1;
   visibility: visible;
   transform: translate(-50%, -10px); 
-.btn-skip-feedback:hover {
-  border-color: var(--border-dark);
-  color: var(--text-primary);
-}
-
-.workout-completed-label {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #ffffff;
-  background: #4caf50;
-  padding: 0.75rem 2rem;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.btn-add-feedback {
-  padding: 0.6rem 1.25rem;
-  background: transparent;
-  border: 2px solid var(--border-medium);
-  color: var(--text-secondary);
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn-start-workout {
-  padding: 1rem 3rem;
-  background: linear-gradient(135deg, #EF3E36 0%, #FF9234 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1.1rem;
-  font-weight: 700;
-  transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(239, 62, 54, 0.3);
-}
-
-.btn-start-workout:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(239, 62, 54, 0.4);
-}
-
-.btn-complete-workout {
-  padding: 1rem 3rem;
-  background: #4caf50;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.btn-complete-workout:hover {
-  opacity: 0.9;
 }

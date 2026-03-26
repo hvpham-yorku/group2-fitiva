@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileAPI, sessionAPI, rewardsAPI, challengeAPI  } from '@/library/api';
+import { profileAPI, sessionAPI, rewardsAPI, challengeAPI } from '@/library/api';
 import Logo from '@/components/ui/Logo';
 import SettingsModal from '@/components/ui/SettingsModal';
 import Notification from '@/components/Notification';
@@ -140,10 +140,6 @@ const ADJUSTMENT_META: Record<string, { emoji: string; label: string; color: str
   none:      { emoji: '✅', label: 'No Changes Needed',    color: '#6b7280' },
 };
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
 const API_BASE_URL = 'http://localhost:8000/api';
 
 // ============================================================================
@@ -181,6 +177,7 @@ export default function DashboardPage() {
   // US 4.1 / 4.2 – live badge count for the Achievements card
   const [achievementsCount, setAchievementsCount] = useState(0);
   const [earnedBadgesList, setEarnedBadgesList] = useState<EarnedBadgeSummary[]>([]);
+  
   // Member challenges (US 4.4)
   const [myChallenges, setMyChallenges] = useState<MyChallenge[]>([]);
   const [challengesLoading, setChallengesLoading] = useState(true);
@@ -215,6 +212,7 @@ export default function DashboardPage() {
 
   const showSuccess = (message: string) => setNotification({ type: 'success', message });
   const showError   = (message: string) => setNotification({ type: 'error', message });
+  const showInfo    = (message: string) => setNotification({ type: 'info', message });
 
   const toLocalDateString = (d: Date) => {
     const y = d.getFullYear();
@@ -379,49 +377,25 @@ export default function DashboardPage() {
     fetchBadges();
   }, [user]);
 
-  const onFocus = () => {
-    if (user) fetchHistory();
-  };
-  window.addEventListener('focus', onFocus);
-  return () => window.removeEventListener('focus', onFocus);
-}, [user]);
-
   useEffect(() => {
-  const fetchChallenges = async () => {
-    if (!user) return;
-    setChallengesLoading(true);
-    try {
-      const data = await challengeAPI.getMyChallenges();
-      setMyChallenges(data);
-    } catch {
-      setMyChallenges([]);
-    } finally {
-      setChallengesLoading(false);
-    }
-  };
-  fetchChallenges();
-  const onFocus = () => user && fetchChallenges();
-  window.addEventListener('focus', onFocus);
-  return () => window.removeEventListener('focus', onFocus);
-}, [user]);
+    const fetchChallenges = async () => {
+      if (!user) return;
+      setChallengesLoading(true);
+      try {
+        const data = await challengeAPI.getMyChallenges();
+        setMyChallenges(data);
+      } catch {
+        setMyChallenges([]);
+      } finally {
+        setChallengesLoading(false);
+      }
+    };
+    fetchChallenges();
+    const onFocus = () => user && fetchChallenges();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [user]);
 
-const handleLeaveChallenge = async (challengeId: number) => {
-    if (!window.confirm("Are you sure you want to remove this challenge?")) return;
-    
-    try {
-      await challengeAPI.leaveChallenge(challengeId);
-      // Immediately remove it from the screen without needing to refresh
-      setMyChallenges(prev => prev.filter(c => c.id !== challengeId));
-    } catch (err) {
-      console.error("Failed to remove challenge", err);
-      alert("Could not remove the challenge.");
-    }
-  };
-
-// US 4.2 / 4.3 – badge count + earned list for Achievements card modal (members + trainers)
-useEffect(() => {
-  const fetchBadges = async () => {
-    if (!user) return;
   // Fetch Schedule and find current week
   const fetchSchedule = async () => {
     setScheduleLoading(true);
@@ -467,6 +441,17 @@ useEffect(() => {
   const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
   const handleLogout = async () => { setIsLoggingOut(true); setIsDropdownOpen(false); await logout(); };
   const openSettings = () => { setIsDropdownOpen(false); setIsSettingsOpen(true); };
+
+  const handleLeaveChallenge = async (challengeId: number) => {
+    if (!window.confirm("Are you sure you want to remove this challenge?")) return;
+    try {
+      await challengeAPI.leaveChallenge(challengeId);
+      setMyChallenges(prev => prev.filter(c => c.id !== challengeId));
+    } catch (err) {
+      console.error("Failed to remove challenge", err);
+      alert("Could not remove the challenge.");
+    }
+  };
 
   const resetFeedbackForm = () => { setFeedbackRating(0); setFeedbackFatigue(null); setFeedbackPain(false); setFeedbackNotes(''); setEditingFeedback(false); };
   const handleCloseModal = () => { setShowWorkoutModal(false); setShowFeedbackForm(false); resetFeedbackForm(); };
@@ -1083,10 +1068,12 @@ useEffect(() => {
               {currentWeek.map((event) => {
                 const isToday = event.date === todayStr;
                 const isCompleted = event.session_status === 'completed';
+                const dateObj = parseLocalDate(event.date);
+                const realDayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
                 return (
                   <div key={event.date} className={`dashboard-day-card ${isToday ? 'is-today' : ''} ${event.section_type === 'rest' ? 'rest-day' : ''}`} onClick={() => handleDateClick(event)}>
-                    <div className="dash-day-name">{event.day.slice(0, 3).toUpperCase()}</div>
-                    <div className="dash-day-num">{parseLocalDate(event.date).getDate()}</div>
+                    <div className="dash-day-name">{realDayName}</div>
+                    <div className="dash-day-num">{dateObj.getDate()}</div>
                     
                     <div className="dash-day-indicator">
                       {event.section_type === 'rest' ? (
@@ -1136,69 +1123,69 @@ useEffect(() => {
           </div>
         </section>
 
-{/* Weekly Challenges (US 4.4) */}
+        {/* Weekly Challenges (US 4.4) */}
         <section className="dashboard-challenges-section">
-        <h2 className="section-title">Weekly Challenges 🔥</h2>
-        {challengesLoading ? (
-          <p className="dashboard-chart-loading">Loading challenges...</p>
-        ) : myChallenges.length === 0 ? (
-          <div className="empty-challenges">
-            <span className="empty-icon">🎯</span>
-            <p className="empty-text">No active challenges</p>
-            <Link href="/challenges" className="empty-link">Browse Challenges</Link>
-          </div>
-        ) : (
-          <div className="challenges-grid">
-            {myChallenges.map((challenge) => (
-              <div key={challenge.id} className={`challenge-card ${challenge.is_completed ? 'completed' : ''}`}>
-                
-                {/* --- 1. THE HOVER TOOLTIP --- */}
-                <div className="challenge-tooltip">
-                  {challenge.challenge_description ?? "Complete the required goals to earn this badge!"}
-                </div>
-
-                <div className="challenge-header">
-                  <h3 className="challenge-name">{challenge.challenge_name}</h3>
+          <h2 className="section-title">Weekly Challenges 🔥</h2>
+          {challengesLoading ? (
+            <p className="dashboard-chart-loading">Loading challenges...</p>
+          ) : myChallenges.length === 0 ? (
+            <div className="empty-challenges">
+              <span className="empty-icon">🎯</span>
+              <p className="empty-text">No active challenges</p>
+              <Link href="/challenges" className="empty-link">Browse Challenges</Link>
+            </div>
+          ) : (
+            <div className="challenges-grid">
+              {myChallenges.map((challenge) => (
+                <div key={challenge.id} className={`challenge-card ${challenge.is_completed ? 'completed' : ''}`}>
                   
-                  {/* --- 2. BADGE & LEAVE BUTTON WRAPPER --- */}
-                  <div className="header-actions">
-                    {challenge.is_completed ? (
-                      <span className="badge completed">✅ Completed!</span>
-                    ) : (
-                      <span className="badge in-progress">{challenge.progress_percent}%</span>
-                    )}
+                  {/* --- 1. THE HOVER TOOLTIP --- */}
+                  <div className="challenge-tooltip">
+                    {challenge.challenge_description ?? "Complete the required goals to earn this badge!"}
+                  </div>
+
+                  <div className="challenge-header">
+                    <h3 className="challenge-name">{challenge.challenge_name}</h3>
                     
-                    <button 
-                      onClick={() => handleLeaveChallenge(challenge.id)} 
-                      className="leave-button"
-                      title="Remove challenge"
-                    >
-                      ✕
-                    </button>
+                    {/* --- 2. BADGE & LEAVE BUTTON WRAPPER --- */}
+                    <div className="header-actions">
+                      {challenge.is_completed ? (
+                        <span className="badge completed">✅ Completed!</span>
+                      ) : (
+                        <span className="badge in-progress">{challenge.progress_percent}%</span>
+                      )}
+                      
+                      <button 
+                        onClick={() => handleLeaveChallenge(challenge.id)} 
+                        className="leave-button"
+                        title="Remove challenge"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="challenge-progress">
+                    <div 
+                      className="progress-bar"
+                      style={{ width: `${challenge.progress_percent}%` }}
+                    />
+                  </div>
+                  <div className="challenge-reward">
+                    {challenge.is_completed ? 'Badge + Points Earned!' : 'Keep going!'}
                   </div>
                 </div>
-                
-                <div className="challenge-progress">
-                  <div 
-                    className="progress-bar"
-                    style={{ width: `${challenge.progress_percent}%` }}
-                  />
+              ))}
+              
+              <Link href="/challenges" className="challenge-card join-new">
+                <div className="challenge-cta">
+                  <span className="challenge-icon">➕</span>
+                  <span>Join New Challenge</span>
                 </div>
-                <div className="challenge-reward">
-                  {challenge.is_completed ? 'Badge + Points Earned!' : 'Keep going!'}
-                </div>
-              </div>
-            ))}
-            
-            <Link href="/challenges" className="challenge-card join-new">
-              <div className="challenge-cta">
-                <span className="challenge-icon">➕</span>
-                <span>Join New Challenge</span>
-              </div>
-            </Link>
-          </div>
-        )}
-      </section>
+              </Link>
+            </div>
+          )}
+        </section>
 
 
         {/* Quick Actions */}
@@ -1235,6 +1222,20 @@ useEffect(() => {
                 <div className="action-button-description">Design a new workout plan</div>
               </Link>
             )}
+
+            {myChallenges.length === 0 && !user.is_trainer ? (
+              <Link href="/challenges" className="action-button">
+                <div className="action-button-icon">🎯</div>
+                <div className="action-button-title">Join Challenges</div>
+                <div className="action-button-description">Stay motivated with short-term goals</div>
+              </Link>
+            ) : null}
+
+            <Link href="/schedule" className="action-button">
+              <div className="action-button-icon">📅</div>
+              <div className="action-button-title">My Workout Schedule</div>
+              <div className="action-button-description">View and manage your personalized calendar</div>
+            </Link>
             
             <Link href="/rewards" className="action-button">
               <div className="action-button-icon">🏆</div>
@@ -1245,7 +1246,7 @@ useEffect(() => {
         </section>
       </main>
 
-{/* ── NEW: Workout Detail & Feedback Modal (Ported from Schedule) ── */}
+      {/* ── NEW: Workout Detail & Feedback Modal (Ported from Schedule) ── */}
       {showWorkoutModal && workoutDetail && (
         <div className="dashboard-modal-overlay" onClick={handleCloseModal}>
           <div className="dashboard-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -1361,23 +1362,6 @@ useEffect(() => {
                     <h3 style={{ color: suggestionMeta.color, fontSize: '1.3rem', margin: 0 }}>{suggestionMeta.emoji} {isPainSuggestion ? 'Pain Reported — How would you like to adjust?' : suggestionMeta.label}</h3>
                     <button className="dashboard-modal-close" onClick={handleDismissSuggestion}>✕</button>
                   </div>
-                </Link>
-              </>
-            )}
-
-            {myChallenges.length === 0 && !user.is_trainer ? (
-            <Link href="/challenges" className="action-button">
-              <div className="action-button-icon">🎯</div>
-              <div className="action-button-title">Join Challenges</div>
-              <div className="action-button-description">Stay motivated with short-term goals</div>
-            </Link>
-          ) : null}
-
-            <Link href="/schedule" className="action-button">
-                  <div className="action-button-icon">📅</div>
-                  <div className="action-button-title">My Workout Schedule</div>
-                  <div className="action-button-description">
-                    View and manage your personalized calendar
 
                   <div className="dashboard-modal-body">
                     <p style={{ fontSize: '0.92rem', lineHeight: '1.6', color: 'var(--text-primary)', marginBottom: '1rem' }}>
