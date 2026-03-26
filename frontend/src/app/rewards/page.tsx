@@ -198,7 +198,7 @@ export default function RewardsPage() {
             className="back-button"
             onClick={() => router.push('/dashboard')}
           >
-            Back to Dashboard
+            ← Back to Dashboard
           </button>
           <h1>My Rewards</h1>
           {user && (
