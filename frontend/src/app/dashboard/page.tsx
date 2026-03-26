@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileAPI, sessionAPI } from '@/library/api';
+import { profileAPI, sessionAPI, challengeAPI  } from '@/library/api';
 import Logo from '@/components/ui/Logo';
 import SettingsModal from '@/components/ui/SettingsModal';
 import './dashboard.css';
@@ -44,6 +44,16 @@ interface WorkoutHistorySession {
   plan_name?: string | null;
   duration_minutes?: number | null;
   notes?: string;
+}
+
+interface MyChallenge {
+  id: number;
+  challenge_name: string;
+  challenge_description?: string;
+  current_progress: Record<string, number>;
+  is_completed: boolean;
+  completed_at: string | null;
+  progress_percent: number;
 }
 
 
@@ -167,6 +177,9 @@ export default function DashboardPage() {
   const [historySessions, setHistorySessions] = useState<WorkoutHistorySession[]>([]);
   const [historyLoading, setHistoryLoading]   = useState(true);
 
+  // Member challenges (US 4.4)
+  const [myChallenges, setMyChallenges] = useState<MyChallenge[]>([]);
+  const [challengesLoading, setChallengesLoading] = useState(true);
 
   const buildMonSunWeekData = (sessions: WorkoutHistorySession[]) => {
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -287,6 +300,38 @@ export default function DashboardPage() {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [user]);
+
+  useEffect(() => {
+  const fetchChallenges = async () => {
+    if (!user) return;
+    setChallengesLoading(true);
+    try {
+      const data = await challengeAPI.getMyChallenges();
+      setMyChallenges(data);
+    } catch {
+      setMyChallenges([]);
+    } finally {
+      setChallengesLoading(false);
+    }
+  };
+  fetchChallenges();
+  const onFocus = () => user && fetchChallenges();
+  window.addEventListener('focus', onFocus);
+  return () => window.removeEventListener('focus', onFocus);
+}, [user]);
+
+const handleLeaveChallenge = async (challengeId: number) => {
+    if (!window.confirm("Are you sure you want to remove this challenge?")) return;
+    
+    try {
+      await challengeAPI.leaveChallenge(challengeId);
+      // Immediately remove it from the screen without needing to refresh
+      setMyChallenges(prev => prev.filter(c => c.id !== challengeId));
+    } catch (err) {
+      console.error("Failed to remove challenge", err);
+      alert("Could not remove the challenge.");
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -751,6 +796,71 @@ export default function DashboardPage() {
           </div>
         </section>
 
+{/* Weekly Challenges (US 4.4) */}
+        <section className="dashboard-challenges-section">
+        <h2 className="section-title">Weekly Challenges 🔥</h2>
+        {challengesLoading ? (
+          <p className="dashboard-chart-loading">Loading challenges...</p>
+        ) : myChallenges.length === 0 ? (
+          <div className="empty-challenges">
+            <span className="empty-icon">🎯</span>
+            <p className="empty-text">No active challenges</p>
+            <Link href="/challenges" className="empty-link">Browse Challenges</Link>
+          </div>
+        ) : (
+          <div className="challenges-grid">
+            {myChallenges.map((challenge) => (
+              <div key={challenge.id} className={`challenge-card ${challenge.is_completed ? 'completed' : ''}`}>
+                
+                {/* --- 1. THE HOVER TOOLTIP --- */}
+                <div className="challenge-tooltip">
+                  {challenge.challenge_description ?? "Complete the required goals to earn this badge!"}
+                </div>
+
+                <div className="challenge-header">
+                  <h3 className="challenge-name">{challenge.challenge_name}</h3>
+                  
+                  {/* --- 2. BADGE & LEAVE BUTTON WRAPPER --- */}
+                  <div className="header-actions">
+                    {challenge.is_completed ? (
+                      <span className="badge completed">✅ Completed!</span>
+                    ) : (
+                      <span className="badge in-progress">{challenge.progress_percent}%</span>
+                    )}
+                    
+                    <button 
+                      onClick={() => handleLeaveChallenge(challenge.id)} 
+                      className="leave-button"
+                      title="Remove challenge"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="challenge-progress">
+                  <div 
+                    className="progress-bar"
+                    style={{ width: `${challenge.progress_percent}%` }}
+                  />
+                </div>
+                <div className="challenge-reward">
+                  {challenge.is_completed ? 'Badge + Points Earned!' : 'Keep going!'}
+                </div>
+              </div>
+            ))}
+            
+            <Link href="/challenges" className="challenge-card join-new">
+              <div className="challenge-cta">
+                <span className="challenge-icon">➕</span>
+                <span>Join New Challenge</span>
+              </div>
+            </Link>
+          </div>
+        )}
+      </section>
+
+
         {/* Quick Actions */}
         <section className="quick-actions">
           <h2 className="section-title">Quick Actions</h2>
@@ -796,6 +906,15 @@ export default function DashboardPage() {
                 <div className="action-button-description">Discover workout plans for you</div>
               </Link>
             )}
+
+            {myChallenges.length === 0 && !user.is_trainer ? (
+            <Link href="/challenges" className="action-button">
+              <div className="action-button-icon">🎯</div>
+              <div className="action-button-title">Join Challenges</div>
+              <div className="action-button-description">Stay motivated with short-term goals</div>
+            </Link>
+          ) : null}
+
 
             <Link href="/schedule" className="action-button">
               <div className="action-button-icon">📅</div>

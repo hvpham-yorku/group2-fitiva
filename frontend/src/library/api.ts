@@ -395,6 +395,61 @@ export const trainerAPI = {
   },
 };
 
+// Weekly Challenges API (US 4.4)
+export const challengeAPI = {
+  // List active challenges (ViewSet)
+  listChallenges: async (): Promise<Array<{
+    id: number;
+    name: string;
+    description: string;
+    start_date: string;
+    end_date: string;
+    goal_criteria: Record<string, number>;
+    reward_points: number;
+    reward_badge: string;
+    is_active: boolean;
+    created_at: string;
+  }>> => {
+    return fetchAPI('/api/challenges/', { method: 'GET' });
+  },
+
+  // Get my challenges + progress
+  getMyChallenges: async (): Promise<Array<{
+    id: number;
+    challenge_name: string;
+    current_progress: Record<string, number>;
+    is_completed: boolean;
+    completed_at: string | null;
+    progress_percent: number;
+  }>> => {
+    return fetchAPI('/api/user-challenges/', { method: 'GET' });
+  },
+
+  // Join challenge
+  joinChallenge: async (challengeId: number): Promise<{ message: string }> => {
+    return fetchAPI(`/api/challenges/${challengeId}/join/`, { method: 'POST' });
+  },
+
+  // Leave challenge
+  leaveChallenge: async (id: number): Promise<{ message: string }> => {
+    return fetchAPI(`/api/challenges/${id}/leave/`, { method: 'POST' });
+  },
+
+  // Update progress (call on login/workout)
+  updateProgress: async (challengeId: number, type: 'login' | 'workout' | 'total_time_minutes'): Promise<{
+    id: number;
+    challenge_name: string;
+    current_progress: Record<string, number>;
+    is_completed: boolean;
+    progress_percent: number;
+  }> => {
+    return fetchAPI('/api/challenges/progress/', {
+      method: 'POST',
+      body: JSON.stringify({ challenge_id: challengeId, type }),
+    });
+  },
+};
+
 
 // Generic API helper
 export const api = {

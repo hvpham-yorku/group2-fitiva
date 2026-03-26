@@ -1,0 +1,148 @@
+.challenges-page {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #ffffff;
+}
+
+.challenges-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid #2d3748;
+  padding-bottom: 1rem;
+}
+
+.challenges-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.logo-link {
+  text-decoration: none;
+}
+
+.back-button {
+  background: transparent;
+  color: #a0aec0;
+  border: 1px solid #4a5568;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.back-button:hover {
+  background: #4a5568;
+  color: #ffffff;
+}
+
+.challenges-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.challenge-item {
+  background: #1a202c; /* Deep dark gray card background */
+  border: 1px solid #2d3748;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.challenge-item:hover {
+  transform: translateY(-4px);
+  border-color: #4a5568;
+}
+
+.challenge-info h2 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.25rem;
+  color: #e2e8f0;
+}
+
+.challenge-description {
+  color: #a0aec0;
+  font-size: 0.95rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+
+.challenge-dates {
+  font-size: 0.85rem;
+  color: #718096;
+  margin-bottom: 1.25rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.challenge-goals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.goal-badge {
+  background: #2b6cb0; /* Fitiva Blue accent */
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #ebf8ff;
+  text-transform: capitalize;
+}
+
+.challenge-reward {
+  font-weight: bold;
+  color: #f6e05e; /* Gold color for rewards */
+  margin-bottom: 1.5rem;
+  font-size: 1.05rem;
+}
+
+.challenge-reward .points {
+  color: #a0aec0;
+  font-weight: normal;
+  font-size: 0.9rem;
+}
+
+.join-button {
+  width: 100%;
+  background: #3182ce;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.join-button:hover:not(:disabled) {
+  background: #2b6cb0;
+}
+
+.join-button:disabled {
+  background: #4a5568;
+  color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.empty-message {
+  color: #a0aec0;
+  font-size: 1.1rem;
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem;
+}

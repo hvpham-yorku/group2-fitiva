@@ -411,3 +411,29 @@ class UserSchedule(models.Model):
     def __str__(self):
         program_names = ', '.join([p.name for p in self.programs.all()[:3]])
         return f"{self.user.username}'s schedule: {program_names}"
+
+class Challenge(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    goal_criteria = models.JSONField(default=dict)  # {'logins': 5, 'workouts': 3}
+    reward_points = models.IntegerField(default=0)
+    reward_badge = models.CharField(max_length=50, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'challenges'
+        ordering = ['-created_at']
+
+class UserChallenge(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_challenges')
+    challenge = models.ForeignKey(Challenge, on_delete=models.CASCADE, related_name='user_progress')
+    current_progress = models.JSONField(default=dict)
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'user_challenges'
+        unique_together = ['user', 'challenge']

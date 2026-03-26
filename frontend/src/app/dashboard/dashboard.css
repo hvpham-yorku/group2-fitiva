@@ -707,3 +707,208 @@
   display: flex;
   flex-direction: column;
 }
+
+/* =========================================
+   Weekly Challenges Widget (Dashboard)
+   ========================================= */
+
+.dashboard-challenges-section {
+  background-color: var(--bg-primary);
+  border: 1.5px solid var(--border-light);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-challenges-section .section-title {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+.challenges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+/* The individual challenge boxes inside the widget */
+.challenge-card {
+  position: relative;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.challenge-card:hover:not(.completed) {
+  border-color: #FF9234; /* Fitiva Orange */
+  transform: translateY(-2px);
+}
+
+.challenge-card.completed {
+  border-color: #48bb78; /* Success Green */
+  background: linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, transparent 100%);
+}
+
+.challenge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.challenge-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge.completed {
+  background: #48bb78;
+  color: white;
+}
+
+.badge.in-progress {
+  background: rgba(255, 146, 52, 0.15);
+  color: #FF9234;
+}
+
+/* Progress Bar */
+.challenge-progress {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #EF3E36 0%, #FF9234 100%); /* Fitiva Brand Gradient */
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+}
+
+.challenge-reward {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-top: auto; /* Pushes it to the bottom of the card */
+}
+
+/* "Join New" Button Styling */
+.challenge-card.join-new {
+  border: 2px dashed var(--border-light);
+  background: transparent;
+  justify-content: center;
+  align-items: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.challenge-card.join-new:hover {
+  border-color: #FF9234;
+  background: rgba(255, 146, 52, 0.05);
+}
+
+.challenge-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.challenge-card.join-new:hover .challenge-cta {
+  color: #FF9234;
+}
+
+.challenge-icon {
+  font-size: 1.5rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.leave-button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.2s ease;
+  opacity: 0.5;
+}
+
+.leave-button:hover {
+  color: #EF3E36; 
+  opacity: 1;
+}
+
+/* =========================================
+   Challenge Tooltip (Hover Effect)
+   ========================================= */
+
+.challenge-tooltip {
+  position: absolute;
+  bottom: 100%; 
+  left: 50%;
+  transform: translate(-50%, 10px); 
+  background: #2d3748; 
+  color: #e2e8f0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  width: 260px;
+  text-align: center;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  border: 1px solid #4a5568;
+  
+  /* Hidden by default */
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+  pointer-events: none; 
+}
+
+.challenge-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: #4a5568 transparent transparent transparent;
+}
+
+/* The Hover Trigger */
+.challenge-card:hover .challenge-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -10px); 
+}

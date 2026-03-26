@@ -38,6 +38,8 @@ from .models import (
     Exercise,
     ExerciseSet,
     ExerciseTemplate,
+    Challenge,
+    UserChallenge,
 )
 
 from .serializers import (
@@ -54,6 +56,8 @@ from .serializers import (
     ExerciseSerializer,
     ExerciseSetSerializer,
     ExerciseTemplateSerializer,
+    ChallengeSerializer,
+    UserChallengeSerializer,
 )
 
 
@@ -284,13 +288,19 @@ def profile_me_view(request):
         profile = db.get_user_profile(request.user.id)
         if not profile:
             return Response({"detail": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
-        return Response(profile, status=status.HTTP_200_OK)
+            
+        # Translate the raw model into JSON data
+        serializer = UserProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     # PUT
-    updated = db.update_user_profile(request.user.id, request.data)
-    if not updated:
+    updated_profile = db.update_user_profile(request.user.id, request.data)
+    if not updated_profile:
         return Response({"detail": "Profile not found"}, status=status.HTTP_404_NOT_FOUND)
-    return Response(updated, status=status.HTTP_200_OK)
+        
+    # Translate the updated model into JSON data
+    serializer = UserProfileSerializer(updated_profile)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ============================================================================
@@ -400,6 +410,15 @@ class WorkoutFeedbackViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return WorkoutFeedback.objects.filter(session__user=self.request.user).order_by('-created_at')
 
+class ChallengeViewSet(viewsets.ModelViewSet):
+    serializer_class = ChallengeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Challenge.objects.filter(
+            is_active=True, 
+            end_date__gte=timezone.now().date()
+        )
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -977,6 +996,38 @@ def complete_workout_session(request, date_str):
         except (UserSchedule.DoesNotExist, ProgramSection.DoesNotExist):
             pass
     session.save()
+
+    # --- US 4.4: UPDATE CHALLENGE PROGRESS ---
+    from django.utils import timezone
+    from .models import UserChallenge
+    
+    active_user_challenges = UserChallenge.objects.filter(
+        user=request.user, 
+        challenge__is_active=True,
+        is_completed=False
+    )
+    
+    for uc in active_user_challenges:
+        criteria = uc.challenge.goal_criteria
+        updated = False
+        
+        # Increment workouts count
+        if 'workouts' in criteria:
+            uc.current_progress['workouts'] = uc.current_progress.get('workouts', 0) + 1
+            updated = True
+            
+        # Increment total time
+        if 'total_time_minutes' in criteria and session.duration_minutes:
+            uc.current_progress['total_time_minutes'] = uc.current_progress.get('total_time_minutes', 0) + session.duration_minutes
+            updated = True
+            
+        if updated:
+            # Check if they hit all goals
+            if all(uc.current_progress.get(k, 0) >= v for k, v in criteria.items()):
+                uc.is_completed = True
+                uc.completed_at = timezone.now()
+            uc.save()
+
     return Response({
         "message": "Workout session completed",
         "date": session.date.isoformat(),
@@ -1081,6 +1132,89 @@ def workout_feedback(request, date_str):
         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
     )
 
+@api_view(['GET'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def get_user_challenges(request):
+    """List user's active challenges + real-time progress."""
+    user_challenges = UserChallenge.objects.filter(
+        user=request.user,
+        challenge__is_active=True,
+        challenge__end_date__gte=timezone.now().date()
+    )
+    serializer = UserChallengeSerializer(user_challenges, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def join_challenge(request, challenge_id):
+    """Join challenge (create UserChallenge if not exists)."""
+    try:
+        challenge = Challenge.objects.get(
+            id=challenge_id, 
+            is_active=True, 
+            end_date__gte=timezone.now().date()
+        )
+    except Challenge.DoesNotExist:
+        return Response({"error": "Challenge not found or inactive"}, 
+                        status=status.HTTP_404_NOT_FOUND)
+
+    uc, created = UserChallenge.objects.get_or_create(
+        user=request.user,
+        challenge=challenge,
+        defaults={'current_progress': {k: 0 for k in challenge.goal_criteria}}
+    )
+    
+    if not created:
+        return Response({"message": "Already joined"}, status=status.HTTP_200_OK)
+
+    return Response({"message": "Joined challenge"}, status=status.HTTP_201_CREATED)
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def leave_challenge(request, challenge_id):
+    """Remove a challenge from the user's dashboard."""
+    try:
+        # Find the UserChallenge connection and delete it
+        uc = UserChallenge.objects.get(user=request.user, challenge_id=challenge_id)
+        uc.delete()
+        return Response({"message": "Challenge removed successfully."}, status=status.HTTP_200_OK)
+    except UserChallenge.DoesNotExist:
+        return Response({"error": "You have not joined this challenge."}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def update_challenge_progress(request):
+    """Increment progress e.g. {'challenge_id': 1, 'type': 'login' or 'workout'}."""
+    challenge_id = request.data.get('challenge_id')
+    inc_type = request.data.get('type')  # 'login', 'workout', 'total_time_minutes'
+
+    try:
+        challenge = Challenge.objects.get(id=challenge_id, is_active=True)
+        uc = UserChallenge.objects.get(user=request.user, challenge=challenge)
+    except (Challenge.DoesNotExist, UserChallenge.DoesNotExist):
+        return Response({"error": "Challenge or progress not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if uc.is_completed:
+        return Response({"error": "Challenge completed"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if inc_type in uc.challenge.goal_criteria:
+        uc.current_progress[inc_type] = uc.current_progress.get(inc_type, 0) + 1
+        
+        # Auto complete check
+        if all(uc.current_progress.get(k, 0) >= v for k, v in uc.challenge.goal_criteria.items()):
+            uc.is_completed = True
+            uc.completed_at = timezone.now()
+            # TODO: Award points/badges to User model (future)
+        
+        uc.save()
+        serializer = UserChallengeSerializer(uc)
+        return Response(serializer.data)
+
+    return Response({"error": f"Invalid type: {inc_type}"}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['DELETE'])
 @authentication_classes([CsrfExemptSessionAuthentication])
