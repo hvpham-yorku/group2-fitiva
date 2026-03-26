@@ -118,4 +118,46 @@
   opacity: 0.95;
 }
 
+.history-filters {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
 
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+}
+
+.filter-group input {
+  margin-top: 0.3rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-medium);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.filter-btn {
+  background: linear-gradient(135deg, #ff6a3d, #ff8c42);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.filter-btn:active {
+  transform: scale(0.98);
+}
