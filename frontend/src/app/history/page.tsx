@@ -24,7 +24,6 @@ export default function HistoryPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // ✅ FIXED: fetchHistory is now accessible everywhere
   const fetchHistory = async () => {
     setLoading(true);
     try {
@@ -56,7 +55,7 @@ export default function HistoryPage() {
   return (
     <div className="history-container">
 
-      {/* 🔙 Back */}
+      {/* Back */}
       <div className="history-top-nav">
         <span
           className="history-back-link"
@@ -66,7 +65,6 @@ export default function HistoryPage() {
         </span>
       </div>
 
-      {/* 🔥 Title (ONLY title has orange) */}
       <div className="history-header">
         <div className="history-title-box">
           <h1>Workout History</h1>
@@ -76,7 +74,7 @@ export default function HistoryPage() {
           View all your completed workouts across your entire fitness journey 💪
         </p>
 
-        {/* 📅 Filters */}
+        {/* Filters */}
         <div className="history-filters">
           <div className="filter-group">
             <label>Start Date</label>
@@ -113,7 +111,6 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* 📊 Content */}
       {sessions.length === 0 ? (
         <div className="history-empty">
           <p>No completed workouts yet.</p>

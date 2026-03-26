@@ -142,7 +142,7 @@
 }
 
 .filter-btn {
-  background: linear-gradient(135deg, #ff6a3d, #ff8c42); /* 🔥 Fitiva orange */
+  background: linear-gradient(135deg, #ff6a3d, #ff8c42);
   color: white;
   border: none;
   padding: 0.5rem 1.2rem;
@@ -153,13 +153,11 @@
   transition: all 0.2s ease;
 }
 
-/* Hover effect */
 .filter-btn:hover {
   opacity: 0.9;
   transform: translateY(-1px);
 }
 
-/* Active click */
 .filter-btn:active {
   transform: scale(0.98);
 }
