@@ -466,7 +466,11 @@ const SchedulePage = () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedule/regenerate/preview/`, { method: 'POST', credentials: 'include' });
       const data = await res.json();
-      if (!res.ok || !data.regenerated) return;
+      if (!res.ok) return;
+      // Show modal when analysis ran OR when pain was reported.
+      // Without this, re-submitting feedback after undo silently skips the modal
+      // because the backend may return regenerated:false (no net change in stress).
+      if (!data.regenerated && !data.pain_reported) return;
       const patched = patchPainDaySuggestion(data, scheduleData.schedule.weekly_schedule, ratedDateStr);
       setSuggestion(patched);
       setShowSuggestionModal(true);
@@ -596,6 +600,12 @@ const SchedulePage = () => {
   const handleUnlockPlan = async () => {
     if (!scheduleData?.schedule) return;
 
+    // Guard: nothing to unlock
+    if (!scheduleData.schedule.is_adjustment_locked && !scheduleData.schedule.adjustments_locked_until) {
+      showInfo('Your plan is not currently locked.');
+      return;
+    }
+
     setUnlockingPlan(true);
     try {
       const res = await fetch(
@@ -634,8 +644,8 @@ const SchedulePage = () => {
   const handleRegenerateSchedule = async () => {
     if (!scheduleData?.schedule) return;
 
-    if (scheduleData?.schedule?.is_adjustment_locked) {
-      const lockedUntil = scheduleData.schedule.adjustments_locked_until;
+    if (Boolean(scheduleData?.schedule?.is_adjustment_locked)) {
+      const lockedUntil = scheduleData?.schedule?.adjustments_locked_until;
       showInfo(
         lockedUntil
           ? `Your current plan is locked through ${parseLocalDate(lockedUntil).toLocaleDateString()}. Unlock it before requesting new adjustments.`
@@ -662,6 +672,14 @@ const SchedulePage = () => {
     if (feedbackRating === 0) { showError('Please rate the difficulty before submitting.'); return; }
     setSubmittingFeedback(true);
     try {
+      // After undo, session is back to 'in_progress' and feedback is deleted.
+      // _analyze_feedback only queries sessions with status='completed', so we
+      // must re-complete the session before submitting feedback, otherwise the
+      // suggestion modal will never show (backend finds no completed sessions).
+      if (workoutDetail?.session_status === 'in_progress') {
+        await completeSession(dateStr);
+      }
+
       const body: Record<string, any> = { difficulty_rating: feedbackRating, pain_reported: feedbackPain, notes: feedbackNotes };
       if (feedbackFatigue !== null) body.fatigue_level = feedbackFatigue;
       const method = editingFeedback ? 'PATCH' : 'POST';
@@ -760,9 +778,9 @@ const SchedulePage = () => {
   );
 
   const { schedule, calendar_events } = scheduleData;
-  const isAdjustmentLocked = Boolean(
-    schedule.is_adjustment_locked && schedule.adjustments_locked_until
-  );
+  // is_adjustment_locked is already a computed bool from the backend serializer
+  // (it checks adjustments_locked_until >= today). No need to double-check the date here.
+  const isAdjustmentLocked = Boolean(schedule.is_adjustment_locked);
 
   const lockedUntilLabel = schedule.adjustments_locked_until
     ? parseLocalDate(schedule.adjustments_locked_until).toLocaleDateString()
