@@ -17,22 +17,36 @@ interface Session {
 export default function HistoryPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const data = await sessionAPI.getWorkoutHistory() as { sessions: Session[] };
-        setSessions(data.sessions || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-    if (user) fetchHistory();
+  // ✅ FIXED: fetchHistory is now accessible everywhere
+  const fetchHistory = async () => {
+    setLoading(true);
+    try {
+      const data = await sessionAPI.getWorkoutHistory(
+        startDate || undefined,
+        endDate || undefined
+      ) as { sessions: Session[] };
+
+      setSessions(data.sessions || []);
+    } catch (err) {
+      console.error(err);
+      setSessions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    if (user) {
+      fetchHistory();
+    }
   }, [user]);
 
   if (isLoading || loading) {
@@ -42,25 +56,64 @@ export default function HistoryPage() {
   return (
     <div className="history-container">
 
-        <div className="history-top-nav">
-            <span
-            className="history-back-link"
-            onClick={() => router.push('/dashboard')}
-            >
-            ← Back to Dashboard
-            </span>
+      {/* 🔙 Back */}
+      <div className="history-top-nav">
+        <span
+          className="history-back-link"
+          onClick={() => router.push('/dashboard')}
+        >
+          ← Back to Dashboard
+        </span>
+      </div>
+
+      {/* 🔥 Title (ONLY title has orange) */}
+      <div className="history-header">
+        <div className="history-title-box">
+          <h1>Workout History</h1>
         </div>
 
-        <div className="history-header-banner">
-            <div className="history-title-box">
-            <h1>Workout History</h1>
-            </div>
+        <p className="history-description">
+          View all your completed workouts across your entire fitness journey 💪
+        </p>
 
-            <p className="history-description">
-                View all your completed workouts across your entire fitness journey 💪
-            </p>
-                    </div>
+        {/* 📅 Filters */}
+        <div className="history-filters">
+          <div className="filter-group">
+            <label>Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
 
+          <div className="filter-group">
+            <label>End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+
+          <button className="filter-btn" onClick={fetchHistory}>
+            Apply Filter
+          </button>
+
+          <button
+            className="filter-reset"
+            onClick={() => {
+              setStartDate('');
+              setEndDate('');
+              fetchHistory();
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {/* 📊 Content */}
       {sessions.length === 0 ? (
         <div className="history-empty">
           <p>No completed workouts yet.</p>
