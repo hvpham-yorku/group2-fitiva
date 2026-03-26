@@ -632,6 +632,15 @@ useEffect(() => {
                   </Link>
                 </li>
                 <li>
+                  <Link 
+                    href="/history" 
+                    className="dropdown-menu-item"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
+                    <span>History</span>
+                  </Link>
+                </li>
+                <li>
                   <button 
                     className="dropdown-menu-item"
                     onClick={openSettings}
