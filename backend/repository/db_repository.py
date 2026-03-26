@@ -64,9 +64,10 @@ class DBRepository(BaseRepository):
         return serializer.data
 
     def get_user_profile(self, user_id):
-        profile = UserProfile.objects.get(user_id=user_id)
-        return UserProfileSerializer(profile).data  # return dict, not model
-
+        # Change this from .get() to .get_or_create()
+        profile, created = UserProfile.objects.get_or_create(user_id=user_id)
+        return profile
+        
     def get_trainer_profile(self, user_id):
         profile = TrainerProfile.objects.filter(user_id=user_id).first()
         if not profile:

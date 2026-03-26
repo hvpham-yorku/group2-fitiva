@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileAPI, sessionAPI, rewardsAPI } from '@/library/api';
+import { profileAPI, sessionAPI, rewardsAPI, challengeAPI  } from '@/library/api';
 import Logo from '@/components/ui/Logo';
 import SettingsModal from '@/components/ui/SettingsModal';
 import Notification from '@/components/Notification';
@@ -52,6 +52,16 @@ interface WorkoutHistorySession {
   plan_name?: string | null;
   duration_minutes?: number | null;
   notes?: string;
+}
+
+interface MyChallenge {
+  id: number;
+  challenge_name: string;
+  challenge_description?: string;
+  current_progress: Record<string, number>;
+  is_completed: boolean;
+  completed_at: string | null;
+  progress_percent: number;
 }
 
 interface EarnedBadgeSummary {
@@ -171,6 +181,9 @@ export default function DashboardPage() {
   // US 4.1 / 4.2 – live badge count for the Achievements card
   const [achievementsCount, setAchievementsCount] = useState(0);
   const [earnedBadgesList, setEarnedBadgesList] = useState<EarnedBadgeSummary[]>([]);
+  // Member challenges (US 4.4)
+  const [myChallenges, setMyChallenges] = useState<MyChallenge[]>([]);
+  const [challengesLoading, setChallengesLoading] = useState(true);
 
   // Schedule & Modal state
   const [scheduleData, setScheduleData] = useState<ScheduleResponse | null>(null);
@@ -366,6 +379,49 @@ export default function DashboardPage() {
     fetchBadges();
   }, [user]);
 
+  const onFocus = () => {
+    if (user) fetchHistory();
+  };
+  window.addEventListener('focus', onFocus);
+  return () => window.removeEventListener('focus', onFocus);
+}, [user]);
+
+  useEffect(() => {
+  const fetchChallenges = async () => {
+    if (!user) return;
+    setChallengesLoading(true);
+    try {
+      const data = await challengeAPI.getMyChallenges();
+      setMyChallenges(data);
+    } catch {
+      setMyChallenges([]);
+    } finally {
+      setChallengesLoading(false);
+    }
+  };
+  fetchChallenges();
+  const onFocus = () => user && fetchChallenges();
+  window.addEventListener('focus', onFocus);
+  return () => window.removeEventListener('focus', onFocus);
+}, [user]);
+
+const handleLeaveChallenge = async (challengeId: number) => {
+    if (!window.confirm("Are you sure you want to remove this challenge?")) return;
+    
+    try {
+      await challengeAPI.leaveChallenge(challengeId);
+      // Immediately remove it from the screen without needing to refresh
+      setMyChallenges(prev => prev.filter(c => c.id !== challengeId));
+    } catch (err) {
+      console.error("Failed to remove challenge", err);
+      alert("Could not remove the challenge.");
+    }
+  };
+
+// US 4.2 / 4.3 – badge count + earned list for Achievements card modal (members + trainers)
+useEffect(() => {
+  const fetchBadges = async () => {
+    if (!user) return;
   // Fetch Schedule and find current week
   const fetchSchedule = async () => {
     setScheduleLoading(true);
@@ -1080,6 +1136,71 @@ export default function DashboardPage() {
           </div>
         </section>
 
+{/* Weekly Challenges (US 4.4) */}
+        <section className="dashboard-challenges-section">
+        <h2 className="section-title">Weekly Challenges 🔥</h2>
+        {challengesLoading ? (
+          <p className="dashboard-chart-loading">Loading challenges...</p>
+        ) : myChallenges.length === 0 ? (
+          <div className="empty-challenges">
+            <span className="empty-icon">🎯</span>
+            <p className="empty-text">No active challenges</p>
+            <Link href="/challenges" className="empty-link">Browse Challenges</Link>
+          </div>
+        ) : (
+          <div className="challenges-grid">
+            {myChallenges.map((challenge) => (
+              <div key={challenge.id} className={`challenge-card ${challenge.is_completed ? 'completed' : ''}`}>
+                
+                {/* --- 1. THE HOVER TOOLTIP --- */}
+                <div className="challenge-tooltip">
+                  {challenge.challenge_description ?? "Complete the required goals to earn this badge!"}
+                </div>
+
+                <div className="challenge-header">
+                  <h3 className="challenge-name">{challenge.challenge_name}</h3>
+                  
+                  {/* --- 2. BADGE & LEAVE BUTTON WRAPPER --- */}
+                  <div className="header-actions">
+                    {challenge.is_completed ? (
+                      <span className="badge completed">✅ Completed!</span>
+                    ) : (
+                      <span className="badge in-progress">{challenge.progress_percent}%</span>
+                    )}
+                    
+                    <button 
+                      onClick={() => handleLeaveChallenge(challenge.id)} 
+                      className="leave-button"
+                      title="Remove challenge"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="challenge-progress">
+                  <div 
+                    className="progress-bar"
+                    style={{ width: `${challenge.progress_percent}%` }}
+                  />
+                </div>
+                <div className="challenge-reward">
+                  {challenge.is_completed ? 'Badge + Points Earned!' : 'Keep going!'}
+                </div>
+              </div>
+            ))}
+            
+            <Link href="/challenges" className="challenge-card join-new">
+              <div className="challenge-cta">
+                <span className="challenge-icon">➕</span>
+                <span>Join New Challenge</span>
+              </div>
+            </Link>
+          </div>
+        )}
+      </section>
+
+
         {/* Quick Actions */}
         <section className="quick-actions">
           <h2 className="section-title">Quick Actions</h2>
@@ -1240,6 +1361,23 @@ export default function DashboardPage() {
                     <h3 style={{ color: suggestionMeta.color, fontSize: '1.3rem', margin: 0 }}>{suggestionMeta.emoji} {isPainSuggestion ? 'Pain Reported — How would you like to adjust?' : suggestionMeta.label}</h3>
                     <button className="dashboard-modal-close" onClick={handleDismissSuggestion}>✕</button>
                   </div>
+                </Link>
+              </>
+            )}
+
+            {myChallenges.length === 0 && !user.is_trainer ? (
+            <Link href="/challenges" className="action-button">
+              <div className="action-button-icon">🎯</div>
+              <div className="action-button-title">Join Challenges</div>
+              <div className="action-button-description">Stay motivated with short-term goals</div>
+            </Link>
+          ) : null}
+
+            <Link href="/schedule" className="action-button">
+                  <div className="action-button-icon">📅</div>
+                  <div className="action-button-title">My Workout Schedule</div>
+                  <div className="action-button-description">
+                    View and manage your personalized calendar
 
                   <div className="dashboard-modal-body">
                     <p style={{ fontSize: '0.92rem', lineHeight: '1.6', color: 'var(--text-primary)', marginBottom: '1rem' }}>

@@ -18,6 +18,8 @@ from .models import (
     EXPERIENCE_CHOICES,
     LOCATION_CHOICES,
     DIFFICULTY_RATING_CHOICES,
+    Challenge,
+    UserChallenge,
 )
 
 
@@ -520,6 +522,67 @@ class WorkoutFeedbackSerializer(serializers.ModelSerializer):
             'pain_reported', 'notes', 'created_at'
         ]
         read_only_fields = ['id', 'session','created_at']
+
+
+# CHALLENGE SERIALIZERS (US 4.4)
+
+class ChallengeSerializer(serializers.ModelSerializer):
+    """Serializer for weekly challenges with goal criteria."""
+    
+    class Meta:
+        model = Challenge  # Assumes models.py updated with Challenge/UserChallenge
+        fields = [
+            'id', 'name', 'description', 'start_date', 'end_date',
+            'goal_criteria', 'reward_points', 'reward_badge', 'is_active',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+    def validate_goal_criteria(self, value):
+        """Validate goal_criteria JSON (e.g. {'logins': 5})."""
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("goal_criteria must be a dictionary")
+        if not value:
+            raise serializers.ValidationError("goal_criteria cannot be empty")
+        # Example validators (extend as needed)
+        valid_goals = ['logins', 'workouts', 'total_time_minutes']
+        for key in value:
+            if key not in valid_goals:
+                raise serializers.ValidationError(f"Invalid goal '{key}'. Use: {', '.join(valid_goals)}")
+            if not isinstance(value[key], int) or value[key] <= 0:
+                raise serializers.ValidationError(f"Goal '{key}' must be positive integer")
+        return value
+
+    def validate(self, data):
+        """Ensure end_date > start_date."""
+        if data['end_date'] <= data['start_date']:
+            raise serializers.ValidationError("end_date must be after start_date")
+        return data
+
+
+class UserChallengeSerializer(serializers.ModelSerializer):
+    """Serializer for user challenge progress."""
+    challenge_name = serializers.CharField(source='challenge.name', read_only=True)
+    challenge_description = serializers.CharField(source='challenge.description', read_only=True)
+    challenge_reward_points = serializers.IntegerField(source='challenge.reward_points', read_only=True)
+    challenge_reward_badge = serializers.CharField(source='challenge.reward_badge', read_only=True)
+    progress_percent = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserChallenge
+        fields = [
+            'id', 'challenge', 'challenge_name', 'challenge_description', 'challenge_reward_points', 'challenge_reward_badge', 'current_progress',
+            'is_completed', 'completed_at', 'progress_percent'
+        ]
+        read_only_fields = ['id', 'completed_at', 'progress_percent']
+
+    def get_progress_percent(self, obj):
+        """Calculate % progress (simplified; customize per criteria)."""
+        criteria = obj.challenge.goal_criteria
+        progress = obj.current_progress
+        total = sum(criteria.values())
+        done = sum(progress.values())
+        return min(100, max(0, int((done / total) * 100))) if total > 0 else 0
 
 
 # add schedule serializer

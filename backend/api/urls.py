@@ -13,6 +13,7 @@ from . import views
 # ============================================================================
 router = DefaultRouter()
 router.register(r'programs', views.WorkoutProgramViewSet, basename='program')
+router.register(r'challenges', views.ChallengeViewSet, basename='challenge')
 
 
 urlpatterns = [
@@ -103,4 +104,13 @@ urlpatterns = [
     # ========================================================================
     path('rewards/points/', views.get_user_points, name='user-points'),
     path('rewards/badges/', views.get_user_badges, name='user-badges'),
+
+    # ========================================================================
+    # Weekly Challenges (US 4.4)
+    # ========================================================================
+    path('user-challenges/',                  views.get_user_challenges,           name='user-challenges'),
+    path('challenges/<int:challenge_id>/join/', views.join_challenge,              name='join-challenge'),
+    path('challenges/progress/',              views.update_challenge_progress,     name='update-progress'),
+    path('challenges/<int:challenge_id>/leave/', views.leave_challenge, name='leave-challenge'),
+
 ]
