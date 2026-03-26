@@ -699,7 +699,9 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="dashboard-header">
         <div className="dashboard-logo">
-          <Logo variant="text" size="sm" />
+          <Link href="/">
+            <Logo variant="text" size="sm" />
+          </Link>
         </div>
         
         <nav className="dashboard-nav">
