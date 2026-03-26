@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 import re
 
 from .models import (
@@ -25,13 +26,11 @@ from .models import (
 User = get_user_model()
 
 
-# ============================================================================
-# USER & PROFILE SERIALIZERS
-# ============================================================================
+# User and profile serializers
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    """Serializer for user fitness profile."""
+    """Handles user profile data."""
     
     class Meta:
         model = UserProfile
@@ -109,7 +108,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class TrainerProfileSerializer(serializers.ModelSerializer):
-    """Serializer for trainer profile with credentials."""
+    """Handles trainer profile data."""
     
     class Meta:
         model = TrainerProfile
@@ -146,9 +145,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 
-# ============================================================================
 # AUTHENTICATION SERIALIZERS
-# ============================================================================
 
 
 class UserSignupSerializer(serializers.Serializer):
@@ -299,9 +296,7 @@ class UserLoginSerializer(serializers.Serializer):
         return data
 
 
-# ============================================================================
 # WORKOUT SERIALIZERS
-# ============================================================================
 
 class ExerciseTemplateSerializer(serializers.ModelSerializer):
     """Serializer for exercise templates in trainer's library."""
@@ -594,25 +589,36 @@ class UserChallengeSerializer(serializers.ModelSerializer):
 
 
 class UserScheduleSerializer(serializers.ModelSerializer):
-    """Serializer for user's workout schedule with multiple programs."""
+    """Handles the active schedule data."""
     program_names = serializers.SerializerMethodField()
     program_list = serializers.SerializerMethodField()
-    
+    is_adjustment_locked = serializers.SerializerMethodField()
+
     class Meta:
         model = UserSchedule
         fields = [
             'id', 'user', 'programs', 'program_names', 'program_list',
-            'start_date', 'weekly_schedule', 'is_active',
+            'start_date', 'end_date', 'weekly_schedule',
+            'original_weekly_schedule', 'is_adjusted',
+            'duration_overrides', 'focus_overrides',
+            'adjustments_locked_until', 'adjustment_lock_note',
+            'is_adjustment_locked', 'is_active',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
-    
+        read_only_fields = [
+            'id', 'user', 'created_at', 'updated_at',
+            'original_weekly_schedule', 'is_adjusted',
+            'duration_overrides', 'focus_overrides',
+            'adjustments_locked_until', 'adjustment_lock_note',
+            'is_adjustment_locked',
+        ]
+
     def get_program_names(self, obj):
-        """Return comma-separated program names."""
+        """Returns the program names as one string."""
         return ', '.join([p.name for p in obj.programs.all()])
-    
+
     def get_program_list(self, obj):
-        """Return list of programs with details."""
+        """Returns the linked programs with a few details."""
         return [{
             'id': p.id,
             'name': p.name,
@@ -620,17 +626,57 @@ class UserScheduleSerializer(serializers.ModelSerializer):
             'difficulty': p.difficulty,
             'trainer_name': f"{p.trainer.first_name} {p.trainer.last_name}" if p.trainer else "System"
         } for p in obj.programs.all()]
-    
+
+    def get_is_adjustment_locked(self, obj):
+        """Checks if the adjustment lock is still active."""
+        return bool(
+            obj.adjustments_locked_until and
+            obj.adjustments_locked_until >= timezone.localdate()
+        )
+
     def validate_weekly_schedule(self, value):
-        """Validate weekly schedule structure."""
+        """Makes sure the weekly schedule shape looks right."""
         valid_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-        
+
         if not isinstance(value, dict):
             raise serializers.ValidationError("weekly_schedule must be a dictionary")
-        
+
         for day in value.keys():
             if day.lower() not in valid_days:
                 raise serializers.ValidationError(f"Invalid day: {day}")
-        
+
         return value
-       
+
+
+# ─────────────────────────────────────────────────────────
+# US 4.1 / 4.2 – Rewards serializers
+# ─────────────────────────────────────────────────────────
+
+from .models import UserPoints, PointTransaction, UserBadge
+
+
+class UserPointsSerializer(serializers.ModelSerializer):
+    """Serializes a user's current points total."""
+
+    class Meta:
+        model = UserPoints
+        fields = ['id', 'total_points', 'updated_at']
+        read_only_fields = ['id', 'total_points', 'updated_at']
+
+
+class PointTransactionSerializer(serializers.ModelSerializer):
+    """Serializes a single points transaction (one per completed workout)."""
+
+    class Meta:
+        model = PointTransaction
+        fields = ['id', 'points_awarded', 'reason', 'created_at']
+        read_only_fields = fields
+
+
+class UserBadgeSerializer(serializers.ModelSerializer):
+    """Serializes a badge that a user has earned."""
+
+    class Meta:
+        model = UserBadge
+        fields = ['id', 'badge_id', 'earned_at']
+        read_only_fields = fields

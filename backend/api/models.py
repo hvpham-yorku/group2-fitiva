@@ -3,9 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 
 
-# ============================================================================
-# SHARED CHOICES
-# ============================================================================
+# Shared choices
 
 EXPERIENCE_CHOICES = [
     ('beginner', 'Beginner'),
@@ -29,12 +27,10 @@ DIFFICULTY_RATING_CHOICES = [
 ]
 
 
-# ============================================================================
-# MODELS
-# ============================================================================
+# Models
 
 class CustomUser(AbstractUser):
-    """Extended user model for regular users and trainers."""
+    """Basic user model for the app."""
     is_trainer = models.BooleanField(default=False)
     email = models.EmailField(unique=True)
 
@@ -46,7 +42,7 @@ class CustomUser(AbstractUser):
 
 
 class UserProfile(models.Model):
-    """User fitness profile with goals and preferences."""
+    """Stores the user profile info."""
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
     age = models.IntegerField(null=True, blank=True)
     experience_level = models.CharField(max_length=20, choices=EXPERIENCE_CHOICES, default='beginner')
@@ -66,7 +62,7 @@ class UserProfile(models.Model):
 
 
 class TrainerProfile(models.Model):
-    """Extended profile for fitness trainers with credentials and specialties."""
+    """Extra info for trainer accounts."""
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='trainer_profile')
     bio = models.TextField(max_length=500, blank=True)
     years_of_experience = models.IntegerField(default=0)
@@ -95,7 +91,7 @@ class TrainerProfile(models.Model):
 
 
 class WorkoutPlan(models.Model):
-    """Workout plan created by trainers or system defaults."""
+    """Workout plan made by a trainer or the system."""
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     focus = models.JSONField(
@@ -381,6 +377,19 @@ class UserSchedule(models.Model):
         ),
     )
 
+    adjustments_locked_until = models.DateField(
+        null=True,
+        blank=True,
+        help_text="If set, AI adjustment suggestions are blocked until the end of this date.",
+    )
+
+    adjustment_lock_note = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Optional note saved when the user locks the current plan for the next cycle.",
+    )
+
     is_active = models.BooleanField(
         default=True,
         help_text="Whether this is the user's active schedule",
@@ -411,6 +420,76 @@ class UserSchedule(models.Model):
     def __str__(self):
         program_names = ', '.join([p.name for p in self.programs.all()[:3]])
         return f"{self.user.username}'s schedule: {program_names}"
+
+
+# ─────────────────────────────────────────────────────────
+# US 4.1 – Earn Points for Workout Completion
+# ─────────────────────────────────────────────────────────
+
+class UserPoints(models.Model):
+    """Tracks the total gamification points for a user."""
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='points',
+    )
+    total_points = models.IntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_points'
+
+    def __str__(self):
+        return f"{self.user.username} – {self.total_points} pts"
+
+
+class PointTransaction(models.Model):
+    """Records each time points were awarded so we can prevent duplicates."""
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='point_transactions',
+    )
+    session = models.OneToOneField(
+        WorkoutSession,
+        on_delete=models.CASCADE,
+        related_name='point_transaction',
+        null=True,
+        blank=True,
+    )
+    points_awarded = models.IntegerField(default=0)
+    reason = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'point_transactions'
+
+    def __str__(self):
+        return f"{self.user.username} +{self.points_awarded} ({self.reason})"
+
+
+# ─────────────────────────────────────────────────────────
+# US 4.2 – Unlock Achievement Badges
+# ─────────────────────────────────────────────────────────
+
+class UserBadge(models.Model):
+    """Records which badges a user has earned."""
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='badges',
+    )
+    # badge_id matches a key in BADGE_DEFINITIONS (see views.py / rewards helper)
+    badge_id = models.CharField(max_length=50)
+    earned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'user_badges'
+        # A user can only earn each badge once
+        unique_together = [('user', 'badge_id')]
+
+    def __str__(self):
+        return f"{self.user.username} – {self.badge_id}"
 
 class Challenge(models.Model):
     name = models.CharField(max_length=100)
