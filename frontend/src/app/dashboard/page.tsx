@@ -85,6 +85,51 @@ interface ScheduleResponse {
   calendar_events: CalendarEvent[];
 }
 
+interface NextWeekChange {
+  day: string;
+  from: 'workout' | 'rest';
+  to: 'workout' | 'rest';
+  reason?: string;
+}
+
+interface RecoveryOption {
+  id: 'rest_next' | 'shorter_workout' | 'lighter_focus' | 'rest_same_day' | 'keep_going';
+  label: string;
+  description: string;
+  icon: string;
+  affected_day: string | null;
+  affected_date: string | null;
+  change_type: 'rest' | 'shorter' | 'lighter' | 'none';
+  duration_minutes?: number;
+}
+
+interface ScheduleSuggestion {
+  adjustment: 'none' | 'increased' | 'reduced' | 'recovery' | 'pain';
+  stress_score: number;
+  avg_difficulty: number;
+  avg_fatigue: number;
+  pain_reported: boolean;
+  pain_day: string | null;
+  pain_session_date: string | null;
+  pain_next_workout_day: string | null;
+  pain_next_workout_date: string | null;
+  pain_day_cleared: string | null;
+  workout_days_count: number;
+  reason: string;
+  recovery_options: RecoveryOption[];
+}
+
+const DAYS_OF_WEEK = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const DAY_INDEX: Record<string, number> = Object.fromEntries(DAYS_OF_WEEK.map((d, i) => [d, i]));
+
+const ADJUSTMENT_META: Record<string, { emoji: string; label: string; color: string }> = {
+  recovery:  { emoji: '🛌', label: 'Recovery Week',        color: '#e07b54' },
+  reduced:   { emoji: '📉', label: 'Reduce Workload',      color: '#f59e0b' },
+  increased: { emoji: '📈', label: 'Progressive Overload', color: '#22c55e' },
+  pain:      { emoji: '⚠️', label: 'Pain Recovery Options', color: '#ef4444' },
+  none:      { emoji: '✅', label: 'No Changes Needed',    color: '#6b7280' },
+};
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -145,6 +190,15 @@ export default function DashboardPage() {
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [deletingFeedback, setDeletingFeedback] = useState(false);
   const [undoingComplete, setUndoingComplete] = useState(false);
+
+  // Feedback pain reported State
+  const [suggestion, setSuggestion] = useState<ScheduleSuggestion | null>(null);
+  const [showSuggestionModal, setShowSuggestionModal] = useState(false);
+  const [selectedRecoveryOption, setSelectedRecoveryOption] = useState<RecoveryOption | null>(null);
+  const [applyingRecovery, setApplyingRecovery] = useState(false);
+  const [applyingRegen, setApplyingRegen] = useState(false);
+  const [nextWeekChanges, setNextWeekChanges] = useState<NextWeekChange[] | null>(null);
+  const [showNextWeekBanner, setShowNextWeekBanner] = useState(false);
 
   const showSuccess = (message: string) => setNotification({ type: 'success', message });
   const showError   = (message: string) => setNotification({ type: 'error', message });
@@ -397,6 +451,108 @@ export default function DashboardPage() {
     } catch { showError('Could not complete workout.'); }
   };
 
+  const findNextWorkoutDay = (weeklySchedule: any, painDay: string): string | null => {
+    const painIdx = DAY_INDEX[painDay.toLowerCase()];
+    if (painIdx === undefined) return null;
+    for (let offset = 1; offset <= 7; offset++) {
+      const candidateDay = DAYS_OF_WEEK[(painIdx + offset) % 7];
+      const slot = weeklySchedule[candidateDay];
+      const isWorkout = Array.isArray(slot) ? slot.length > 0 : (slot !== 'rest' && slot !== '' && slot != null);
+      if (isWorkout) return candidateDay;
+    }
+    return null;
+  };
+
+  const buildRecoveryOptions = (painDay: string, nextWorkoutDay: string, nextWorkoutDate: string | null, currentDuration: number = 45): RecoveryOption[] => {
+    const nextDayLabel = nextWorkoutDay.charAt(0).toUpperCase() + nextWorkoutDay.slice(1);
+    const painDayLabel = painDay.charAt(0).toUpperCase() + painDay.slice(1);
+    const shorterMins = Math.max(20, Math.round(currentDuration * 0.6));
+    return [
+      { id: 'rest_next', label: `Rest on ${nextDayLabel}`, description: `Skip ${nextDayLabel}'s workout entirely.`, icon: '😴', affected_day: nextWorkoutDay, affected_date: nextWorkoutDate, change_type: 'rest' },
+      { id: 'shorter_workout', label: `Shorter workout on ${nextDayLabel} (${shorterMins} min)`, description: `Do a lighter session instead of the full workout.`, icon: '⏱️', affected_day: nextWorkoutDay, affected_date: nextWorkoutDate, change_type: 'shorter', duration_minutes: shorterMins },
+      { id: 'lighter_focus', label: `Swap to mobility/stretching on ${nextDayLabel}`, description: `Replace workout with gentle mobility.`, icon: '🧘', affected_day: nextWorkoutDay, affected_date: nextWorkoutDate, change_type: 'lighter' },
+      { id: 'rest_same_day', label: `Also rest today (${painDayLabel})`, description: `Mark today as a rest day too.`, icon: '🛌', affected_day: painDay, affected_date: null, change_type: 'rest' },
+      { id: 'keep_going', label: 'Keep my schedule as-is', description: `Acknowledge the pain but continue.`, icon: '💪', affected_day: null, affected_date: null, change_type: 'none' },
+    ];
+  };
+
+  const patchPainDaySuggestion = (raw: ScheduleSuggestion, weeklySchedule: any, ratedDateStr?: string): ScheduleSuggestion => {
+    if (!raw.pain_reported) return raw;
+    let painDay: string;
+    const sourceDateStr = ratedDateStr ?? raw.pain_session_date ?? null;
+    if (sourceDateStr) {
+      const d = parseLocalDate(sourceDateStr);
+      painDay = DAYS_OF_WEEK[d.getDay() === 0 ? 6 : d.getDay() - 1];
+    } else if (raw.pain_day) {
+      painDay = raw.pain_day.toLowerCase();
+    } else return raw;
+
+    const correctNextWorkout = findNextWorkoutDay(weeklySchedule, painDay);
+    if (!correctNextWorkout) return raw;
+
+    let nextWorkoutDate: string | null = null;
+    const today = new Date();
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(today); d.setDate(today.getDate() + i);
+      const dayName = DAYS_OF_WEEK[d.getDay() === 0 ? 6 : d.getDay() - 1];
+      if (dayName === correctNextWorkout) {
+        nextWorkoutDate = [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+        break;
+      }
+    }
+    const options = buildRecoveryOptions(painDay, correctNextWorkout, nextWorkoutDate);
+    return { ...raw, pain_day: painDay, pain_next_workout_day: correctNextWorkout, pain_next_workout_date: nextWorkoutDate, pain_day_cleared: correctNextWorkout, recovery_options: options.length > 0 ? options : raw.recovery_options };
+  };
+
+  const fetchScheduleSuggestion = async (ratedDateStr?: string) => {
+    if (!scheduleData?.schedule) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedule/regenerate/preview/`, { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok || !data.regenerated) return;
+      const patched = patchPainDaySuggestion(data, scheduleData.schedule.weekly_schedule, ratedDateStr);
+      setSuggestion(patched);
+      setShowSuggestionModal(true);
+    } catch { /* silent */ }
+  };
+
+  const handleApplyRecoveryOption = async (option: RecoveryOption) => {
+    if (!suggestion) return;
+    setApplyingRecovery(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedule/apply-recovery-option/`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ option_id: option.id, affected_day: option.affected_day, affected_date: option.affected_date, change_type: option.change_type, duration_minutes: option.duration_minutes ?? null, pain_day: suggestion.pain_day }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Failed to apply option'); return; }
+      if (option.id === 'keep_going') showInfo('Got it — schedule unchanged. Keep an eye on that pain! 💙');
+      else showSuccess(`✅ ${option.label} applied!`);
+      setShowSuggestionModal(false); setSuggestion(null); setSelectedRecoveryOption(null);
+      await fetchSchedule();
+    } catch { showError('Could not apply recovery option.'); } finally { setApplyingRecovery(false); }
+  };
+
+  const handleAcceptSuggestion = async () => {
+    if (suggestion?.adjustment === 'pain' && suggestion.recovery_options?.length > 0) {
+      if (!selectedRecoveryOption) { showError('Please choose one of the recovery options below.'); return; }
+      await handleApplyRecoveryOption(selectedRecoveryOption); return;
+    }
+    setApplyingRegen(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedule/regenerate/apply/`, { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Failed to apply changes'); return; }
+      showSuccess(`✅ Schedule updated!`); setShowSuggestionModal(false); setSuggestion(null);
+      await fetchSchedule();
+    } catch { showError('Could not apply schedule changes.'); } finally { setApplyingRegen(false); }
+  };
+
+  const handleDismissSuggestion = () => {
+    setShowSuggestionModal(false); setSuggestion(null); setSelectedRecoveryOption(null);
+    showInfo('Adjustment rejected. Your plan stays unchanged.');
+  };
+
   const submitFeedback = async (dateStr: string) => {
     if (feedbackRating === 0) { showError('Please rate the difficulty before submitting.'); return; }
     setSubmittingFeedback(true);
@@ -409,6 +565,10 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error();
       showSuccess(editingFeedback ? 'Feedback updated! ✏️' : 'Feedback submitted! 🙌');
       setShowFeedbackForm(false); setShowWorkoutModal(false); resetFeedbackForm(); await fetchSchedule();
+      // Trigger Suggestion Modal if Pain Reported
+      if (!editingFeedback || feedbackPain) {
+        await fetchScheduleSuggestion(dateStr);
+      }
     } catch { showError('Could not submit feedback.'); }
     finally { setSubmittingFeedback(false); }
   };
@@ -962,7 +1122,7 @@ export default function DashboardPage() {
         </section>
       </main>
 
-      {/* ── NEW: Workout Detail & Feedback Modal (Ported from Schedule) ── */}
+{/* ── NEW: Workout Detail & Feedback Modal (Ported from Schedule) ── */}
       {showWorkoutModal && workoutDetail && (
         <div className="dashboard-modal-overlay" onClick={handleCloseModal}>
           <div className="dashboard-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -1056,6 +1216,138 @@ export default function DashboardPage() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PAIN / RECOVERY SUGGESTION MODAL ── */}
+      {showSuggestionModal && suggestion && (
+        <div className="dashboard-modal-overlay" onClick={handleDismissSuggestion}>
+          <div
+            className="dashboard-modal-content"
+            style={{ maxWidth: (suggestion.adjustment === 'pain' || suggestion.pain_reported) ? '560px' : '480px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const suggestionMeta = ADJUSTMENT_META[suggestion.adjustment] ?? ADJUSTMENT_META.none;
+              const isPainSuggestion = suggestion.adjustment === 'pain' || (suggestion.pain_reported && (suggestion.recovery_options?.length ?? 0) > 0);
+              
+              return (
+                <>
+                  <div className="dashboard-modal-header" style={{ borderBottom: `3px solid ${suggestionMeta.color}` }}>
+                    <h3 style={{ color: suggestionMeta.color, fontSize: '1.3rem', margin: 0 }}>{suggestionMeta.emoji} {isPainSuggestion ? 'Pain Reported — How would you like to adjust?' : suggestionMeta.label}</h3>
+                    <button className="dashboard-modal-close" onClick={handleDismissSuggestion}>✕</button>
+                  </div>
+
+                  <div className="dashboard-modal-body">
+                    <p style={{ fontSize: '0.92rem', lineHeight: '1.6', color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                      {suggestion.reason}
+                    </p>
+
+                    {isPainSuggestion && suggestion.pain_day && (
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#450a0a', border: '1px solid #b91c1c', borderRadius: '8px', padding: '0.6rem 0.85rem', marginBottom: '1.1rem' }}>
+                        <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                        <div>
+                          <span style={{ fontWeight: 700, color: '#fca5a5', fontSize: '0.88rem' }}>
+                            Pain reported on {suggestion.pain_day.charAt(0).toUpperCase() + suggestion.pain_day.slice(1)}
+                          </span>
+                          {suggestion.pain_next_workout_day && (
+                            <span style={{ color: '#fca5a5', fontSize: '0.82rem' }}>
+                              {' '}— next workout day: <strong>{suggestion.pain_next_workout_day.charAt(0).toUpperCase() + suggestion.pain_next_workout_day.slice(1)}</strong>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {!isPainSuggestion && (
+                      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                        {[{ label: 'Stress Score', value: suggestion.stress_score, icon: '📊' }, { label: 'Avg Difficulty', value: suggestion.avg_difficulty, icon: '💪' }, { label: 'Avg Fatigue', value: suggestion.avg_fatigue, icon: '😓' }].map((stat) => (
+                          <div key={stat.label} style={{ flex: '1', minWidth: '100px', background: 'var(--bg-tertiary)', borderRadius: '8px', padding: '0.6rem 0.8rem', textAlign: 'center', border: '1px solid var(--border-light)' }}>
+                            <div style={{ fontSize: '1.1rem' }}>{stat.icon}</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: suggestionMeta.color }}>{stat.value}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{stat.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {isPainSuggestion && suggestion.recovery_options?.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '1.25rem' }}>
+                        <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.2rem' }}>
+                          Choose how to handle it:
+                        </p>
+                        {suggestion.recovery_options.map((opt) => {
+                          const isSelected = selectedRecoveryOption?.id === opt.id;
+                          const isKeepGoing = opt.id === 'keep_going';
+                          return (
+                            <button
+                              key={opt.id}
+                              onClick={() => setSelectedRecoveryOption(isSelected ? null : opt)}
+                              style={{
+                                display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                                background: isSelected ? (isKeepGoing ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)') : 'var(--bg-tertiary)',
+                                border: isSelected ? `2px solid ${isKeepGoing ? '#22c55e' : '#ef4444'}` : '2px solid var(--border-light)',
+                                borderRadius: '10px', padding: '0.75rem 0.9rem',
+                                cursor: 'pointer', textAlign: 'left', width: '100%',
+                                transition: 'all 0.15s',
+                              }}
+                            >
+                              <span style={{ fontSize: '1.35rem', flexShrink: 0, marginTop: '1px' }}>{opt.icon}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: isSelected ? (isKeepGoing ? '#86efac' : '#fca5a5') : 'var(--text-primary)', marginBottom: '0.18rem' }}>
+                                  {opt.label}
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                                  {opt.description}
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <span style={{ flexShrink: 0, width: '20px', height: '20px', borderRadius: '50%', background: isKeepGoing ? '#22c55e' : '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '0.75rem', marginTop: '2px' }}>✓</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {!isPainSuggestion && (
+                      <div style={{ background: 'var(--bg-tertiary)', borderRadius: '8px', padding: '0.85rem 1rem', marginBottom: '1.5rem', border: `1px solid ${suggestionMeta.color}44` }}>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>What will change</p>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', margin: 0 }}>
+                          {suggestion.adjustment === 'recovery' && `Workout days will be reduced to ${suggestion.workout_days_count} days this week to allow your body to recover.`}
+                          {suggestion.adjustment === 'reduced' && `One workout day will be removed, leaving ${suggestion.workout_days_count} active workout days.`}
+                          {suggestion.adjustment === 'increased' && `One rest day will become a workout day, bringing your total to ${suggestion.workout_days_count} workout days.`}
+                          {suggestion.adjustment === 'none' && 'No changes will be made — your current schedule is well-balanced.'}
+                        </p>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={handleDismissSuggestion}
+                        style={{ flex: 1, minWidth: '150px', padding: '0.7rem', borderRadius: '8px', border: '2px solid var(--border-medium)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+                      >
+                        Reject
+                      </button>
+
+                      <button
+                        onClick={handleAcceptSuggestion}
+                        disabled={applyingRegen || applyingRecovery || (isPainSuggestion && !selectedRecoveryOption)}
+                        style={{
+                          flex: 2, minWidth: '220px', padding: '0.7rem', borderRadius: '8px', border: 'none',
+                          background: (isPainSuggestion && !selectedRecoveryOption) ? 'var(--border-medium)' : suggestionMeta.color,
+                          color: '#fff', cursor: (applyingRegen || applyingRecovery || (isPainSuggestion && !selectedRecoveryOption)) ? 'not-allowed' : 'pointer',
+                          fontWeight: 700, fontSize: '0.95rem', opacity: (applyingRegen || applyingRecovery) ? 0.7 : 1, transition: 'background 0.2s',
+                        }}
+                      >
+                        {applyingRegen || applyingRecovery ? '⏳ Applying...' : isPainSuggestion ? selectedRecoveryOption ? `✓ Apply: ${selectedRecoveryOption.icon} ${selectedRecoveryOption.label}` : 'Select an option above' : '✓ Accept & Update Schedule'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
