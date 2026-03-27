@@ -1230,12 +1230,6 @@ export default function DashboardPage() {
                 <div className="action-button-description">Stay motivated with short-term goals</div>
               </Link>
             ) : null}
-
-            <Link href="/schedule" className="action-button">
-              <div className="action-button-icon">📅</div>
-              <div className="action-button-title">My Workout Schedule</div>
-              <div className="action-button-description">View and manage your personalized calendar</div>
-            </Link>
             
             <Link href="/rewards" className="action-button">
               <div className="action-button-icon">🏆</div>
