@@ -4,7 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileAPI, sessionAPI, rewardsAPI, challengeAPI } from '@/library/api';
+import {
+  profileAPI,
+  sessionAPI,
+  rewardsAPI,
+  challengeAPI,
+  type MyChallenge,
+} from '@/library/api';
 import Logo from '@/components/ui/Logo';
 import SettingsModal from '@/components/ui/SettingsModal';
 import Notification from '@/components/Notification';
@@ -55,16 +61,6 @@ interface WorkoutHistorySession {
   plan_name?: string | null;
   duration_minutes?: number | null;
   notes?: string;
-}
-
-interface MyChallenge {
-  id: number;
-  challenge_name: string;
-  challenge_description?: string;
-  current_progress: Record<string, number>;
-  is_completed: boolean;
-  completed_at: string | null;
-  progress_percent: number;
 }
 
 interface EarnedBadgeSummary {
@@ -460,11 +456,11 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
   const handleLogout = async () => { setIsLoggingOut(true); setIsDropdownOpen(false); await logout(); };
   const openSettings = () => { setIsDropdownOpen(false); setIsSettingsOpen(true); };
 
-  const handleLeaveChallenge = async (challengeId: number) => {
+  const handleLeaveChallenge = async (challengePk: number) => {
     if (!window.confirm("Are you sure you want to remove this challenge?")) return;
     try {
-      await challengeAPI.leaveChallenge(challengeId);
-      setMyChallenges(prev => prev.filter(c => c.id !== challengeId));
+      await challengeAPI.leaveChallenge(challengePk);
+      setMyChallenges((prev) => prev.filter((c) => c.challenge !== challengePk));
     } catch (err) {
       console.error("Failed to remove challenge", err);
       alert("Could not remove the challenge.");
@@ -1158,9 +1154,9 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
           </div>
         </section>
 
-        {/* Weekly Challenges (US 4.4) */}
+        {/* My Active Challenges (US 4.4 / 4.5) */}
         <section className="dashboard-challenges-section">
-          <h2 className="section-title">Weekly Challenges 🔥</h2>
+          <h2 className="section-title">My Active Challenges 🔥</h2>
           {challengesLoading ? (
             <p className="dashboard-chart-loading">Loading challenges...</p>
           ) : myChallenges.length === 0 ? (
@@ -1180,7 +1176,12 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
                   </div>
 
                   <div className="challenge-header">
-                    <h3 className="challenge-name">{challenge.challenge_name}</h3>
+                    <div className="challenge-title-block">
+                      <h3 className="challenge-name">{challenge.challenge_name}</h3>
+                      {challenge.trainer_name ? (
+                        <div className="hosted-badge">Hosted by {challenge.trainer_name}</div>
+                      ) : null}
+                    </div>
                     
                     {/* --- 2. BADGE & LEAVE BUTTON WRAPPER --- */}
                     <div className="header-actions">
@@ -1191,7 +1192,7 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
                       )}
                       
                       <button 
-                        onClick={() => handleLeaveChallenge(challenge.id)} 
+                        onClick={() => handleLeaveChallenge(challenge.challenge)}
                         className="leave-button"
                         title="Remove challenge"
                       >
@@ -1255,6 +1256,14 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
                 <div className="action-button-icon">✨</div>
                 <div className="action-button-title">Create Program</div>
                 <div className="action-button-description">Design a new workout plan</div>
+              </Link>
+            )}
+
+            {user.is_trainer && (
+              <Link href="/create-challenge" className="action-button">
+                <div className="action-button-icon">🏆</div>
+                <div className="action-button-title">Host a Challenge</div>
+                <div className="action-button-description">Tie a themed challenge to one of your programs</div>
               </Link>
             )}
 

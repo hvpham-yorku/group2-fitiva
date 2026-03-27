@@ -1,0 +1,131 @@
+/* US 4.5 — Host a Challenge (matches create-program / program detail patterns) */
+
+.create-challenge-container {
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+}
+
+.create-challenge-container .header {
+  background-color: var(--bg-secondary);
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border-medium);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.create-challenge-container .header h1 {
+  color: var(--text-primary);
+  font-size: 2rem;
+  margin: 0.5rem 0 0 0;
+}
+
+.create-challenge-container .back-button {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  transition: color 0.2s;
+}
+
+.create-challenge-container .back-button:hover {
+  color: var(--primary);
+}
+
+.create-challenge-container .content {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.create-challenge-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.create-challenge-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.create-challenge-form .field-hint {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.create-challenge-form input[type='text'],
+.create-challenge-form input[type='date'],
+.create-challenge-form select,
+.create-challenge-form textarea {
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-medium);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.create-challenge-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.create-challenge-form .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.btn-submit-challenge {
+  padding: 0.65rem 1.25rem;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #ef3e36 0%, #ff9234 100%);
+}
+
+.btn-submit-challenge:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-cancel-challenge {
+  padding: 0.65rem 1.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-medium);
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trainer-only-message,
+.empty-programs-hint {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: 12px;
+  padding: 1.5rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.trainer-only-message a,
+.empty-programs-hint a {
+  color: var(--primary);
+  font-weight: 600;
+}

@@ -18,6 +18,10 @@ router.register(r'challenges', views.ChallengeViewSet, basename='challenge')
 
 urlpatterns = [
 
+    # US 4.5 — must be before router so /challenges/create/ is not captured as /challenges/{pk}/
+    path('challenges/create/', views.create_trainer_challenge, name='create-trainer-challenge'),
+    path('challenges/analytics/', views.get_trainer_challenge_analytics, name='trainer-challenge-analytics'),
+
     # ========================================================================
     # Router URLs (WorkoutProgramViewSet)
     # Must be included BEFORE any manual path that could shadow /programs/{id}/

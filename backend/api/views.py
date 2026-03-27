@@ -58,6 +58,8 @@ from .serializers import (
     PointTransactionSerializer,
     UserBadgeSerializer,
     ChallengeSerializer,
+    TrainerChallengeCreateSerializer,
+    ChallengeAnalyticsSerializer,
     UserChallengeSerializer,
 )
 
@@ -767,15 +769,65 @@ class WorkoutFeedbackViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return WorkoutFeedback.objects.filter(session__user=self.request.user).order_by('-created_at')
 
-class ChallengeViewSet(viewsets.ModelViewSet):
+class ChallengeViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    List/retrieve active challenges (global + trainer-hosted, US 4.5).
+    Trainers create challenges via POST /api/challenges/create/ (not this list POST).
+    """
     serializer_class = ChallengeSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Challenge.objects.filter(
-            is_active=True, 
-            end_date__gte=timezone.now().date()
+        return (
+            Challenge.objects.filter(is_active=True, end_date__gte=timezone.now().date())
+            .select_related('trainer', 'program')
+            .order_by('-created_at')
         )
+
+
+@api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def create_trainer_challenge(request):
+    """US 4.5 — trainer-hosted challenge; sets trainer = request.user."""
+    if not request.user.is_trainer:
+        return Response(
+            {'error': 'Only trainers can create challenges'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    serializer = TrainerChallengeCreateSerializer(data=request.data, context={'request': request})
+    if serializer.is_valid():
+        challenge = serializer.save()
+        return Response(ChallengeSerializer(challenge).data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_trainer_challenge_analytics(request):
+    """US 4.5 — per-challenge participant count and completion rate for the requesting trainer."""
+    if not request.user.is_trainer:
+        return Response(
+            {'error': 'Only trainers can view challenge analytics'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    challenges = Challenge.objects.filter(trainer=request.user).order_by('-created_at')
+    rows = []
+    for c in challenges:
+        uc_qs = UserChallenge.objects.filter(challenge=c)
+        total = uc_qs.count()
+        completed = uc_qs.filter(is_completed=True).count()
+        rate = round((completed / total) * 100.0, 1) if total > 0 else 0.0
+        rows.append(
+            {
+                'id': c.id,
+                'name': c.name,
+                'participant_count': total,
+                'completion_rate': rate,
+            }
+        )
+    out = ChallengeAnalyticsSerializer(rows, many=True)
+    return Response(out.data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1505,10 +1557,14 @@ def workout_feedback(request, date_str):
 @permission_classes([IsAuthenticated])
 def get_user_challenges(request):
     """List user's active challenges + real-time progress."""
-    user_challenges = UserChallenge.objects.filter(
-        user=request.user,
-        challenge__is_active=True,
-        challenge__end_date__gte=timezone.now().date()
+    user_challenges = (
+        UserChallenge.objects.filter(
+            user=request.user,
+            challenge__is_active=True,
+            challenge__end_date__gte=timezone.now().date(),
+        )
+        .select_related('challenge', 'challenge__trainer', 'challenge__program')
+        .order_by('-challenge__created_at')
     )
     serializer = UserChallengeSerializer(user_challenges, many=True)
     return Response(serializer.data)

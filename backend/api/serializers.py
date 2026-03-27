@@ -527,16 +527,30 @@ class WorkoutFeedbackSerializer(serializers.ModelSerializer):
 # CHALLENGE SERIALIZERS (US 4.4)
 
 class ChallengeSerializer(serializers.ModelSerializer):
-    """Serializer for weekly challenges with goal criteria."""
-    
+    """Serializer for weekly challenges with goal criteria (global + trainer-hosted US 4.5)."""
+
+    trainer_name = serializers.SerializerMethodField()
+    program_name = serializers.SerializerMethodField()
+
     class Meta:
-        model = Challenge  # Assumes models.py updated with Challenge/UserChallenge
+        model = Challenge
         fields = [
             'id', 'name', 'description', 'start_date', 'end_date',
             'goal_criteria', 'reward_points', 'reward_badge', 'is_active',
-            'created_at'
+            'created_at',
+            'trainer', 'trainer_name', 'program', 'program_name',
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'trainer_name', 'program_name']
+
+    def get_trainer_name(self, obj):
+        if obj.trainer_id is None:
+            return None
+        u = obj.trainer
+        full = (u.get_full_name() or '').strip()
+        return full or (u.username or u.email or '').strip()
+
+    def get_program_name(self, obj):
+        return obj.program.name if obj.program_id else None
 
     def validate_goal_criteria(self, value):
         """Validate goal_criteria JSON (e.g. {'logins': 5})."""
@@ -560,6 +574,64 @@ class ChallengeSerializer(serializers.ModelSerializer):
         return data
 
 
+class TrainerChallengeCreateSerializer(serializers.Serializer):
+    """POST /api/challenges/create/ — trainer creates a hosted challenge (US 4.5)."""
+
+    name = serializers.CharField(max_length=100)
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+    program = serializers.PrimaryKeyRelatedField(queryset=WorkoutPlan.objects.none())
+    end_date = serializers.DateField()
+    start_date = serializers.DateField(required=False)
+    goal_criteria = serializers.JSONField(required=False)
+    reward_points = serializers.IntegerField(required=False, default=0)
+    reward_badge = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = self.context['request'].user
+        self.fields['program'].queryset = WorkoutPlan.objects.filter(trainer=user, is_deleted=False)
+
+    def validate_goal_criteria(self, value):
+        if value is None or value == {}:
+            return {'workouts': 3}
+        cs = ChallengeSerializer()
+        return cs.validate_goal_criteria(value)
+
+    def validate(self, data):
+        start = data.get('start_date') or timezone.now().date()
+        end = data['end_date']
+        if end <= start:
+            raise serializers.ValidationError({'end_date': 'end_date must be after start_date'})
+        data['start_date'] = start
+        if data.get('goal_criteria') in (None, {}):
+            data['goal_criteria'] = {'workouts': 3}
+        return data
+
+    def create(self, validated_data):
+        trainer = self.context['request'].user
+        return Challenge.objects.create(
+            trainer=trainer,
+            program=validated_data['program'],
+            name=validated_data['name'],
+            description=validated_data.get('description', ''),
+            start_date=validated_data['start_date'],
+            end_date=validated_data['end_date'],
+            goal_criteria=validated_data['goal_criteria'],
+            reward_points=validated_data.get('reward_points', 0),
+            reward_badge=validated_data.get('reward_badge', ''),
+            is_active=True,
+        )
+
+
+class ChallengeAnalyticsSerializer(serializers.Serializer):
+    """One row for GET /api/challenges/analytics/."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    participant_count = serializers.IntegerField()
+    completion_rate = serializers.FloatField()
+
+
 class UserChallengeSerializer(serializers.ModelSerializer):
     """Serializer for user challenge progress."""
     challenge_name = serializers.CharField(source='challenge.name', read_only=True)
@@ -567,14 +639,28 @@ class UserChallengeSerializer(serializers.ModelSerializer):
     challenge_reward_points = serializers.IntegerField(source='challenge.reward_points', read_only=True)
     challenge_reward_badge = serializers.CharField(source='challenge.reward_badge', read_only=True)
     progress_percent = serializers.SerializerMethodField()
-    
+    trainer_name = serializers.SerializerMethodField()
+    program_name = serializers.SerializerMethodField()
+
     class Meta:
         model = UserChallenge
         fields = [
             'id', 'challenge', 'challenge_name', 'challenge_description', 'challenge_reward_points', 'challenge_reward_badge', 'current_progress',
-            'is_completed', 'completed_at', 'progress_percent'
+            'is_completed', 'completed_at', 'progress_percent',
+            'trainer_name', 'program_name',
         ]
-        read_only_fields = ['id', 'completed_at', 'progress_percent']
+        read_only_fields = ['id', 'completed_at', 'progress_percent', 'trainer_name', 'program_name']
+
+    def get_trainer_name(self, obj):
+        t = obj.challenge.trainer
+        if t is None:
+            return None
+        full = (t.get_full_name() or '').strip()
+        return full or (t.username or t.email or '').strip()
+
+    def get_program_name(self, obj):
+        p = obj.challenge.program
+        return p.name if p else None
 
     def get_progress_percent(self, obj):
         """Calculate % progress (simplified; customize per criteria)."""

@@ -41,6 +41,70 @@
   padding: 2rem;
 }
 
+/* US 4.5 — trainer challenge banner */
+.program-challenge-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 146, 52, 0.45);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 146, 52, 0.12) 0%,
+    rgba(239, 62, 54, 0.06) 100%
+  );
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.program-challenge-banner-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  max-width: 52rem;
+}
+
+.program-challenge-banner-icon {
+  font-size: 1.35rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.btn-program-challenge-join {
+  flex-shrink: 0;
+  padding: 0.55rem 1.1rem;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #ef3e36 0%, #ff9234 100%);
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.btn-program-challenge-join:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.btn-program-challenge-join:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.program-challenge-joined {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #38a169;
+}
+
 /* Overview Card */
 .overview-card {
   background: var(--bg-secondary);

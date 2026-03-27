@@ -8,7 +8,7 @@ import Notification from '@/components/Notification';
 import ConfirmModal from '@/components/ConfirmModal';
 import './program-details.css';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { programAPI } from '@/library/api';
+import { challengeAPI, type Challenge } from '@/library/api';
 
 
 interface ExerciseSet {
@@ -104,10 +104,51 @@ const ProgramDetailPage = () => {
   const [selectedRestDays, setSelectedRestDays] = useState<string[]>(['sunday']);
   const [addingToSchedule, setAddingToSchedule] = useState(false);
 
+  const [linkedChallenge, setLinkedChallenge] = useState<Challenge | null>(null);
+  const [challengeJoined, setChallengeJoined] = useState(false);
+  const [joiningProgramChallenge, setJoiningProgramChallenge] = useState(false);
+
   useEffect(() => {
     fetchProgramDetail();
     checkIfInSchedule();
   }, [programId]);
+
+  useEffect(() => {
+    const pid = parseInt(programId, 10);
+    if (Number.isNaN(pid)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await challengeAPI.getChallengesByProgram(pid);
+        if (!cancelled) setLinkedChallenge(list[0] ?? null);
+      } catch {
+        if (!cancelled) setLinkedChallenge(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [programId]);
+
+  useEffect(() => {
+    if (!linkedChallenge || !user) {
+      setChallengeJoined(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const mine = await challengeAPI.getMyChallenges();
+        if (cancelled) return;
+        setChallengeJoined(mine.some((m) => m.challenge === linkedChallenge.id));
+      } catch {
+        if (!cancelled) setChallengeJoined(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedChallenge, user]);
 
   const fetchProgramDetail = async () => {
     try {
@@ -205,6 +246,21 @@ const fetchProgramFeedback = async () => {
   const showSuccess = (message: string) => setNotification({ type: 'success', message });
   const showError = (message: string) => setNotification({ type: 'error', message });
   const showInfo = (message: string) => setNotification({ type: 'info', message });
+
+  const handleJoinProgramChallenge = async () => {
+    if (!linkedChallenge) return;
+    setJoiningProgramChallenge(true);
+    try {
+      await challengeAPI.joinChallenge(linkedChallenge.id);
+      setChallengeJoined(true);
+      showSuccess('You joined the challenge!');
+      router.push('/dashboard');
+    } catch {
+      showError('Could not join this challenge.');
+    } finally {
+      setJoiningProgramChallenge(false);
+    }
+  };
 
   // Bug fix #2: toggle a day in/out of rest days
   const toggleRestDay = (day: string) => {
@@ -339,6 +395,32 @@ const fetchProgramFeedback = async () => {
         </div>
 
         <div className="content">
+          {linkedChallenge && (
+            <div className="program-challenge-banner">
+              <div className="program-challenge-banner-text">
+                <span className="program-challenge-banner-icon" aria-hidden>
+                  🏆
+                </span>
+                <span>
+                  <strong>{linkedChallenge.trainer_name || 'A trainer'}</strong> is hosting a challenge
+                  for this program!
+                </span>
+              </div>
+              {challengeJoined ? (
+                <span className="program-challenge-joined">You&apos;re in ✓</span>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-program-challenge-join"
+                  onClick={handleJoinProgramChallenge}
+                  disabled={joiningProgramChallenge}
+                >
+                  {joiningProgramChallenge ? 'Joining…' : 'Join Challenge'}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="overview-card">
             <div className="overview-header">
               <div className="title-section">
