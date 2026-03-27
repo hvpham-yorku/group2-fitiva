@@ -22,7 +22,7 @@ interface CalendarEvent {
   }>;
   section_type: string;
   exercise_count: number;
-  session_status?: 'in_progress' | 'completed' | null;
+  session_status?: 'in_progress' | 'completed' | 'missed' | null;
   has_feedback?: boolean;
 }
 
@@ -101,6 +101,21 @@ const parseLocalDate = (dateStr: string): Date => {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
+
+const toLocalISODate = (): string => {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+};
+
+/** US 3.5: completed / missed / in progress, or infer missed for past workout days with no session row yet. */
+function getCalendarWorkoutStatus(event: CalendarEvent, todayIso: string): 'completed' | 'missed' | 'in_progress' | 'none' {
+  if (event.section_type === 'rest') return 'none';
+  if (event.session_status === 'completed') return 'completed';
+  if (event.session_status === 'missed') return 'missed';
+  if (event.session_status === 'in_progress') return 'in_progress';
+  if (event.date < todayIso) return 'missed';
+  return 'none';
+}
 
 const formatShort = (dateStr: string): string =>
   parseLocalDate(dateStr).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
@@ -258,12 +273,15 @@ const SchedulePage = () => {
 
   const [monthOffset, setMonthOffset] = useState(0);
 
-  useEffect(() => { fetchSchedule(); }, []);
+  useEffect(() => {
+    fetchSchedule();
+  }, [monthOffset]);
 
-  const fetchSchedule = async () => {
+  const fetchSchedule = async (offsetOverride?: number) => {
+    const offset = offsetOverride ?? monthOffset;
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/active/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/active/?offset=${offset}`,
         { credentials: 'include' }
       );
       if (response.ok) {
@@ -321,7 +339,7 @@ const SchedulePage = () => {
         showSuccess('Start date updated!');
         setEditingStartDate(false);
         setMonthOffset(0);
-        fetchSchedule();
+        fetchSchedule(0);
       } else {
         const err = await response.json();
         showError(err.error || 'Failed to update start date');
@@ -707,26 +725,12 @@ const SchedulePage = () => {
 
   const getFocusIcon = (focus: string) => ({ strength: '💪', cardio: '❤️', flexibility: '🧘', balance: '⚖️' }[focus?.toLowerCase()] ?? '🏋️');
 
-  const buildWeeksForMonthOffset = (events: CalendarEvent[], startDateStr: string, offset: number): CalendarEvent[][] => {
-    const eventByDate: Record<string, CalendarEvent> = {};
-    events.forEach((e) => { eventByDate[e.date] = e; });
-
-    const base = parseLocalDate(startDateStr);
-    const pageStart = new Date(base);
-    pageStart.setDate(base.getDate() + offset * 28);
-
-    const shifted: CalendarEvent[] = Array.from({ length: 28 }, (_, i) => {
-      const day = new Date(pageStart);
-      day.setDate(pageStart.getDate() + i);
-      const isoDate = [day.getFullYear(), String(day.getMonth() + 1).padStart(2, '0'), String(day.getDate()).padStart(2, '0')].join('-');
-      if (eventByDate[isoDate]) return eventByDate[isoDate];
-      const patternEvent = events[i % events.length];
-      const jsDay = day.getDay();
-      return { ...patternEvent, date: isoDate, day: DAYS_OF_WEEK[jsDay === 0 ? 6 : jsDay - 1], session_status: null, has_feedback: false };
-    });
-
+  /** Split the 28-day list from the API into 4 rows of 7 (server applies ?offset for Prev/Next). */
+  const buildWeeksFromEvents = (events: CalendarEvent[]): CalendarEvent[][] => {
     const weeks: CalendarEvent[][] = [];
-    for (let i = 0; i < 28; i += 7) weeks.push(shifted.slice(i, i + 7));
+    for (let i = 0; i < events.length; i += 7) {
+      weeks.push(events.slice(i, i + 7));
+    }
     return weeks;
   };
 
@@ -738,11 +742,11 @@ const SchedulePage = () => {
 
   const weekRangeLabel = (week: CalendarEvent[]) => `${formatShort(week[0].date)} – ${formatShort(week[week.length - 1].date)}`;
 
-  const monthWindowLabel = (startDateStr: string, offset: number) => {
-    const base = parseLocalDate(startDateStr);
-    const pageStart = new Date(base); pageStart.setDate(base.getDate() + offset * 28);
-    const pageEnd = new Date(pageStart); pageEnd.setDate(pageEnd.getDate() + 27);
-    return `${pageStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()} – ${pageEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}`;
+  const monthWindowLabelFromEvents = (events: CalendarEvent[]) => {
+    if (!events.length) return '';
+    const first = parseLocalDate(events[0].date);
+    const last = parseLocalDate(events[events.length - 1].date);
+    return `${first.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()} – ${last.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}`;
   };
 
   const navBtnStyle: React.CSSProperties = { padding: '0.45rem 1rem', borderRadius: '8px', border: '2px solid var(--border-medium)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', whiteSpace: 'nowrap' };
@@ -769,7 +773,8 @@ const SchedulePage = () => {
     ? parseLocalDate(schedule.adjustments_locked_until).toLocaleDateString()
     : '';
 
-  const weeks = buildWeeksForMonthOffset(calendar_events, schedule.start_date, monthOffset);
+  const weeks = buildWeeksFromEvents(calendar_events);
+  const todayIso = toLocalISODate();
   const allFocuses = schedule.program_list ? [...new Set(schedule.program_list.flatMap((p) => p.focus))] : [];
   const suggestionMeta = suggestion ? (ADJUSTMENT_META[suggestion.adjustment] ?? ADJUSTMENT_META.none) : null;
   const isPainSuggestion = suggestion?.adjustment === 'pain' || (suggestion?.pain_reported && (suggestion?.recovery_options?.length ?? 0) > 0);
@@ -927,7 +932,7 @@ const SchedulePage = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
               <button style={navBtnStyle} onClick={() => setMonthOffset((o) => o - 1)}>← Prev</button>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{monthWindowLabel(schedule.start_date, monthOffset)}</span>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{monthWindowLabelFromEvents(calendar_events)}</span>
                 {monthOffset === 0 ? (
                   <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-primary,#e07b54)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Current</span>
                 ) : (
@@ -963,9 +968,17 @@ const SchedulePage = () => {
                   </div>
                   <div className="week-grid">
                     {week.map((event) => {
+                      const workoutStatus = getCalendarWorkoutStatus(event, todayIso);
                       return (
-                        <div key={event.date} className={`calendar-day ${event.section_type === 'rest' ? 'rest-day' : 'workout-day'} ${selectedDate === event.date ? 'selected' : ''}`} onClick={() => handleDateClick(event)}>
+                        <div
+                          key={event.date}
+                          className={`calendar-day ${event.section_type === 'rest' ? 'rest-day' : 'workout-day'} ${selectedDate === event.date ? 'selected' : ''} ${workoutStatus === 'completed' ? 'session-completed' : ''} ${workoutStatus === 'missed' ? 'session-missed' : ''}`}
+                          onClick={() => handleDateClick(event)}
+                        >
                           <div className="day-header"><span className="day-name">{event.day.slice(0, 3).toUpperCase()}</span><span className="day-date">{parseLocalDate(event.date).getDate()}</span></div>
+                          {event.section_type === 'workout' && workoutStatus === 'missed' && (
+                            <div className="day-missed-banner" role="status" aria-label="Workout missed">Missed</div>
+                          )}
                           <div className="day-content">
                             {event.section_type === 'rest' ? (
                               <div className="rest-indicator"><span className="rest-icon">😴</span><span className="rest-text">Rest Day</span></div>
@@ -980,7 +993,8 @@ const SchedulePage = () => {
                                           <div className="program-name-line"><a href={`/program/${section.program_id}`} className="program-link" onClick={(e) => { e.stopPropagation(); router.push(`/program/${section.program_id}`); }}>{section.program_name}</a></div>
                                           <div className="program-focus-line">
                                             <span className="program-focus-text">{typeof section.focus === 'string' ? section.focus : Array.isArray(section.focus) ? (section.focus as string[]).slice(0, 2).join(', ') : 'N/A'}</span>
-                                            {event.session_status === 'completed' && <span className="program-complete-badge">✅ Complete</span>}
+                                            {workoutStatus === 'completed' && <span className="program-complete-badge">✅ Complete</span>}
+                                            {workoutStatus === 'missed' && <span className="program-missed-badge">Missed</span>}
                                             {event.session_status === 'in_progress' && <span className="program-inprogress-badge">In Progress</span>}
                                           </div>
                                         </div>

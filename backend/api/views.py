@@ -83,6 +83,70 @@ def format_validation_errors(validation_error):
     return formatted_errors
 
 
+def _is_scheduled_workout_date(schedule: UserSchedule, target_date) -> bool:
+    """True if the user's weekly schedule has at least one section on this calendar day."""
+    day_name = target_date.strftime('%A').lower()
+    section_ids = schedule.weekly_schedule.get(day_name, [])
+    if not isinstance(section_ids, list):
+        section_ids = [section_ids] if section_ids != 'rest' else []
+    return bool(section_ids)
+
+
+def auto_mark_missed_sessions(user, start_date=None, end_date=None):
+    """
+    US 3.5: For past days (through yesterday), if a workout was scheduled but there is
+    no session row yet, create status=missed. No point penalty. Idempotent.
+    Used by schedule calendar and workout history so the UI shows missed before backfill.
+    """
+    try:
+        schedule = UserSchedule.objects.get(user=user, is_active=True)
+    except UserSchedule.DoesNotExist:
+        return
+
+    today = timezone.localdate()
+    latest_trackable = today - timedelta(days=1)
+    if latest_trackable < schedule.start_date:
+        return
+
+    range_start = start_date if start_date and start_date > schedule.start_date else schedule.start_date
+    range_end = end_date if end_date and end_date < latest_trackable else latest_trackable
+
+    if schedule.end_date:
+        if range_start > schedule.end_date:
+            return
+        if range_end > schedule.end_date:
+            range_end = schedule.end_date
+
+    if range_end < range_start:
+        return
+
+    existing_dates = set(
+        WorkoutSession.objects.filter(
+            user=user,
+            date__gte=range_start,
+            date__lte=range_end,
+        ).values_list('date', flat=True)
+    )
+
+    to_create = []
+    cursor = range_start
+    while cursor <= range_end:
+        if cursor not in existing_dates and _is_scheduled_workout_date(schedule, cursor):
+            to_create.append(
+                WorkoutSession(
+                    user=user,
+                    date=cursor,
+                    status='missed',
+                    is_completed=False,
+                    notes='Auto-marked missed from scheduled workout.',
+                )
+            )
+        cursor += timedelta(days=1)
+
+    if to_create:
+        WorkoutSession.objects.bulk_create(to_create)
+
+
 def _is_workout_day(slot):
     """Return True if a weekly_schedule slot represents a workout (non-empty list)."""
     if isinstance(slot, list):
@@ -997,8 +1061,17 @@ def get_active_schedule(request):
         _is_adjustment_lock_active(schedule)
         serializer = UserScheduleSerializer(schedule)
         calendar_events = []
-        start_date = schedule.start_date
+        try:
+            offset = int(request.GET.get('offset', '0') or 0)
+        except (TypeError, ValueError):
+            offset = 0
+        # Clamp so one query cannot scan huge ranges (UI uses Prev/Next in 4-week steps)
+        offset = max(-24, min(24, offset))
+
+        start_date = schedule.start_date + timedelta(days=offset * 28)
         end_date = start_date + timedelta(days=27)
+        # US 3.5: materialize missed rows for past scheduled days so calendar shows Missed (not only when History loads)
+        auto_mark_missed_sessions(request.user, start_date=start_date, end_date=end_date)
         sessions = WorkoutSession.objects.filter(user=request.user, date__range=[start_date, end_date])
         sessions_list = list(sessions)
         status_by_date = {s.date.isoformat(): s.status for s in sessions_list}
@@ -1185,7 +1258,22 @@ def get_workout_for_date(request, date_str):
 def workout_history(request):
     start = request.GET.get("start")
     end   = request.GET.get("end")
-    qs = WorkoutSession.objects.filter(user=request.user, status='completed')
+    start_date = None
+    end_date = None
+    if start:
+        try:
+            start_date = datetime.strptime(start, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid start date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+    if end:
+        try:
+            end_date = datetime.strptime(end, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"error": "Invalid end date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+
+    auto_mark_missed_sessions(request.user, start_date=start_date, end_date=end_date)
+
+    qs = WorkoutSession.objects.filter(user=request.user, status__in=['completed', 'missed'])
     if start:
         qs = qs.filter(date__gte=start)
     if end:
