@@ -113,4 +113,9 @@ urlpatterns = [
     path('challenges/progress/',              views.update_challenge_progress,     name='update-progress'),
     path('challenges/<int:challenge_id>/leave/', views.leave_challenge, name='leave-challenge'),
 
+    # ========================================================================
+    # Dashboard Summary
+    # ========================================================================
+    path('dashboard/summary/', views.get_progress_summary, name='dashboard-summary'),
+
 ]

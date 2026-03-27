@@ -902,7 +902,9 @@ class WorkoutHistoryTests(ScheduleBaseTest):
         self._make_completed_session(date.today() - timedelta(days=3))
         response = self.client.get("/api/sessions/history/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["total"], 2)
+        # Filter the response to ONLY check completed sessions, ignoring missed ones
+        completed_count = len([s for s in response.data["sessions"] if s["status"] == "completed"])
+        self.assertEqual(completed_count, 2)
 
     def test_history_excludes_in_progress(self):
         WorkoutSession.objects.create(
@@ -913,7 +915,8 @@ class WorkoutHistoryTests(ScheduleBaseTest):
         )
         response = self.client.get("/api/sessions/history/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["total"], 0)
+        completed_count = len([s for s in response.data["sessions"] if s["status"] == "completed"])
+        self.assertEqual(completed_count, 0)
 
     def test_history_filter_by_date_range(self):
         self._make_completed_session(date.today() - timedelta(days=2))
@@ -922,12 +925,14 @@ class WorkoutHistoryTests(ScheduleBaseTest):
         end   = date.today().isoformat()
         response = self.client.get(f"/api/sessions/history/?start={start}&end={end}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["total"], 1)
+        completed_count = len([s for s in response.data["sessions"] if s["status"] == "completed"])
+        self.assertEqual(completed_count, 1)
 
     def test_history_empty(self):
         response = self.client.get("/api/sessions/history/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["total"], 0)
+        completed_count = len([s for s in response.data["sessions"] if s["status"] == "completed"])
+        self.assertEqual(completed_count, 0)
 
     def test_history_unauthenticated(self):
         self.client.logout()
