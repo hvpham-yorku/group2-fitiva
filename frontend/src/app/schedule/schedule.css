@@ -234,6 +234,13 @@
   background: linear-gradient(135deg, rgba(239, 62, 54, 0.05) 0%, rgba(255, 146, 52, 0.05) 100%);
 }
 
+/* US 3.5 / completion visibility — full card tint when API sends session_status */
+.calendar-day.workout-day.session-completed {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.22) 0%, rgba(255, 146, 52, 0.08) 100%);
+  border-color: rgba(76, 175, 80, 0.45);
+}
+
+
 .calendar-day.rest-day {
   background: var(--bg-tertiary);
   opacity: 0.8;
@@ -885,6 +892,16 @@
   font-weight: 700;
   color: #ffffff;
   background: #FF9234;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  display: inline-block;
+}
+
+.program-missed-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #64748b;
   padding: 0.15rem 0.5rem;
   border-radius: 10px;
   display: inline-block;

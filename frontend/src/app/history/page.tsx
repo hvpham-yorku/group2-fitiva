@@ -10,6 +10,7 @@ import './history.css';
 interface Session {
   id: number;
   date: string;
+  status?: 'completed' | 'missed' | 'in_progress';
   plan_name?: string | null;
   duration_minutes?: number | null;
 }
@@ -113,7 +114,7 @@ export default function HistoryPage() {
 
       {sessions.length === 0 ? (
         <div className="history-empty">
-          <p>No completed workouts yet.</p>
+          <p>No activity records yet.</p>
           <Link href="/schedule" className="history-link">
             Go to Schedule
           </Link>
@@ -128,13 +129,15 @@ export default function HistoryPage() {
 
               <div className="history-info">
                 <div className="history-plan">
-                  {session.plan_name || 'Workout'}
+                  {session.status === 'missed' ? 'Missed workout' : (session.plan_name || 'Workout')}
                 </div>
 
                 <div className="history-duration">
-                  {session.duration_minutes
-                    ? `${session.duration_minutes} min`
-                    : '--'}
+                  {session.status === 'missed'
+                    ? 'Missed'
+                    : (session.duration_minutes
+                      ? `${session.duration_minutes} min`
+                      : '--')}
                 </div>
               </div>
             </div>

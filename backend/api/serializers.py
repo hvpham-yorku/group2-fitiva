@@ -500,8 +500,8 @@ class WorkoutSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutSession
         fields = [
-            'id', 'user', 'plan', 'plan_name', 'date', 
-            'duration_minutes', 'is_completed', 'notes', 'created_at'
+            'id', 'user', 'plan', 'plan_name', 'date',
+            'status', 'duration_minutes', 'is_completed', 'notes', 'created_at'
         ]
         read_only_fields = ['created_at', 'user']
     

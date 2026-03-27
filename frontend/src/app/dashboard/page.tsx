@@ -49,6 +49,9 @@ interface TrainerExerciseRow {
 interface WorkoutHistorySession {
   id: number;
   date: string;
+  status?: 'completed' | 'missed' | 'in_progress';
+  /** Backend may omit status on older rows; rely on this when present */
+  is_completed?: boolean;
   plan_name?: string | null;
   duration_minutes?: number | null;
   notes?: string;
@@ -220,6 +223,15 @@ export default function DashboardPage() {
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   };
+
+  /** Normalize API date to YYYY-MM-DD (avoids broken string sort if padding differs). */
+  const normalizeWorkoutDate = (raw: string | undefined): string | null => {
+    if (!raw) return null;
+    const m = String(raw).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!m) return null;
+    return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  };
+
   const todayStr = toLocalDateString(new Date());
 
   const parseLocalDate = (dateStr: string): Date => {
@@ -238,7 +250,10 @@ export default function DashboardPage() {
   const buildMonSunWeekData = (sessions: WorkoutHistorySession[]) => {
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const anchor = sessions.length
-      ? new Date(sessions.map(s => s.date).sort().slice(-1)[0] + "T12:00:00")
+      ? new Date(
+          (sessions.map((s) => normalizeWorkoutDate(s.date) ?? s.date).sort().slice(-1)[0] as string) +
+            'T12:00:00'
+        )
       : new Date();
     const day = anchor.getDay();
     const diffToMonday = (day + 6) % 7;
@@ -248,8 +263,9 @@ export default function DashboardPage() {
 
     const minutesByDate = new Map<string, number>();
     for (const s of sessions) {
+      const key = normalizeWorkoutDate(s.date) ?? s.date;
       const m = typeof s.duration_minutes === 'number' ? s.duration_minutes : 0;
-      minutesByDate.set(s.date, (minutesByDate.get(s.date) ?? 0) + m);
+      minutesByDate.set(key, (minutesByDate.get(key) ?? 0) + m);
     }
 
     const week = [];
@@ -263,7 +279,9 @@ export default function DashboardPage() {
     return week;
   };
 
-  const weeklyChartData = buildMonSunWeekData(historySessions);
+  const completedHistorySessions = historySessions.filter((s) => s.status !== 'missed');
+const missedHistorySessions = historySessions.filter((s) => s.status === 'missed');
+const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
 
   // ========================================
   // Effects
@@ -662,40 +680,54 @@ export default function DashboardPage() {
   }
 
   const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || user.username[0].toUpperCase();
-  const totalWorkouts = historySessions.length;
-  const totalMinutes = historySessions.reduce((sum, s) => {
+  const totalWorkouts = completedHistorySessions.length;
+  const totalMissed = missedHistorySessions.length;
+  const totalMinutes = completedHistorySessions.reduce((sum, s) => {
     const m = typeof s.duration_minutes === 'number' ? s.duration_minutes : 0;
     return sum + m;
   }, 0);
 
+  /**
+   * Current streak = consecutive calendar days of completed workouts ending on your latest workout day.
+   * The streak is shown only if that latest day is recent enough (within a few days of "today")
+   * so a short break does not hide a valid run after date rollovers / missed logging.
+   */
   const getStreakInfo = (sessions: WorkoutHistorySession[]) => {
     const result = { count: 0, dates: [] as string[] };
-    if (!sessions.length) return result;
-    const dates = Array.from(new Set(sessions.map(s => s.date))).sort().reverse();
+    // Caller passes completed-only rows (history API: completed + missed; we exclude missed upstream).
+    const normalized = sessions
+      .map((s) => normalizeWorkoutDate(s.date))
+      .filter((d): d is string => Boolean(d));
+    if (!normalized.length) return result;
+
+    const unique = Array.from(new Set(normalized)).sort((a, b) => a.localeCompare(b));
+    const latestStr = unique[unique.length - 1];
+    const latest = parseLocalDate(latestStr);
     const today = new Date();
-    const todayLocal = toLocalDateString(today);
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const yesterdayLocal = toLocalDateString(yesterday);
-    let current: Date | null = dates[0] === todayLocal ? today : (dates[0] === yesterdayLocal ? yesterday : null);
-    if (!current) return result;
-    for (const d of dates) {
-      if (!current) break;
-      const currentLocal = toLocalDateString(current);
-      if (d === currentLocal) {
-        result.count++;
-        result.dates.push(d);
-        const prev: Date = new Date(current);
-        prev.setDate(current.getDate() - 1);
-        current = prev;
-      } else {
-        break;
-      }
+    today.setHours(0, 0, 0, 0);
+    latest.setHours(0, 0, 0, 0);
+    const daysSinceLatest = Math.round((today.getTime() - latest.getTime()) / 86400000);
+    // Last workout more than 3 calendar days ago → streak considered broken for display
+    const maxDaysSinceLatest = 3;
+    if (daysSinceLatest > maxDaysSinceLatest) return result;
+
+    const dateSet = new Set(unique);
+    let count = 0;
+    const streakDates: string[] = [];
+    const cursor = new Date(latest);
+    while (true) {
+      const key = toLocalDateString(cursor);
+      if (!dateSet.has(key)) break;
+      count++;
+      streakDates.push(key);
+      cursor.setDate(cursor.getDate() - 1);
     }
+    result.count = count;
+    result.dates = streakDates;
     return result;
   };
 
-  const streakInfo = getStreakInfo(historySessions);
+  const streakInfo = getStreakInfo(completedHistorySessions);
   const currentStreak = streakInfo.count;
 
   const TRAINER_STATS: StatCard[] = [
@@ -856,7 +888,7 @@ export default function DashboardPage() {
               </div>
               <div className="time-breakdown-body">
                 {openStatDetail === 'time' && (
-                  historySessions.length === 0 ? (
+                  completedHistorySessions.length === 0 ? (
                     <div className="time-breakdown-empty">
                       <p className="time-breakdown-empty-text">No completed workouts yet.</p>
                       <p className="time-breakdown-empty-sub">Complete workouts from your schedule to see your time breakdown here.</p>
@@ -865,7 +897,7 @@ export default function DashboardPage() {
                     <>
                       <div className="time-breakdown-total">Total: {totalMinutes} min</div>
                       <ul className="time-breakdown-list">
-                        {historySessions.map((s) => (
+                        {completedHistorySessions.map((s) => (
                           <li key={s.id} className="time-breakdown-row">
                             <span className="time-breakdown-date">{new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
                             <span className="time-breakdown-plan">{s.plan_name || 'Workout'}</span>
@@ -877,14 +909,14 @@ export default function DashboardPage() {
                   )
                 )}
                 {openStatDetail === 'workouts' && (
-                  historySessions.length === 0 ? (
+                  completedHistorySessions.length === 0 ? (
                     <div className="time-breakdown-empty">
                       <p className="time-breakdown-empty-text">No completed workouts yet.</p>
                       <p className="time-breakdown-empty-sub">Complete workouts from your schedule to see them here.</p>
                     </div>
                   ) : (
                     <ul className="time-breakdown-list">
-                      {historySessions.map((s) => (
+                      {completedHistorySessions.map((s) => (
                         <li key={s.id} className="time-breakdown-row">
                           <span className="time-breakdown-date">{new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
                           <span className="time-breakdown-plan">{s.plan_name || 'Workout'}</span>
@@ -897,7 +929,10 @@ export default function DashboardPage() {
                 {openStatDetail === 'streak' && (
                   <>
                     <div className="time-breakdown-total">{currentStreak} {currentStreak === 1 ? 'day' : 'days'}</div>
-                    <p className="time-breakdown-streak-explanation">Current streak is the number of consecutive days you worked out, including today or yesterday. If your most recent workout was more than one day ago, the streak resets to zero.</p>
+                    <p className="time-breakdown-streak-explanation">
+                      Current streak counts consecutive days with a completed workout, ending on your most recent one. It shows if that workout was within the last few days; if you go longer without completing a day, it resets to zero.
+                    </p>
+                    <p className="time-breakdown-streak-explanation">Missed scheduled sessions tracked: {totalMissed}</p>
                     {currentStreak === 0 ? (
                       <div className="time-breakdown-empty">
                         <p className="time-breakdown-empty-text">No active streak</p>
@@ -1103,7 +1138,7 @@ export default function DashboardPage() {
           <div className="dashboard-chart-card">
             {historyLoading ? (
               <p className="dashboard-chart-loading">Loading...</p>
-            ) : historySessions.length === 0 ? (
+            ) : completedHistorySessions.length === 0 ? (
               <div className="dashboard-chart-empty">
                 <p className="dashboard-chart-empty-title">No completed workouts yet</p>
                 <p className="dashboard-chart-empty-text">Complete a workout from your schedule to see your activity here.</p>
