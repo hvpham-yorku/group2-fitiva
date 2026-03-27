@@ -1,53 +1,47 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { challengeAPI } from '@/library/api';
+import { challengeAPI, type Challenge } from '@/library/api';
 import Logo from '@/components/ui/Logo';
-import './challenges.css'; 
+import './challenges.css';
 
-interface Challenge {
-  id: number;
-  name: string;
-  description: string;
-  start_date: string;
-  end_date: string;
-  goal_criteria: Record<string, number>;
-  reward_points: number;
-  reward_badge: string;
-}
+type TabId = 'global' | 'trainer';
 
 export default function ChallengesPage() {
-  const { user } = useAuth();
   const router = useRouter();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState<number | null>(null);
+  const [tab, setTab] = useState<TabId>('global');
 
   useEffect(() => {
-    challengeAPI.listChallenges()
-      .then((data: any) => {
-        if (data && data.results) {
-          setChallenges(data.results);
-        } else if (Array.isArray(data)) {
-          setChallenges(data);
-        } else {
-          setChallenges([]);
-        }
-      })
+    challengeAPI
+      .listChallenges()
+      .then((data) => setChallenges(data))
       .catch((err) => {
-        console.error("Failed to load challenges:", err);
+        console.error('Failed to load challenges:', err);
         setChallenges([]);
       })
       .finally(() => setLoading(false));
   }, []);
 
+  const globalChallenges = useMemo(
+    () => challenges.filter((c) => c.trainer == null),
+    [challenges]
+  );
+  const trainerChallenges = useMemo(
+    () => challenges.filter((c) => c.trainer != null),
+    [challenges]
+  );
+
+  const visibleList = tab === 'global' ? globalChallenges : trainerChallenges;
+
   const handleJoin = async (id: number) => {
     setJoining(id);
     try {
       await challengeAPI.joinChallenge(id);
-      window.location.reload(); 
+      router.push('/dashboard');
     } catch {
       alert('Failed to join');
     } finally {
@@ -60,27 +54,54 @@ export default function ChallengesPage() {
   return (
     <div className="challenges-page">
       <header className="challenges-header">
-        <button onClick={() => router.back()} className="back-button">
+        <button type="button" onClick={() => router.back()} className="back-button">
           ← Back
         </button>
         <Link href="/dashboard" className="logo-link">
           <Logo variant="text" size="md" />
         </Link>
-        <h1>Weekly Challenges</h1>
+        <h1>Browse Challenges</h1>
       </header>
 
-      <div className="challenges-list">
-        {Array.isArray(challenges) && challenges.length > 0 ? (
-          challenges.map((c) => (
+      <div className="challenges-tabs" role="tablist" aria-label="Challenge categories">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'global'}
+          className={`challenges-tab ${tab === 'global' ? 'active' : ''}`}
+          onClick={() => setTab('global')}
+        >
+          Global Challenges
+          <span className="tab-count">{globalChallenges.length}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'trainer'}
+          className={`challenges-tab ${tab === 'trainer' ? 'active' : ''}`}
+          onClick={() => setTab('trainer')}
+        >
+          Trainer Challenges
+          <span className="tab-count">{trainerChallenges.length}</span>
+        </button>
+      </div>
+
+      <div className="challenges-list" role="tabpanel">
+        {visibleList.length > 0 ? (
+          visibleList.map((c) => (
             <div key={c.id} className="challenge-item">
               <div className="challenge-info">
                 <h2>{c.name}</h2>
+                {c.trainer_name ? (
+                  <div className="challenge-hosted-line">Hosted by {c.trainer_name}</div>
+                ) : null}
                 <p className="challenge-description">{c.description}</p>
-                
+
                 <div className="challenge-dates">
-                  🗓️ {new Date(c.start_date).toLocaleDateString()} - {new Date(c.end_date).toLocaleDateString()}
+                  🗓️ {new Date(c.start_date).toLocaleDateString()} -{' '}
+                  {new Date(c.end_date).toLocaleDateString()}
                 </div>
-                
+
                 <div className="challenge-goals">
                   {Object.entries(c.goal_criteria).map(([k, v]) => (
                     <span key={k} className="goal-badge">
@@ -88,12 +109,13 @@ export default function ChallengesPage() {
                     </span>
                   ))}
                 </div>
-                
+
                 <div className="challenge-reward">
                   🏆 {c.reward_badge} <span className="points">(+{c.reward_points} pts)</span>
                 </div>
               </div>
-              <button 
+              <button
+                type="button"
                 onClick={() => handleJoin(c.id)}
                 disabled={joining === c.id}
                 className="join-button"
@@ -103,7 +125,11 @@ export default function ChallengesPage() {
             </div>
           ))
         ) : (
-          <p className="empty-message">No active challenges found right now.</p>
+          <p className="empty-message">
+            {tab === 'global'
+              ? 'No global challenges right now.'
+              : 'No trainer challenges right now.'}
+          </p>
         )}
       </div>
     </div>

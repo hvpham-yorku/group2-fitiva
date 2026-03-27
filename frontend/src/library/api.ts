@@ -395,58 +395,125 @@ export const trainerAPI = {
   },
 };
 
-// Weekly Challenges API (US 4.4)
+// ─────────────────────────────────────────────────────────
+// Weekly Challenges (US 4.4) + Trainer-hosted (US 4.5)
+// ─────────────────────────────────────────────────────────
+
+/** Active challenge row from GET /api/challenges/ */
+export interface Challenge {
+  id: number;
+  name: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  goal_criteria: Record<string, number>;
+  reward_points: number;
+  reward_badge: string;
+  is_active: boolean;
+  created_at: string;
+  /** US 4.5 — null = global system challenge */
+  trainer: number | null;
+  trainer_name: string | null;
+  program: number | null;
+  program_name: string | null;
+}
+
+/** User progress row from GET /api/user-challenges/ */
+export interface MyChallenge {
+  id: number;
+  challenge: number;
+  challenge_name: string;
+  challenge_description?: string;
+  challenge_reward_points?: number;
+  challenge_reward_badge?: string;
+  current_progress: Record<string, number>;
+  is_completed: boolean;
+  completed_at: string | null;
+  progress_percent: number;
+  /** US 4.5 — optional until backend nests trainer/program on user-challenges */
+  trainer_name?: string | null;
+  program_id?: number | null;
+  program_name?: string | null;
+}
+
+/** Row from GET /api/challenges/analytics/ (trainers only, US 4.5) */
+export interface ChallengeAnalytics {
+  id: number;
+  name: string;
+  participant_count: number;
+  completion_rate: number;
+}
+
+/** Body for POST /api/challenges/create/ */
+export interface TrainerChallengeCreatePayload {
+  name: string;
+  program: number;
+  end_date: string;
+  description?: string;
+  start_date?: string;
+  goal_criteria?: Record<string, number>;
+  reward_points?: number;
+  reward_badge?: string;
+}
+
 export const challengeAPI = {
-  // List active challenges (ViewSet)
-  listChallenges: async (): Promise<Array<{
-    id: number;
-    name: string;
-    description: string;
-    start_date: string;
-    end_date: string;
-    goal_criteria: Record<string, number>;
-    reward_points: number;
-    reward_badge: string;
-    is_active: boolean;
-    created_at: string;
-  }>> => {
-    return fetchAPI('/api/challenges/', { method: 'GET' });
+  /** List active challenges (global + trainer-hosted, US 4.5). */
+  listChallenges: async (): Promise<Challenge[]> => {
+    const data = await fetchAPI<Challenge[] | { results: Challenge[] }>('/api/challenges/', {
+      method: 'GET',
+    });
+    if (data && typeof data === 'object' && 'results' in data && Array.isArray(data.results)) {
+      return data.results;
+    }
+    return Array.isArray(data) ? data : [];
   },
 
-  // Get my challenges + progress
-  getMyChallenges: async (): Promise<Array<{
-    id: number;
-    challenge_name: string;
-    current_progress: Record<string, number>;
-    is_completed: boolean;
-    completed_at: string | null;
-    progress_percent: number;
-  }>> => {
-    return fetchAPI('/api/user-challenges/', { method: 'GET' });
+  getMyChallenges: async (): Promise<MyChallenge[]> => {
+    return fetchAPI<MyChallenge[]>('/api/user-challenges/', { method: 'GET' });
   },
 
-  // Join challenge
   joinChallenge: async (challengeId: number): Promise<{ message: string }> => {
     return fetchAPI(`/api/challenges/${challengeId}/join/`, { method: 'POST' });
   },
 
-  // Leave challenge
-  leaveChallenge: async (id: number): Promise<{ message: string }> => {
-    return fetchAPI(`/api/challenges/${id}/leave/`, { method: 'POST' });
+  leaveChallenge: async (challengeId: number): Promise<{ message: string }> => {
+    return fetchAPI(`/api/challenges/${challengeId}/leave/`, { method: 'POST' });
   },
 
-  // Update progress (call on login/workout)
-  updateProgress: async (challengeId: number, type: 'login' | 'workout' | 'total_time_minutes'): Promise<{
-    id: number;
-    challenge_name: string;
-    current_progress: Record<string, number>;
-    is_completed: boolean;
-    progress_percent: number;
-  }> => {
+  updateProgress: async (
+    challengeId: number,
+    type: 'login' | 'workout' | 'total_time_minutes'
+  ): Promise<MyChallenge> => {
     return fetchAPI('/api/challenges/progress/', {
       method: 'POST',
       body: JSON.stringify({ challenge_id: challengeId, type }),
     });
+  },
+
+  /** US 4.5 — trainer creates a hosted challenge (trainer = current user). */
+  createTrainerChallenge: async (data: TrainerChallengeCreatePayload): Promise<Challenge> => {
+    return fetchAPI<Challenge>('/api/challenges/create/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** US 4.5 — analytics for challenges hosted by the current trainer. */
+  getTrainerAnalytics: async (): Promise<ChallengeAnalytics[]> => {
+    return fetchAPI<ChallengeAnalytics[]>('/api/challenges/analytics/', { method: 'GET' });
+  },
+
+  /** US 4.5 — active challenges tied to a program (client-side filter). */
+  getChallengesByProgram: async (programId: number): Promise<Challenge[]> => {
+    const data = await fetchAPI<Challenge[] | { results: Challenge[] }>('/api/challenges/', {
+      method: 'GET',
+    });
+    const all = Array.isArray(data)
+      ? data
+      : data && 'results' in data && Array.isArray(data.results)
+        ? data.results
+        : [];
+    return all.filter((c) => c.program != null && c.program === programId);
   },
 };
 

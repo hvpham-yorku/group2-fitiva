@@ -493,6 +493,7 @@ class UserBadge(models.Model):
         return f"{self.user.username} – {self.badge_id}"
 
 class Challenge(models.Model):
+    """Weekly / themed challenges. trainer=None → global system challenge (US 4.5)."""
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     start_date = models.DateField()
@@ -502,6 +503,23 @@ class Challenge(models.Model):
     reward_badge = models.CharField(max_length=50, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # US 4.5 – trainer-hosted challenges
+    trainer = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='hosted_challenges',
+        help_text='Null = global challenge; set for trainer-hosted challenges.',
+    )
+    program = models.ForeignKey(
+        WorkoutPlan,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='challenges',
+        help_text='Optional link to the program this challenge promotes.',
+    )
 
     class Meta:
         db_table = 'challenges'
