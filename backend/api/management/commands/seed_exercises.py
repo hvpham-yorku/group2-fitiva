@@ -130,9 +130,10 @@ class Command(BaseCommand):
 
         # Step 1: Remove duplicate default exercises (keep only the first of each name)
         dupes = (ExerciseTemplate.objects
+            .filter(is_default=True)
             .values('name')
             .annotate(count=Count('id'))
-            .filter(count__gt=1, is_default=True))
+            .filter(count__gt=1))
 
         for d in dupes:
             templates = ExerciseTemplate.objects.filter(name=d['name'], is_default=True)
@@ -144,6 +145,8 @@ class Command(BaseCommand):
         for exercise_data in default_exercises:
             _, created = ExerciseTemplate.objects.update_or_create(
                 name=exercise_data['name'],
+                is_default=True,
+                trainer=None,
                 defaults={
                     **exercise_data,
                     'is_default': True,
