@@ -268,6 +268,7 @@ const SchedulePage = () => {
   const [lastAdjustmentInfo, setLastAdjustmentInfo] = useState<AdjustmentInfo | null>(null);
 
   const [monthOffset, setMonthOffset] = useState(0);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
 
   useEffect(() => {
     fetchSchedule();
@@ -836,7 +837,7 @@ const SchedulePage = () => {
 
         <div className="content">
 
-          {/* ── Plan Adjustment Explainer Card (US 2.2) ─────────────────── */}
+          {/* ── Plan Adjustment Banner (compact) — click to see details ── */}
           {schedule.is_adjusted && schedule.original_weekly_schedule && (() => {
             const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
             const orig = schedule.original_weekly_schedule;
@@ -852,87 +853,115 @@ const SchedulePage = () => {
               : null;
 
             return (
-              <div className="adjustment-explainer-card">
-                {/* Header */}
-                <div className="aec-header">
-                  <div className="aec-header-left">
+              <>
+                {/* ── Compact banner ── */}
+                <div className="aec-banner" onClick={() => setShowAdjustmentModal(true)}>
+                  <div className="aec-banner-left">
                     <span className="aec-emoji">{adjMeta.emoji}</span>
                     <div>
-                      <div className="aec-title">Plan adjusted</div>
-                      {appliedDate && (
-                        <div className="aec-subtitle">Applied {appliedDate}</div>
-                      )}
+                      <div className="aec-title">Plan adjusted{appliedDate ? ` · ${appliedDate}` : ''}</div>
+                      <div className="aec-subtitle">
+                        {changedDays.length > 0
+                          ? `${changedDays.length} day${changedDays.length > 1 ? 's' : ''} changed! Click to View`
+                          : 'Volume or focus adjusted — click to view'}
+                      </div>
                     </div>
                   </div>
-                  <button className="aec-revert-btn" onClick={() => setShowRevertConfirm(true)}>
-                    ↩ Revert to original
-                  </button>
+                  <div className="aec-banner-right">
+                    <button className="aec-revert-btn" onClick={(e) => { e.stopPropagation(); setShowRevertConfirm(true); }}>
+                      ↩ Revert
+                    </button>
+                    <span className="aec-banner-chevron">›</span>
+                  </div>
                 </div>
 
-                {/* Reason */}
-                {lastAdjustmentInfo?.reason && (
-                  <div className="aec-reason">
-                    <span className="aec-reason-icon">💡</span>
-                    <p>{lastAdjustmentInfo.reason}</p>
-                  </div>
-                )}
-
-                {/* Metrics row */}
-                {lastAdjustmentInfo && (
-                  <div className="aec-metrics">
-                    {[
-                      { label: 'Stress score', value: lastAdjustmentInfo.stress_score, icon: '📊' },
-                      { label: 'Avg difficulty', value: lastAdjustmentInfo.avg_difficulty, icon: '💪' },
-                      { label: 'Avg fatigue', value: lastAdjustmentInfo.avg_fatigue, icon: '😓' },
-                    ].map(m => (
-                      <div key={m.label} className="aec-metric-chip">
-                        <span className="aec-metric-icon">{m.icon}</span>
-                        <span className="aec-metric-value">{m.value}</span>
-                        <span className="aec-metric-label">{m.label}</span>
+                {/* ── Adjustment detail modal ── */}
+                {showAdjustmentModal && (
+                  <div className="modal-overlay" onClick={() => setShowAdjustmentModal(false)}>
+                    <div className="modal-content aec-modal" onClick={e => e.stopPropagation()}>
+                      <div className="modal-header">
+                        <h3>{adjMeta.emoji} Plan adjusted{appliedDate ? ` · ${appliedDate}` : ''}</h3>
+                        <button className="modal-close" onClick={() => setShowAdjustmentModal(false)}>✕</button>
                       </div>
-                    ))}
+                      <div className="modal-body">
+
+                        {/* Reason */}
+                        {lastAdjustmentInfo?.reason && (
+                          <div className="aec-reason">
+                            <span className="aec-reason-icon">💡</span>
+                            <p>{lastAdjustmentInfo.reason}</p>
+                          </div>
+                        )}
+
+                        {/* Metrics */}
+                        {lastAdjustmentInfo && (
+                          <div className="aec-metrics" style={{ marginTop: '1rem' }}>
+                            {[
+                              { label: 'Stress score', value: lastAdjustmentInfo.stress_score, icon: '📊' },
+                              { label: 'Avg difficulty', value: lastAdjustmentInfo.avg_difficulty, icon: '💪' },
+                              { label: 'Avg fatigue', value: lastAdjustmentInfo.avg_fatigue, icon: '😓' },
+                            ].map(m => (
+                              <div key={m.label} className="aec-metric-chip">
+                                <span className="aec-metric-icon">{m.icon}</span>
+                                <span className="aec-metric-value">{m.value}</span>
+                                <span className="aec-metric-label">{m.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Before / After grid */}
+                        <div className="aec-diff-section" style={{ marginTop: '1.25rem' }}>
+                          <div className="aec-diff-label">Weekly schedule changes</div>
+                          <div className="aec-diff-grid">
+                            <div className="aec-diff-col-head" />
+                            {['Before', 'After'].map(h => (
+                              <div key={h} className="aec-diff-col-head aec-diff-col-label">{h}</div>
+                            ))}
+                            {DAYS.map(day => {
+                              const wasWorkout = isWorkout(orig[day]);
+                              const nowWorkout = isWorkout(curr[day]);
+                              const changed = wasWorkout !== nowWorkout;
+                              return (
+                                <div key={day} className={`aec-diff-row${changed ? ' aec-diff-row-changed' : ''}`}>
+                                  <div className="aec-diff-day">
+                                    {changed && <span className="aec-changed-dot" />}
+                                    {day.charAt(0).toUpperCase() + day.slice(1, 3)}
+                                  </div>
+                                  <div className={`aec-diff-cell aec-diff-before${changed ? ' aec-strikethrough' : ''}`}>
+                                    {wasWorkout ? <span className="aec-tag aec-tag-workout">🏋️ Workout</span> : <span className="aec-tag aec-tag-rest">😴 Rest</span>}
+                                  </div>
+                                  <div className={`aec-diff-cell${changed ? ' aec-diff-after-highlight' : ''}`}>
+                                    {nowWorkout ? <span className="aec-tag aec-tag-workout">🏋️ Workout</span> : <span className="aec-tag aec-tag-rest">😴 Rest</span>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {changedDays.length === 0 && (
+                            <p className="aec-no-changes">No day-type changes - volume or focus was adjusted.</p>
+                          )}
+                        </div>
+
+                        <div className="aec-footer-note" style={{ marginTop: '1.25rem' }}>
+                          Changes apply from next week! Your current week is unaffected.
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+                          <button className="aec-revert-btn" style={{ padding: '0.6rem 1.1rem', fontSize: '0.875rem' }}
+                            onClick={() => { setShowAdjustmentModal(false); setShowRevertConfirm(true); }}>
+                            ↩ Revert to original
+                          </button>
+                          <button className="btn-submit-feedback" style={{ flex: 1 }}
+                            onClick={() => setShowAdjustmentModal(false)}>
+                            Got it
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
-
-                {/* Before / After weekly grid */}
-                <div className="aec-diff-section">
-                  <div className="aec-diff-label">Weekly schedule changes</div>
-                  <div className="aec-diff-grid">
-                    {/* Header row */}
-                    <div className="aec-diff-col-head" />
-                    {['Before', 'After'].map(h => (
-                      <div key={h} className="aec-diff-col-head aec-diff-col-label">{h}</div>
-                    ))}
-                    {/* Day rows */}
-                    {DAYS.map(day => {
-                      const wasWorkout = isWorkout(orig[day]);
-                      const nowWorkout = isWorkout(curr[day]);
-                      const changed = wasWorkout !== nowWorkout;
-                      return (
-                        <div key={day} className={`aec-diff-row${changed ? ' aec-diff-row-changed' : ''}`}>
-                          <div className="aec-diff-day">
-                            {changed && <span className="aec-changed-dot" />}
-                            {day.charAt(0).toUpperCase() + day.slice(1, 3)}
-                          </div>
-                          <div className={`aec-diff-cell aec-diff-before${changed ? ' aec-strikethrough' : ''}`}>
-                            {wasWorkout ? <span className="aec-tag aec-tag-workout">🏋️ Workout</span> : <span className="aec-tag aec-tag-rest">😴 Rest</span>}
-                          </div>
-                          <div className={`aec-diff-cell${changed ? ' aec-diff-after-highlight' : ''}`}>
-                            {nowWorkout ? <span className="aec-tag aec-tag-workout">🏋️ Workout</span> : <span className="aec-tag aec-tag-rest">😴 Rest</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {changedDays.length === 0 && (
-                    <p className="aec-no-changes">No day-type changes — volume or focus was adjusted.</p>
-                  )}
-                </div>
-
-                <div className="aec-footer-note">
-                  Changes apply from next week — your current week is unaffected.
-                </div>
-              </div>
+              </>
             );
           })()}
 
