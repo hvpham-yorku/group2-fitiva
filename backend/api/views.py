@@ -720,6 +720,7 @@ def trainer_trainee_count(request):
 class WorkoutProgramViewSet(viewsets.ModelViewSet):
     serializer_class = WorkoutPlanSerializer
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication]
 
     def get_queryset(self):
         return WorkoutPlan.objects.filter(is_deleted=False).select_related('trainer').order_by('-created_at')
@@ -2217,12 +2218,18 @@ def trainer_program_feedback(request, program_id):
             {"error": "Program not found or you do not own this program"},
             status=status.HTTP_404_NOT_FOUND,
         )
+    enrolled_count = UserSchedule.objects.filter(
+        programs=program, is_active=True
+    ).count()
+
     feedbacks = WorkoutFeedback.objects.filter(
         session__plan=program, session__is_completed=True
     ).select_related('session')
     if not feedbacks.exists():
         return Response({
             "program_id": program_id, "program_name": program.name,
+            "is_paid": program.is_paid,
+            "enrolled_count": enrolled_count,
             "total_responses": 0, "avg_difficulty": None, "avg_fatigue": None,
             "pain_reported_count": 0, "weekly_trends": [], "entries": [],
         }, status=status.HTTP_200_OK)
@@ -2251,6 +2258,8 @@ def trainer_program_feedback(request, program_id):
     ]
     return Response({
         "program_id": program_id, "program_name": program.name,
+        "is_paid": program.is_paid,
+        "enrolled_count": enrolled_count,
         "total_responses": total, "avg_difficulty": avg_difficulty,
         "avg_fatigue": avg_fatigue, "pain_reported_count": pain_count,
         "weekly_trends": weekly_trends, "entries": entries,
@@ -2355,3 +2364,16 @@ def get_progress_summary(request):
         "total_time_trained": total_time,
         "chart_data": [] # Placeholder to satisfy the visual data tests
     }, status=status.HTTP_200_OK)
+
+@api_view(['PATCH'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated])
+def toggle_program_paid(request, program_id):
+    """Toggle is_paid on a trainer's own program."""
+    try:
+        program = WorkoutPlan.objects.get(id=program_id, trainer=request.user)
+    except WorkoutPlan.DoesNotExist:
+        return Response({"error": "Program not found or you do not own this program"}, status=status.HTTP_404_NOT_FOUND)
+    program.is_paid = not program.is_paid
+    program.save(update_fields=['is_paid'])
+    return Response({"is_paid": program.is_paid}, status=status.HTTP_200_OK)

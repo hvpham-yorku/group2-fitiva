@@ -57,6 +57,7 @@ urlpatterns = [
     path('trainer/profile/',                                views.update_trainer_profile,    name='update_trainer_profile'),
     path('trainer/trainee-count/',                          views.trainer_trainee_count,     name='trainer-trainee-count'),
     path('trainer/programs/<int:program_id>/feedback/',     views.trainer_program_feedback,  name='trainer-program-feedback'),
+    path('trainer/programs/<int:program_id>/toggle-paid/',  views.toggle_program_paid,       name='trainer-toggle-paid'),
 
     # ========================================================================
     # Programs & Recommendations

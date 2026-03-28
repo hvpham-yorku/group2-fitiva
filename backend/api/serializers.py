@@ -368,7 +368,7 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'focus', 'difficulty',
             'weekly_frequency', 'session_length',
             'trainer', 'trainer_name', 'created_at', 'updated_at',
-            'sections'
+            'sections', 'is_published', 'is_paid',
         ]
         read_only_fields = ['created_at', 'updated_at', 'trainer']
 
@@ -403,10 +403,8 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
         """Create workout plan with nested sections, exercises, and sets."""
         sections_data = validated_data.pop('sections', [])
 
-
         # Create the workout plan
         plan = WorkoutPlan.objects.create(**validated_data)
-
 
         # Create sections with exercises and sets
         for section_order, section_data in enumerate(sections_data):
@@ -415,19 +413,19 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
                 program=plan,
                 format=section_data.get('format', ''),
                 type=section_data.get('type', ''),
+                is_rest_day=section_data.get('is_rest_day', False),
                 order=section_order
             )
-
 
             # Create exercises for this section
             for exercise_order, exercise_data in enumerate(exercises_data):
                 sets_data = exercise_data.pop('sets', [])
+                exercise_data.pop('template_id', None)  # frontend sends this, ignore it
                 exercise = Exercise.objects.create(
                     section=section,
                     name=exercise_data.get('name', ''),
                     order=exercise_order
                 )
-
 
                 # Create sets for this exercise
                 for set_data in sets_data:

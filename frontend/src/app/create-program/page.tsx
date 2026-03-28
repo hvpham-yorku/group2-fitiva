@@ -407,11 +407,11 @@ const CreateProgramPage = () => {
       } else {
         const errorData = await response.json();
         console.error('Error creating program:', errorData);
-        alert('Failed to create program');
+        alert('Failed to create program: ' + (errorData.detail || JSON.stringify(errorData)));
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Network error');
+      alert('Could not reach the server. Make sure the backend is running on localhost:8000.');
     } finally {
       setSaving(false);
     }

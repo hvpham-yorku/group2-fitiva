@@ -64,6 +64,8 @@ interface ProgramFeedback {
   avg_difficulty: number | null;  
   avg_fatigue: number | null;     
   pain_reported_count: number;    
+  enrolled_count: number;
+  is_paid: boolean;
   weekly_trends: Array<{        
     week: string; 
     avg_difficulty: number;     
@@ -88,6 +90,8 @@ const ProgramDetailPage = () => {
   const [isInSchedule, setIsInSchedule] = useState(false);
   const [feedback, setFeedback] = useState<ProgramFeedback | null>(null);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
+  const [isPaid, setIsPaid] = useState(false);
+  const [togglingPaid, setTogglingPaid] = useState(false);
 
   
   // Notification state
@@ -214,6 +218,7 @@ const fetchProgramFeedback = async () => {
     const data = await response.json();
     console.log('✅ FEEDBACK DATA:', data);
     setFeedback(data);
+    setIsPaid(data.is_paid ?? false);
   } catch (error) {
     console.error('Error fetching feedback:', error);
   } finally {
@@ -224,6 +229,21 @@ const fetchProgramFeedback = async () => {
   useEffect(() => {
     if (program?.id) fetchProgramFeedback();
   }, [program?.id]);
+
+  const handleTogglePaid = async () => {
+    if (!program?.id) return;
+    setTogglingPaid(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/trainer/programs/${program.id}/toggle-paid/`, {
+        method: 'PATCH', credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Failed to update'); return; }
+      setIsPaid(data.is_paid);
+      showSuccess(data.is_paid ? '🔒 Program set to paid / subscription.' : '🔓 Program set to free.');
+    } catch { showError('Could not update program type.'); }
+    finally { setTogglingPaid(false); }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -489,13 +509,50 @@ const fetchProgramFeedback = async () => {
 
 {isOwnProgram && (
   <div className="feedback-summary">
-    <h3 className="feedback-title">📊 Feedback Summary</h3>
-    
+    <h3 className="feedback-title">📊 Program Analytics</h3>
+
+    {/* Enrolled count + paid toggle row */}
+    <div className="feedback-stats" style={{ marginBottom: '1rem' }}>
+      <div className="stat-item">
+        <span className="stat-icon">👥</span>
+        <div>
+          <span>Enrolled Users</span>
+          <span style={{ fontSize: '1.4rem', fontWeight: 700 }}>
+            {feedbackLoading ? '…' : (feedback?.enrolled_count ?? 0)}
+          </span>
+        </div>
+      </div>
+      {/* Paid / Free toggle */}
+      <div className="stat-item" style={{ cursor: 'pointer' }} onClick={!togglingPaid ? handleTogglePaid : undefined}>
+        <span className="stat-icon">{isPaid ? '🔒' : '🔓'}</span>
+        <div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Access Type</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.15rem' }}>
+            <span style={{
+              fontSize: '0.95rem', fontWeight: 700,
+              color: isPaid ? '#f59e0b' : '#22c55e',
+            }}>
+              {togglingPaid ? 'Updating…' : isPaid ? 'Paid / Subscription' : 'Free'}
+            </span>
+            <span style={{
+              fontSize: '0.68rem', fontWeight: 600,
+              background: isPaid ? 'rgba(245,158,11,0.12)' : 'rgba(34,197,94,0.12)',
+              color: isPaid ? '#f59e0b' : '#22c55e',
+              border: `1px solid ${isPaid ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+              borderRadius: '4px', padding: '0.1rem 0.4rem',
+            }}>
+              click to {isPaid ? 'make free' : 'make paid'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     {feedbackLoading ? (
       <div className="no-feedback">Loading feedback...</div>
-    ) : feedback ? (
+    ) : feedback && feedback.total_responses > 0 ? (
       <>
-        {/* Stats Row */}
+        {/* Ratings Stats Row */}
         <div className="feedback-stats">
           <div className="stat-item">
             <span className="stat-icon">📊</span>
@@ -548,10 +605,33 @@ const fetchProgramFeedback = async () => {
             </ResponsiveContainer>
           </div>
         )}
+
+        {/* Individual feedback entries */}
+        {feedback.entries.length > 0 && (
+          <div style={{ marginTop: '1rem' }}>
+            <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+              Recent Ratings
+            </h4>
+            {feedback.entries.slice(0, 5).map((entry, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                padding: '0.6rem 0.75rem', borderRadius: '8px',
+                background: 'var(--bg-tertiary)', marginBottom: '0.4rem',
+                fontSize: '0.85rem',
+              }}>
+                <span style={{ color: 'var(--text-secondary)', minWidth: '80px' }}>{entry.date}</span>
+                <span>⭐ {entry.difficulty_rating}/5</span>
+                {entry.fatigue_level && <span>😴 {entry.fatigue_level}/5</span>}
+                {entry.pain_reported && <span style={{ color: '#ef4444' }}>⚠️ Pain</span>}
+                {entry.notes && <span style={{ color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{entry.notes}"</span>}
+              </div>
+            ))}
+          </div>
+        )}
       </>
     ) : (
       <div className="no-feedback">
-        No feedback yet. Share your program to get client feedback!
+        No feedback yet. Share your program to get client ratings!
       </div>
     )}
   </div>
