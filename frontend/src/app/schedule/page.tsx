@@ -269,6 +269,7 @@ const SchedulePage = () => {
 
   const [monthOffset, setMonthOffset] = useState(0);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [enrolledCounts, setEnrolledCounts] = useState<Record<number, number>>({});
 
   useEffect(() => {
     fetchSchedule();
@@ -292,12 +293,35 @@ const SchedulePage = () => {
           setNextWeekChanges(data.next_week_changes);
           setShowNextWeekBanner(true);
         }
+        // If trainer, fetch enrolled counts for their own programs
+        if (user?.is_trainer && data.schedule?.program_list) {
+          fetchEnrolledCounts(data.schedule.program_list);
+        }
       }
     } catch (error) {
       console.error('Error fetching schedule:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchEnrolledCounts = async (programs: { id: number; trainer_name: string }[]) => {
+    const counts: Record<number, number> = {};
+    await Promise.all(
+      programs.map(async (p) => {
+        try {
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/trainer/programs/${p.id}/feedback/`,
+            { credentials: 'include' }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (data.enrolled_count !== undefined) counts[p.id] = data.enrolled_count;
+          }
+        } catch { /* silent */ }
+      })
+    );
+    setEnrolledCounts(counts);
   };
 
   const showSuccess = (message: string) => setNotification({ type: 'success', message });
@@ -902,7 +926,7 @@ const SchedulePage = () => {
                       <div className="aec-title">Plan adjusted{appliedDate ? ` · ${appliedDate}` : ''}</div>
                       <div className="aec-subtitle">
                         {changedDays.length > 0
-                          ? `${changedDays.length} day${changedDays.length > 1 ? 's' : ''} affected! Click to View`
+                          ? `${changedDays.length} day${changedDays.length > 1 ? 's' : ''} affected — click to view`
                           : 'Schedule adjusted — click to view'}
                       </div>
                     </div>
@@ -987,7 +1011,7 @@ const SchedulePage = () => {
                         </div>
 
                         <div className="aec-footer-note" style={{ marginTop: '1.25rem' }}>
-                          Changes apply from next week! Your current week is unaffected.
+                          Changes apply from next week — your current week is unaffected.
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
@@ -1095,6 +1119,17 @@ const SchedulePage = () => {
                     <div key={program.id} className="program-chip program-chip-clickable" onClick={() => router.push(`/program/${program.id}`)}>
                       <span className="program-chip-name">{program.name}</span>
                       <span className={`program-chip-difficulty difficulty-${program.difficulty}`}>{program.difficulty}</span>
+                      {user?.is_trainer && enrolledCounts[program.id] !== undefined && (
+                        <span style={{
+                          fontSize: '0.7rem', fontWeight: 700,
+                          background: 'rgba(96,165,250,0.12)', color: '#60a5fa',
+                          border: '1px solid rgba(96,165,250,0.3)',
+                          borderRadius: '10px', padding: '0.1rem 0.5rem',
+                          marginLeft: '0.25rem',
+                        }}>
+                          👥 {enrolledCounts[program.id]} enrolled
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
