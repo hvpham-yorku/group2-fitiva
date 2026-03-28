@@ -367,8 +367,8 @@ const TrainerProgramsPage = () => {
       <ProtectedRoute>
         <div className="trainer-programs-container">
           <div className="header">
-            <button className="back-button" onClick={() => router.push('/dashboard')}>
-              ← Back to Dashboard
+            <button className="back-button" onClick={() => router.push('/schedule')}>
+              ← Back to Schedule
             </button>
             <h1>Workout Programs</h1>
           </div>
@@ -425,8 +425,8 @@ const TrainerProgramsPage = () => {
     <ProtectedRoute>
       <div className="trainer-programs-container">
         <div className="header">
-          <button className="back-button" onClick={() => router.push('/dashboard')}>
-            ← Back to Dashboard
+          <button className="back-button" onClick={() => router.push('/schedule')}>
+            ← Back to Schedule
           </button>
           <h1>Workout Programs</h1>
         </div>
