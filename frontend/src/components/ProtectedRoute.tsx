@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import Logo from '@/components/ui/Logo';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -45,14 +44,25 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           position: 'sticky',
           top: 0,
           zIndex: 100,
-          background: 'var(--bg-secondary)',
-          borderBottom: '1px solid var(--border-medium)',
-          padding: '0.6rem 2rem',
+          backgroundColor: 'var(--bg-primary)',
+          borderBottom: '1.5px solid var(--border-light)',
+          padding: '0.75rem 2rem',
           display: 'flex',
           alignItems: 'center',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
         }}>
-          <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <Logo variant="text" size="sm" />
+          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <span style={{
+              fontSize: '1.5rem',
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #EF3E36 0%, #FF9234 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              letterSpacing: '-0.01em',
+            }}>
+              FITIVA
+            </span>
           </Link>
         </header>
       )}
