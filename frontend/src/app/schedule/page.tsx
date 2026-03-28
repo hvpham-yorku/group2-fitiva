@@ -842,15 +842,55 @@ const SchedulePage = () => {
             const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
             const orig = schedule.original_weekly_schedule;
             const curr = schedule.weekly_schedule;
+            const durOverrides: Record<string, number>  = schedule.duration_overrides  ?? {};
+            const focOverrides: Record<string, string>  = schedule.focus_overrides     ?? {};
+
             const isWorkout = (slot: number[] | string | undefined) =>
               Array.isArray(slot) ? slot.length > 0 : (slot != null && slot !== 'rest' && slot !== '');
-            const changedDays = DAYS.filter(d => isWorkout(orig[d]) !== isWorkout(curr[d]));
+
+            // A day is "changed" if its type, duration, or focus changed
+            const changedDays = DAYS.filter(d =>
+              isWorkout(orig[d]) !== isWorkout(curr[d]) ||
+              durOverrides[d] != null ||
+              focOverrides[d] != null
+            );
+
             const adjMeta = lastAdjustmentInfo
               ? (ADJUSTMENT_META[lastAdjustmentInfo.adjustment] ?? ADJUSTMENT_META.none)
               : ADJUSTMENT_META.none;
             const appliedDate = lastAdjustmentInfo?.appliedAt
               ? new Date(lastAdjustmentInfo.appliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
               : null;
+
+            // Build the "after" cell for a day — shows type change, shorter duration, or focus swap
+            const renderAfterCell = (day: string) => {
+              const nowWorkout = isWorkout(curr[day]);
+              const dur = durOverrides[day];
+              const foc = focOverrides[day];
+              if (!nowWorkout) return <span className="aec-tag aec-tag-rest">😴 Rest day</span>;
+              if (foc) {
+                const focLabel = foc.toLowerCase();
+                const isMobility = focLabel.includes('mobil') || focLabel.includes('stretch') || focLabel.includes('flex');
+                return <span className="aec-tag aec-tag-modified">🧘 Swap to {isMobility ? 'mobility / stretching' : foc}</span>;
+              }
+              if (dur) {
+                const fullDur = 45; // fallback reference duration
+                const ratio = dur / fullDur;
+                const label = ratio <= 0.55 ? `Shorter workout (${dur} min — ~half)` : `Shorter workout (${dur} min)`;
+                return <span className="aec-tag aec-tag-modified">⏱️ {label}</span>;
+              }
+              return <span className="aec-tag aec-tag-workout">🏋️ Workout</span>;
+            };
+
+            // Build the "before" cell for a day
+            const renderBeforeCell = (day: string, changed: boolean) => {
+              const wasWorkout = isWorkout(orig[day]);
+              return (
+                <span className={`aec-tag ${wasWorkout ? 'aec-tag-workout' : 'aec-tag-rest'}${changed ? ' aec-tag-strikethrough' : ''}`}>
+                  {wasWorkout ? '🏋️ Workout' : '😴 Rest'}
+                </span>
+              );
+            };
 
             return (
               <>
@@ -862,8 +902,8 @@ const SchedulePage = () => {
                       <div className="aec-title">Plan adjusted{appliedDate ? ` · ${appliedDate}` : ''}</div>
                       <div className="aec-subtitle">
                         {changedDays.length > 0
-                          ? `${changedDays.length} day${changedDays.length > 1 ? 's' : ''} changed! Click to View`
-                          : 'Volume or focus adjusted — click to view'}
+                          ? `${changedDays.length} day${changedDays.length > 1 ? 's' : ''} affected! Click to View`
+                          : 'Schedule adjusted — click to view'}
                       </div>
                     </div>
                   </div>
@@ -910,7 +950,7 @@ const SchedulePage = () => {
                           </div>
                         )}
 
-                        {/* Before / After grid */}
+                        {/* Before / After grid — includes day-type, duration, and focus changes */}
                         <div className="aec-diff-section" style={{ marginTop: '1.25rem' }}>
                           <div className="aec-diff-label">Weekly schedule changes</div>
                           <div className="aec-diff-grid">
@@ -921,25 +961,28 @@ const SchedulePage = () => {
                             {DAYS.map(day => {
                               const wasWorkout = isWorkout(orig[day]);
                               const nowWorkout = isWorkout(curr[day]);
-                              const changed = wasWorkout !== nowWorkout;
+                              const typeChanged = wasWorkout !== nowWorkout;
+                              const durChanged  = durOverrides[day] != null;
+                              const focChanged  = focOverrides[day] != null;
+                              const anyChanged  = typeChanged || durChanged || focChanged;
                               return (
-                                <div key={day} className={`aec-diff-row${changed ? ' aec-diff-row-changed' : ''}`}>
+                                <div key={day} className={`aec-diff-row${anyChanged ? ' aec-diff-row-changed' : ''}`}>
                                   <div className="aec-diff-day">
-                                    {changed && <span className="aec-changed-dot" />}
+                                    {anyChanged && <span className="aec-changed-dot" />}
                                     {day.charAt(0).toUpperCase() + day.slice(1, 3)}
                                   </div>
-                                  <div className={`aec-diff-cell aec-diff-before${changed ? ' aec-strikethrough' : ''}`}>
-                                    {wasWorkout ? <span className="aec-tag aec-tag-workout">🏋️ Workout</span> : <span className="aec-tag aec-tag-rest">😴 Rest</span>}
+                                  <div className={`aec-diff-cell aec-diff-before`}>
+                                    {renderBeforeCell(day, anyChanged)}
                                   </div>
-                                  <div className={`aec-diff-cell${changed ? ' aec-diff-after-highlight' : ''}`}>
-                                    {nowWorkout ? <span className="aec-tag aec-tag-workout">🏋️ Workout</span> : <span className="aec-tag aec-tag-rest">😴 Rest</span>}
+                                  <div className={`aec-diff-cell${anyChanged ? ' aec-diff-after-highlight' : ''}`}>
+                                    {renderAfterCell(day)}
                                   </div>
                                 </div>
                               );
                             })}
                           </div>
                           {changedDays.length === 0 && (
-                            <p className="aec-no-changes">No day-type changes - volume or focus was adjusted.</p>
+                            <p className="aec-no-changes">No changes detected.</p>
                           )}
                         </div>
 
