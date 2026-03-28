@@ -1698,3 +1698,10 @@
 .aec-modal {
   max-width: 520px;
 }
+
+/*testing*/
+
+/* Modal size override for adjustment detail */
+.aec-modal {
+  max-width: 520px;
+}
