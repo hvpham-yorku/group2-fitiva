@@ -357,6 +357,32 @@ class WorkoutSessionTests(ScheduleBaseTest):
         }, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_complete_workout_session_uses_fallback_helper(self):
+        """
+        Tests that refactoring the Arrow Anti-Pattern into the 
+        _apply_fallback_schedule_data helper function correctly executes 
+        when no duration_minutes is provided in the request.
+        """
+        self.client.force_authenticate(user=self.user)
+        
+        # Define a valid date string
+        target_date_str = date.today().strftime('%Y-%m-%d')
+        
+        # Hit the endpoint WITHOUT providing 'duration_minutes' in the payload
+        # This forces the code to route to your new helper function
+        response = self.client.post(f"/api/sessions/complete/{target_date_str}/", {
+            "notes": "Great workout!"
+        })
+        
+        # Assert the view successfully processed the request without crashing
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify the session was actually saved to the database as completed
+        completed_session = WorkoutSession.objects.get(user=self.user, date=date.today())
+        self.assertTrue(completed_session.is_completed)
+        self.assertEqual(completed_session.status, "completed")
+        self.assertEqual(completed_session.notes, "Great workout!")
+
     def test_undo_session(self):
         self.client.force_authenticate(user=self.user)
         self.client.post("/api/sessions/start/2026-03-09/")
