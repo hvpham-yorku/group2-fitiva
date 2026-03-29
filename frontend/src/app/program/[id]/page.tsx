@@ -202,6 +202,7 @@ const fetchProgramFeedback = async () => {
     console.log('🔍 Fetching feedback for program:', program.id);
     console.log('👤 Trainer check:', user.id === program.trainer);
     
+    // Refactored: replaced hardcoded localhost URL with the NEXT_PUBLIC_API_URL environment variable so the app works in any environment.
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/trainer/programs/${program.id}/feedback/`, {
       method: 'GET',
       credentials: 'include',

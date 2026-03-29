@@ -14,6 +14,7 @@ export default function ChallengesPage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState<number | null>(null);
   const [tab, setTab] = useState<TabId>('global');
+  // Refactored: replaced alert() with an in-page error message to match the notification style used across all other pages.
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
