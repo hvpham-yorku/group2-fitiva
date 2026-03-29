@@ -1362,6 +1362,22 @@ def start_workout_session(request, date_str):
     }, status=status.HTTP_200_OK)
 
 
+def _apply_fallback_schedule_data(session, user, target_date):
+    """Helper to extract fallback duration and plan from the active schedule."""
+    try:
+        schedule = UserSchedule.objects.get(user=user, is_active=True)
+        day_name = target_date.strftime('%A').lower()
+        section_ids = schedule.weekly_schedule.get(day_name, [])
+        if not isinstance(section_ids, list):
+            section_ids = [section_ids] if section_ids != 'rest' else []
+        if section_ids:
+            section = ProgramSection.objects.select_related("program").get(id=section_ids[0])
+            session.plan = section.program
+            if session.duration_minutes in (None, 0):
+                session.duration_minutes = section.program.session_length
+    except (UserSchedule.DoesNotExist, ProgramSection.DoesNotExist):
+        pass
+
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1386,19 +1402,7 @@ def complete_workout_session(request, date_str):
         except (ValueError, TypeError):
             return Response({"error": "duration_minutes must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        try:
-            schedule = UserSchedule.objects.get(user=request.user, is_active=True)
-            day_name = target_date.strftime('%A').lower()
-            section_ids = schedule.weekly_schedule.get(day_name, [])
-            if not isinstance(section_ids, list):
-                section_ids = [section_ids] if section_ids != 'rest' else []
-            if section_ids:
-                section = ProgramSection.objects.select_related("program").get(id=section_ids[0])
-                session.plan = section.program
-                if session.duration_minutes in (None, 0):
-                    session.duration_minutes = section.program.session_length
-        except (UserSchedule.DoesNotExist, ProgramSection.DoesNotExist):
-            pass
+        _apply_fallback_schedule_data(session, request.user, target_date)
     session.save()
 
     # US 4.1 – Award points (duplicate-safe)
