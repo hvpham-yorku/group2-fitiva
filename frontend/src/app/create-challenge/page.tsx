@@ -64,16 +64,17 @@ export default function CreateChallengePage() {
   const showError = (message: string) => setNotification({ type: 'error', message });
   const showSuccess = (message: string) => setNotification({ type: 'success', message });
 
-  const todayIso = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
+  const MIN_CHALLENGE_DURATION_DAYS = 1;
+
+  const toIsoDateString = (d: Date): string => d.toISOString().split('T')[0];
+
+  const todayIso = () => toIsoDateString(new Date());
 
   /** Challenge end must be strictly after start_date (we default start to today). */
   const minEndDateIso = () => {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    d.setDate(d.getDate() + MIN_CHALLENGE_DURATION_DAYS);
+    return toIsoDateString(d);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

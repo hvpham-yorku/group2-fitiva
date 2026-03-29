@@ -202,8 +202,7 @@ const fetchProgramFeedback = async () => {
     console.log('🔍 Fetching feedback for program:', program.id);
     console.log('👤 Trainer check:', user.id === program.trainer);
     
-    // DIRECT FETCH - BYPASSES BROKEN api.ts
-    const response = await fetch(`http://localhost:8000/api/trainer/programs/${program.id}/feedback/`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/trainer/programs/${program.id}/feedback/`, {
       method: 'GET',
       credentials: 'include',
       headers: {

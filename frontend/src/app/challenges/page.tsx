@@ -14,6 +14,7 @@ export default function ChallengesPage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState<number | null>(null);
   const [tab, setTab] = useState<TabId>('global');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     challengeAPI
@@ -43,7 +44,7 @@ export default function ChallengesPage() {
       await challengeAPI.joinChallenge(id);
       router.push('/dashboard');
     } catch {
-      alert('Failed to join');
+      setErrorMessage('Failed to join challenge. Please try again.');
     } finally {
       setJoining(null);
     }
@@ -53,6 +54,12 @@ export default function ChallengesPage() {
 
   return (
     <div className="challenges-page">
+      {errorMessage && (
+        <div className="notification error" role="alert">
+          {errorMessage}
+          <button onClick={() => setErrorMessage(null)}>×</button>
+        </div>
+      )}
       <header className="challenges-header">
         <button type="button" onClick={() => router.back()} className="back-button">
           ← Back
