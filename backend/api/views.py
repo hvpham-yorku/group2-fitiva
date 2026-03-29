@@ -1738,7 +1738,7 @@ def _analyze_feedback(user):
     Does NOT save anything to the database.
     """
     try:
-        schedule = UserSchedule.objects.get(user=request.user, is_active=True)
+        schedule = UserSchedule.objects.get(user=user, is_active=True)
     except UserSchedule.DoesNotExist:
         return None, None, "No active schedule found"
 
