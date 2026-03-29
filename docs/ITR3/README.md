@@ -306,7 +306,7 @@ Missing from stub: None — fully compliant!
 ---
 
 ## Test Structure
-
+```
 backend/
 └── tests/
 ├── init.py
@@ -327,7 +327,7 @@ backend/
 └── integration/
 ├── init.py
 └── test_db.py
-
+```
 ---
 
 ## Shutting Down
