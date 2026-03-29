@@ -24,8 +24,15 @@ export default function HistoryPage() {
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [dateError, setDateError] = useState('');
 
   const fetchHistory = async () => {
+    // BUG-001 FIX: validate that end date is not before start date
+    if (startDate && endDate && endDate < startDate) {
+      setDateError('End date must be after start date.');
+      return;
+    }
+    setDateError('');
     setLoading(true);
     try {
       const data = await sessionAPI.getWorkoutHistory(
@@ -104,12 +111,18 @@ export default function HistoryPage() {
             onClick={() => {
               setStartDate('');
               setEndDate('');
+              setDateError('');
               fetchHistory();
             }}
           >
             Reset
           </button>
         </div>
+
+        {/* BUG-001 FIX: show validation error if date range is inverted */}
+        {dateError && (
+          <p className="filter-error">{dateError}</p>
+        )}
       </div>
 
       {sessions.length === 0 ? (
