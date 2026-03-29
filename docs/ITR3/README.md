@@ -309,24 +309,24 @@ Missing from stub: None — fully compliant!
 
 backend/
 └── tests/
-    ├── __init__.py
-    ├── unit/
-    │   ├── __init__.py
-    │   ├── test_authentication.py
-    │   ├── test_profiles.py
-    │   ├── test_exercise_templates.py
-    │   ├── test_recommendations.py
-    │   ├── test_schedules.py
-    │   ├── test_workout_sessions.py
-    │   ├── test_workoutcompletion.py
-    │   ├── test_workout_history.py
-    │   ├── test_summary_dashboard.py
-    │   ├── test_training_trends.py
-    │   ├── test_challenges.py
-    │   └── test_rewards.py
-    └── integration/
-        ├── __init__.py
-        └── test_db.py
+├── init.py
+├── unit/
+│ ├── init.py
+│ ├── test_authentication.py
+│ ├── test_profiles.py
+│ ├── test_exercise_templates.py
+│ ├── test_recommendations.py
+│ ├── test_schedules.py
+│ ├── test_workout_sessions.py
+│ ├── test_workoutcompletion.py
+│ ├── test_workout_history.py
+│ ├── test_summary_dashboard.py
+│ ├── test_training_trends.py
+│ ├── test_challenges.py
+│ └── test_rewards.py
+└── integration/
+├── init.py
+└── test_db.py
 
 ---
 
