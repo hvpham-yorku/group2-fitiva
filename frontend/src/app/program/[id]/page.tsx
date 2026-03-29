@@ -202,8 +202,8 @@ const fetchProgramFeedback = async () => {
     console.log('🔍 Fetching feedback for program:', program.id);
     console.log('👤 Trainer check:', user.id === program.trainer);
     
-    // DIRECT FETCH - BYPASSES BROKEN api.ts
-    const response = await fetch(`http://localhost:8000/api/trainer/programs/${program.id}/feedback/`, {
+    // Refactored: replaced hardcoded localhost URL with the NEXT_PUBLIC_API_URL environment variable so the app works in any environment.
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/trainer/programs/${program.id}/feedback/`, {
       method: 'GET',
       credentials: 'include',
       headers: {
@@ -390,13 +390,14 @@ const fetchProgramFeedback = async () => {
       <ProtectedRoute>
         <div className="program-detail-container">
           <div className="header">
-            <button className="back-button" onClick={() => router.back()}>← Back</button>
+            {/* Bug fix BUG-003: replaced router.back() with a fixed destination to prevent the navigation loop between the schedule and program detail pages. */}
+            <button className="back-button" onClick={() => router.push('/dashboard')}>← Back</button>
             <h1>Program Details</h1>
           </div>
           <div className="content">
             <div className="error-state">
               <h3>⚠️ {error || 'Program not found'}</h3>
-              <button className="btn-primary" onClick={() => router.back()}>Go Back</button>
+              <button className="btn-primary" onClick={() => router.push('/dashboard')}>Go Back</button>
             </div>
           </div>
         </div>
@@ -410,7 +411,8 @@ const fetchProgramFeedback = async () => {
     <ProtectedRoute>
       <div className="program-detail-container">
         <div className="header">
-          <button className="back-button" onClick={() => router.back()}>← Back</button>
+          {/* Bug fix BUG-003: replaced router.back() with a fixed destination to prevent the navigation loop between the schedule and program detail pages. */}
+          <button className="back-button" onClick={() => router.push('/dashboard')}>← Back</button>
           <h1>Program Details</h1>
         </div>
 

@@ -456,14 +456,16 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
   const handleLogout = async () => { setIsLoggingOut(true); setIsDropdownOpen(false); await logout(); };
   const openSettings = () => { setIsDropdownOpen(false); setIsSettingsOpen(true); };
 
+  // Bug fix BUG-005: replaced alert() with in-page success/error notifications so the user gets visible feedback after removing a challenge.
   const handleLeaveChallenge = async (challengePk: number) => {
     if (!window.confirm("Are you sure you want to remove this challenge?")) return;
     try {
       await challengeAPI.leaveChallenge(challengePk);
       setMyChallenges((prev) => prev.filter((c) => c.challenge !== challengePk));
+      showSuccess('Challenge removed successfully.');
     } catch (err) {
       console.error("Failed to remove challenge", err);
-      alert("Could not remove the challenge.");
+      showError('Could not remove the challenge.');
     }
   };
 
