@@ -1,6 +1,6 @@
 # Fitiva — Group 2 — Iteration 3 Log
 
-# To see the ITR3 Source Code, please checkout to the branch called ITR2
+# To see the ITR3 Source Code, please checkout to the branch called ITR3
 
 ## Team
 - Ege Yesilyurt — 219701739 — [egeyesss@my.yorku.ca](mailto:egeyesss@my.yorku.ca)
