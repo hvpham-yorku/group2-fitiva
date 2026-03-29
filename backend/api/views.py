@@ -75,9 +75,11 @@ SESSION_STATUS_IN_PROGRESS = 'in_progress'
 SESSION_STATUS_COMPLETED   = 'completed'
 SESSION_STATUS_MISSED      = 'missed'
 
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPER FUNCTIONS
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Helper functions
-
+# General Helper / Utility
 def format_validation_errors(validation_error):
     """Format DRF ValidationError for consistent error responses."""
     formatted_errors = {}
@@ -91,7 +93,7 @@ def format_validation_errors(validation_error):
         formatted_errors["detail"] = str(validation_error.detail)
     return formatted_errors
 
-
+# Helper for US 3.5: Detect Missed Sessions
 def _is_scheduled_workout_date(schedule: UserSchedule, target_date) -> bool:
     """True if the user's weekly schedule has at least one section on this calendar day."""
     day_name = target_date.strftime('%A').lower()
@@ -100,7 +102,7 @@ def _is_scheduled_workout_date(schedule: UserSchedule, target_date) -> bool:
         section_ids = [section_ids] if section_ids != 'rest' else []
     return bool(section_ids)
 
-
+# US 3.5: Detect Missed Sessions
 def auto_mark_missed_sessions(user, start_date=None, end_date=None):
     """
     US 3.5: For past days (through yesterday), if a workout was scheduled but there is
@@ -155,7 +157,7 @@ def auto_mark_missed_sessions(user, start_date=None, end_date=None):
     if to_create:
         WorkoutSession.objects.bulk_create(to_create)
 
-
+# Helper for US 2.3: Automatic Weekly Schedule Regeneration
 def _is_workout_day(slot):
     """Return True if a weekly_schedule slot represents a workout (non-empty list)."""
     if isinstance(slot, list):
@@ -164,7 +166,7 @@ def _is_workout_day(slot):
         return slot not in ('rest', '', None)
     return False
 
-
+# Helper for US 2.3 & US 2.5
 def _find_next_workout_day(weekly_schedule, pain_day):
     """
     BUG FIX: Was previously using a hardcoded +2 day offset which always
@@ -194,7 +196,7 @@ def _find_next_workout_day(weekly_schedule, pain_day):
 
     return None, None
 
-
+# Helper for US 2.5: Accept or Lock Recommended Adjustments
 def _get_next_cycle_window(schedule, today=None):
     """Finds the date range for the next cycle."""
     today = today or timezone.localdate()
@@ -209,7 +211,7 @@ def _get_next_cycle_window(schedule, today=None):
     cycle_end = cycle_start + timedelta(days=6)
     return cycle_start, cycle_end
 
-
+# Helper for US 2.5: Accept or Lock Recommended Adjustments
 def _is_adjustment_lock_active(schedule, today=None, clear_if_expired=True):
     """Checks if the schedule is locked right now."""
     today = today or timezone.localdate()
@@ -228,7 +230,7 @@ def _is_adjustment_lock_active(schedule, today=None, clear_if_expired=True):
 
     return False
 
-
+# Helper for US 2.2: View Plan Adjustments & Explanations
 def _build_recovery_options(pain_day, next_workout_day, next_workout_date, current_duration=45):
     """
     Build the list of recovery option dicts shown to the user in the pain modal.
@@ -312,6 +314,7 @@ def _build_recovery_options(pain_day, next_workout_day, next_workout_date, curre
 # US 4.1 – Points helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Helper for US 4.1: Earn Points for Workout Completion
 def _calculate_points(session):
     """
     Work out how many points a completed session earns.
@@ -344,6 +347,7 @@ def _calculate_points(session):
     return points, streak
 
 
+# Helper for US 4.1: Earn Points for Workout Completion
 def _award_points(session):
     """
     Award points for a completed workout session.
@@ -380,6 +384,7 @@ def _award_points(session):
 # US 4.2 – Badge definitions + helper
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Constant for US 4.2 / US 4.3
 BADGE_DEFINITIONS = {
     "first_workout": {
         "name": "First Step",
@@ -437,7 +442,7 @@ BADGE_DEFINITIONS = {
     },
 }
 
-
+# Helper for US 4.2: Unlock Achievement Badges
 def _check_and_award_badges(user, session):
     """
     Check if the user just crossed any badge thresholds after completing a session.
@@ -512,6 +517,7 @@ def _check_and_award_badges(user, session):
 # BUG-002 FIX: Added end_date__gte filter so expired challenges are ignored
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Helper for US 4.4: Participate in Weekly Challenges
 def _update_challenge_progress(user, session, newly_unlocked_badges, total_points):
     """
     Updates progress for every active, non-expired, non-completed challenge the user
@@ -585,13 +591,14 @@ def _update_challenge_progress(user, session, newly_unlocked_badges, total_point
 # AUTHENTICATION VIEWS
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 1.1: Register & Log In with Email
 @ensure_csrf_cookie
 @require_GET
 def csrf(request):
     token = get_token(request)
     return JsonResponse({"csrfToken": token})
 
-
+# US 1.1: Register & Log In with Email
 @api_view(["POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([AllowAny])
@@ -604,7 +611,7 @@ def signup_view(request):
     except ValidationError as e:
         return Response({'errors': format_validation_errors(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
+# US 1.1: Register & Log In with Email
 @api_view(["POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([AllowAny])
@@ -619,14 +626,14 @@ def login_view(request):
         error_message = str(e.detail[0]) if isinstance(e.detail, list) else str(e.detail)
         return Response({"detail": error_message}, status=status.HTTP_401_UNAUTHORIZED)
 
-
+# US 1.1: Register & Log In with Email
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
     logout(request)
     return Response({"ok": True})
 
-
+# US 1.1: Register & Log In with Email
 @api_view(["GET"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -638,6 +645,7 @@ def me(request):
 # USER PROFILE VIEWS
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 1.2: Create Fitness Profile
 @api_view(["POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -661,7 +669,7 @@ def create_profile_view(request):
     except ValidationError as e:
         return Response({"errors": format_validation_errors(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
+# US 1.2: Create Fitness Profile
 @api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
 def profile_me_view(request):
@@ -684,6 +692,7 @@ def profile_me_view(request):
 # PUBLIC PROFILE VIEWS
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 1.2: Create Fitness Profile / US 1.5: Browse Trainer Created Programs
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_public_profile(request, user_id):
@@ -724,7 +733,7 @@ def get_public_profile(request, user_id):
         status=status.HTTP_200_OK,
     )
 
-
+# US 1.5: Browse Trainer Created Programs
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_trainer_programs(request, user_id):
@@ -749,6 +758,7 @@ def get_trainer_programs(request, user_id):
 # TRAINER PROFILE VIEWS
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 1.2: Create Fitness Profile (Trainer)
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
 def update_trainer_profile(request):
@@ -769,7 +779,7 @@ def update_trainer_profile(request):
     except ValidationError as e:
         return Response({"errors": format_validation_errors(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
+# US 3.4: View Progress Summary Dashboard (Trainer side)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def trainer_trainee_count(request):
@@ -794,6 +804,7 @@ def trainer_trainee_count(request):
 # WORKOUT VIEWSETS
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 1.3: Create Programs from the list of workouts / US 2.1: Trainer Management
 class WorkoutProgramViewSet(viewsets.ModelViewSet):
     serializer_class = WorkoutPlanSerializer
     permission_classes = [IsAuthenticated]
@@ -828,7 +839,7 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         instance.is_deleted = True
         instance.save()
 
-
+# US 3.1: Record Workout Completion / US 3.2: Review Workout History
 class WorkoutSessionViewSet(viewsets.ModelViewSet):
     serializer_class = WorkoutSessionSerializer
     permission_classes = [IsAuthenticated]
@@ -839,7 +850,7 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-
+# US 2.1: Submit Post-Workout Feedback
 class WorkoutFeedbackViewSet(viewsets.ModelViewSet):
     serializer_class = WorkoutFeedbackSerializer
     permission_classes = [IsAuthenticated]
@@ -847,7 +858,7 @@ class WorkoutFeedbackViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return WorkoutFeedback.objects.filter(session__user=self.request.user).order_by('-created_at')
 
-
+# US 4.4: Participate in Weekly Challenges / US 4.5: Trainer-Hosted Challenges
 class ChallengeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     List/retrieve active challenges (global + trainer-hosted, US 4.5).
@@ -863,7 +874,7 @@ class ChallengeViewSet(viewsets.ReadOnlyModelViewSet):
             .order_by('-created_at')
         )
 
-
+# US 4.5: Trainer-Hosted Challenges
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -880,7 +891,7 @@ def create_trainer_challenge(request):
         return Response(ChallengeSerializer(challenge).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+# US 4.5: Trainer-Hosted Challenges
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_trainer_challenge_analytics(request):
@@ -908,7 +919,7 @@ def get_trainer_challenge_analytics(request):
     out = ChallengeAnalyticsSerializer(rows, many=True)
     return Response(out.data, status=status.HTTP_200_OK)
 
-
+# US 1.6: View profile-based workout recommendations
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_recommendations(request):
@@ -935,7 +946,7 @@ def get_recommendations(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
+# US 1.4: View List of Workouts / US 1.5: Browse Trainer Created Programs
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_program_detail(request, program_id):
@@ -947,7 +958,7 @@ def get_program_detail(request, program_id):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
+# US 1.3: Create Programs from the list of workouts
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def exercise_templates(request):
@@ -968,7 +979,7 @@ def exercise_templates(request):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+# US 1.3: Create Programs from the list of workouts
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def exercise_template_detail(request, template_id):
@@ -998,6 +1009,7 @@ def exercise_template_detail(request, template_id):
 # PASSWORD RESET VIEWS
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 1.1: Register & Log In with Email (Password Reset)
 def build_reset_url(request, uid, token):
     base = os.environ.get("FRONTEND_BASE_URL")
     query_params = urlencode({"uid": uid, "token": token})
@@ -1005,7 +1017,7 @@ def build_reset_url(request, uid, token):
         return f"{base.rstrip('/')}/reset-password?{query_params}"
     return request.build_absolute_uri(f"/reset-password?{query_params}")
 
-
+# US 1.1: Register & Log In with Email (Password Reset)
 @api_view(["POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([AllowAny])
@@ -1026,7 +1038,7 @@ def password_reset_confirm(request):
     user.save()
     return Response({"ok": True})
 
-
+# US 1.1: Register & Log In with Email (Password Reset)
 @api_view(["POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([AllowAny])
@@ -1038,6 +1050,7 @@ def password_reset(request):
 # SCHEDULE VIEWS
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 1.7: Select training plan and auto-generate weekly schedule / US 3.6: Personalized Schedule
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1129,7 +1142,7 @@ def generate_schedule(request):
         status=status.HTTP_201_CREATED,
     )
 
-
+# US 1.7: Select training plan and auto-generate weekly schedule
 @api_view(['DELETE'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1162,7 +1175,7 @@ def remove_program_from_schedule(request, program_id):
         status=status.HTTP_200_OK,
     )
 
-
+# US 1.7: Select training plan and auto-generate weekly schedule
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1180,7 +1193,7 @@ def check_program_in_schedule(request, program_id):
     except WorkoutPlan.DoesNotExist:
         return Response({"error": "Program not found"}, status=status.HTTP_404_NOT_FOUND)
 
-
+# US 1.7: Select training plan and auto-generate weekly schedule / US 3.6: Personalized Schedule
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1266,7 +1279,7 @@ def get_active_schedule(request):
             status=status.HTTP_200_OK,
         )
 
-
+# US 1.7: Select training plan and auto-generate weekly schedule
 @api_view(['PATCH'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1288,7 +1301,7 @@ def update_schedule_start_date(request, schedule_id):
     except ValueError:
         return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
 
-
+# US 1.7: Select training plan and auto-generate weekly schedule
 @api_view(['PATCH'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1313,7 +1326,7 @@ def update_schedule_end_date(request, schedule_id):
         status=status.HTTP_200_OK,
     )
 
-
+# US 1.4: View List of Workouts / US 3.1: Record Workout Completion
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1377,7 +1390,7 @@ def get_workout_for_date(request, date_str):
         'feedback': feedback_data,
     }, status=status.HTTP_200_OK)
 
-
+# US 3.2: Review Workout History
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1420,7 +1433,7 @@ def workout_history(request):
         status=status.HTTP_200_OK,
     )
 
-
+# US 3.1: Record Workout Completion
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1444,7 +1457,7 @@ def start_workout_session(request, date_str):
         "is_completed": session.is_completed,
     }, status=status.HTTP_200_OK)
 
-
+# Helper for US 3.1: Record Workout Completion
 def _apply_fallback_schedule_data(session, user, target_date):
     """Helper to extract fallback duration and plan from the active schedule."""
     try:
@@ -1461,7 +1474,7 @@ def _apply_fallback_schedule_data(session, user, target_date):
     except (UserSchedule.DoesNotExist, ProgramSection.DoesNotExist):
         pass
 
-
+# US 3.1: Record Workout Completion / US 4.1 / US 4.2 / US 4.4
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1513,7 +1526,7 @@ def complete_workout_session(request, date_str):
         "newly_unlocked_badges": newly_unlocked_badges,
     }, status=status.HTTP_200_OK)
 
-
+# US 3.1: Record Workout Completion
 @api_view(['DELETE'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1543,7 +1556,7 @@ def undo_workout_session(request, date_str):
         "status": session.status,
     }, status=status.HTTP_200_OK)
 
-
+# US 2.1: Submit Post-Workout Feedback & Trainer Management
 @api_view(['GET', 'POST', 'PATCH', 'DELETE'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1608,7 +1621,7 @@ def workout_feedback(request, date_str):
         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
     )
 
-
+# US 4.4: Participate in Weekly Challenges
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1626,7 +1639,7 @@ def get_user_challenges(request):
     serializer = UserChallengeSerializer(user_challenges, many=True)
     return Response(serializer.data)
 
-
+# US 4.4: Participate in Weekly Challenges
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1653,7 +1666,7 @@ def join_challenge(request, challenge_id):
 
     return Response({"message": "Joined challenge"}, status=status.HTTP_201_CREATED)
 
-
+# US 4.4: Participate in Weekly Challenges
 @api_view(['POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def leave_challenge(request, challenge_id):
@@ -1671,7 +1684,7 @@ def leave_challenge(request, challenge_id):
 
     return Response({"error": "You have not joined this challenge."}, status=status.HTTP_404_NOT_FOUND)
 
-
+# US 4.4: Participate in Weekly Challenges
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1702,7 +1715,7 @@ def update_challenge_progress(request):
 
     return Response({"error": f"Invalid type: {inc_type}"}, status=status.HTTP_400_BAD_REQUEST)
 
-
+# US 1.7: Select training plan and auto-generate weekly schedule
 @api_view(['DELETE'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1715,7 +1728,7 @@ def deactivate_schedule(request):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# US2.3 — SHARED ANALYSIS HELPER
+# US 2.3: Automatic Weekly Schedule Regeneration
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _analyze_feedback(user):
@@ -1725,7 +1738,7 @@ def _analyze_feedback(user):
     Does NOT save anything to the database.
     """
     try:
-        schedule = UserSchedule.objects.get(user=user, is_active=True)
+        schedule = UserSchedule.objects.get(user=request.user, is_active=True)
     except UserSchedule.DoesNotExist:
         return None, None, "No active schedule found"
 
@@ -1860,7 +1873,7 @@ def _analyze_feedback(user):
     }
     return schedule, suggestion, None
 
-
+# US 2.2: View Plan Adjustments & Explanations / US 2.3: Automatic Weekly Schedule Regeneration
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1898,7 +1911,7 @@ def regenerate_schedule_preview(request):
     response_data["regenerated"] = True
     return Response(response_data, status=status.HTTP_200_OK)
 
-
+# US 2.3: Automatic Weekly Schedule Regeneration / US 2.5: Accept or Lock Recommended Adjustments
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1953,7 +1966,7 @@ def regenerate_schedule_apply(request):
 
     return Response(response_data, status=status.HTTP_200_OK)
 
-
+# US 2.5: Accept or Lock Recommended Adjustments
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -2045,7 +2058,7 @@ def apply_recovery_option(request):
         "next_week_changes": next_week_changes,
     }, status=status.HTTP_200_OK)
 
-
+# US 2.5: Accept or Lock Recommended Adjustments
 @api_view(['POST', 'DELETE'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -2093,7 +2106,7 @@ def schedule_adjustment_lock(request):
         status=status.HTTP_200_OK,
     )
 
-
+# US 2.5: Accept or Lock Recommended Adjustments
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -2124,7 +2137,7 @@ def lock_schedule(request, schedule_id: int):
     schedule.save(update_fields=["is_locked", "updated_at"])
     return Response({"ok": True, "locked": schedule.is_locked}, status=status.HTTP_200_OK)
 
-
+# US 2.5: Accept or Lock Recommended Adjustments
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -2159,6 +2172,7 @@ def revert_schedule(request):
 # TRAINER PROGRAM FEEDBACK
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 2.4: Review Aggregated Client Feedback
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -2223,6 +2237,7 @@ def trainer_program_feedback(request, program_id):
 # US 4.1 – GET /api/rewards/points/
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 4.1: Earn Points for Workout Completion
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -2243,6 +2258,7 @@ def get_user_points(request):
 # US 4.2 – GET /api/rewards/badges/
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 4.2: Unlock Achievement Badges / US 4.3: View Achievement Gallery
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -2296,6 +2312,7 @@ def get_user_badges(request):
 # DASHBOARD SUMMARY
 # ─────────────────────────────────────────────────────────────────────────────
 
+# US 3.3: Analyze Training Trends / US 3.4: View Progress Summary Dashboard
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_progress_summary(request):
@@ -2316,6 +2333,7 @@ def get_progress_summary(request):
     }, status=status.HTTP_200_OK)
 
 
+# US 1.3: Create Programs from the list of workouts / US 1.5: Trainer Management
 @api_view(['PATCH'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
