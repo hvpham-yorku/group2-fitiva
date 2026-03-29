@@ -830,7 +830,7 @@ const SchedulePage = () => {
   if (!scheduleData?.schedule) return (
     <ProtectedRoute>
       <div className="schedule-container">
-        <div className="header"><button className="back-button" onClick={() => router.push('/trainer-programs')}>← Back to Programs</button><h1>My Workout Schedule</h1></div>
+        <div className="header">{/* Bug fix BUG-003: changed back button destination from /trainer-programs to /dashboard to prevent navigation loop. */}<button className="back-button" onClick={() => router.push('/dashboard')}>← Back to Dashboard</button><h1>My Workout Schedule</h1></div>
         <div className="content"><div className="empty-state"><div className="empty-icon">📅</div><h3>No Active Schedule</h3><p>You haven&apos;t selected a workout program yet.</p><button className="btn-primary" onClick={() => router.push('/trainer-programs')}>Browse Programs</button></div></div>
       </div>
     </ProtectedRoute>
@@ -855,7 +855,7 @@ const SchedulePage = () => {
     <ProtectedRoute>
       <div className="schedule-container">
         <div className="header">
-          <button className="back-button" onClick={() => router.push('/trainer-programs')}>← Back to Programs</button>
+          {/* Bug fix BUG-003: changed back button destination from /trainer-programs to /dashboard to prevent navigation loop. */}<button className="back-button" onClick={() => router.push('/dashboard')}>← Back to Dashboard</button>
           <h1>My Workout Schedule</h1>
         </div>
 

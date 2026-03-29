@@ -390,13 +390,14 @@ const fetchProgramFeedback = async () => {
       <ProtectedRoute>
         <div className="program-detail-container">
           <div className="header">
-            <button className="back-button" onClick={() => router.back()}>← Back</button>
+            {/* Bug fix BUG-003: replaced router.back() with a fixed destination to prevent the navigation loop between the schedule and program detail pages. */}
+            <button className="back-button" onClick={() => router.push('/dashboard')}>← Back</button>
             <h1>Program Details</h1>
           </div>
           <div className="content">
             <div className="error-state">
               <h3>⚠️ {error || 'Program not found'}</h3>
-              <button className="btn-primary" onClick={() => router.back()}>Go Back</button>
+              <button className="btn-primary" onClick={() => router.push('/dashboard')}>Go Back</button>
             </div>
           </div>
         </div>
@@ -410,7 +411,8 @@ const fetchProgramFeedback = async () => {
     <ProtectedRoute>
       <div className="program-detail-container">
         <div className="header">
-          <button className="back-button" onClick={() => router.back()}>← Back</button>
+          {/* Bug fix BUG-003: replaced router.back() with a fixed destination to prevent the navigation loop between the schedule and program detail pages. */}
+          <button className="back-button" onClick={() => router.push('/dashboard')}>← Back</button>
           <h1>Program Details</h1>
         </div>
 
