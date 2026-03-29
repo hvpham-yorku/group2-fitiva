@@ -21,6 +21,7 @@ export default function CreateChallengePage() {
 
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [loadingPrograms, setLoadingPrograms] = useState(true);
+  const [programLoadError, setProgramLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [name, setName] = useState('');
@@ -42,16 +43,23 @@ export default function CreateChallengePage() {
     let cancelled = false;
     (async () => {
       try {
+        // Bug fix: validate API response format and show error if unexpected
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/programs/`,
           { credentials: 'include' }
         );
         if (!res.ok) throw new Error('Failed to load programs');
         const data = await res.json();
-        const list: ProgramOption[] = data.results || data || [];
-        if (!cancelled) setPrograms(Array.isArray(list) ? list : []);
+        const list = data.results ?? data;
+        if (!Array.isArray(list)) {
+          throw new Error('Unexpected response format from programs API');
+        }
+        if (!cancelled) setPrograms(list);
       } catch {
-        if (!cancelled) setPrograms([]);
+        if (!cancelled) {
+          setPrograms([]);
+          setProgramLoadError(true);
+        }
       } finally {
         if (!cancelled) setLoadingPrograms(false);
       }
@@ -165,6 +173,10 @@ export default function CreateChallengePage() {
         <div className="content">
           {loadingPrograms ? (
             <p style={{ color: 'var(--text-secondary)' }}>Loading your programs…</p>
+          ) : programLoadError ? (
+            <div className="empty-programs-hint">
+              Failed to load your programs — please refresh the page and try again.
+            </div>
           ) : myPrograms.length === 0 ? (
             <div className="empty-programs-hint">
               You need at least one published program to host a challenge.{' '}
