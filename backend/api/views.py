@@ -1738,6 +1738,7 @@ def _analyze_feedback(user):
     Does NOT save anything to the database.
     """
     try:
+        # [FIXED] SMELL-004: Resolved Fatal NameError (Undeclared Variable Scope) by changing 'request.user' to the local 'user' parameter
         schedule = UserSchedule.objects.get(user=user, is_active=True)
     except UserSchedule.DoesNotExist:
         return None, None, "No active schedule found"
