@@ -75,7 +75,6 @@ SESSION_STATUS_IN_PROGRESS = 'in_progress'
 SESSION_STATUS_COMPLETED   = 'completed'
 SESSION_STATUS_MISSED      = 'missed'
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # HELPER FUNCTIONS
 # ─────────────────────────────────────────────────────────────────────────────
