@@ -68,6 +68,13 @@ User = get_user_model()
 
 DAYS_OF_WEEK = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SMELL-003 FIX: Session status constants — replaces magic strings throughout
+# ─────────────────────────────────────────────────────────────────────────────
+SESSION_STATUS_IN_PROGRESS = 'in_progress'
+SESSION_STATUS_COMPLETED   = 'completed'
+SESSION_STATUS_MISSED      = 'missed'
+
 
 # Helper functions
 
@@ -138,7 +145,7 @@ def auto_mark_missed_sessions(user, start_date=None, end_date=None):
                 WorkoutSession(
                     user=user,
                     date=cursor,
-                    status='missed',
+                    status=SESSION_STATUS_MISSED,
                     is_completed=False,
                     notes='Auto-marked missed from scheduled workout.',
                 )
@@ -161,7 +168,7 @@ def _is_workout_day(slot):
 def _find_next_workout_day(weekly_schedule, pain_day):
     """
     BUG FIX: Was previously using a hardcoded +2 day offset which always
-    produced Monday→Wednesday, Tuesday→Thursday regardless of the actual
+    produced Monday->Wednesday, Tuesday->Thursday regardless of the actual
     schedule. This version walks forward day by day from the pain day and
     returns the first day that actually has workout sections assigned.
 
@@ -178,12 +185,10 @@ def _find_next_workout_day(weekly_schedule, pain_day):
         candidate_day = DAYS_OF_WEEK[(pain_idx + offset) % 7]
         slot = weekly_schedule.get(candidate_day)
         if _is_workout_day(slot):
-            # Compute the ISO date for the next occurrence of candidate_day
-            candidate_weekday = DAYS_OF_WEEK.index(candidate_day)  # 0=monday
-            # today.weekday() is also 0=monday, matching our list
+            candidate_weekday = DAYS_OF_WEEK.index(candidate_day)
             days_until = (candidate_weekday - today.weekday()) % 7
             if days_until == 0:
-                days_until = 7  # next occurrence, not today
+                days_until = 7
             next_date = today + timedelta(days=days_until)
             return candidate_day, next_date.isoformat()
 
@@ -229,8 +234,8 @@ def _build_recovery_options(pain_day, next_workout_day, next_workout_date, curre
     Build the list of recovery option dicts shown to the user in the pain modal.
     The frontend mirrors this structure in buildRecoveryOptions().
     """
-    next_label  = next_workout_day.capitalize() if next_workout_day else 'next workout day'
-    pain_label  = pain_day.capitalize()         if pain_day         else 'today'
+    next_label   = next_workout_day.capitalize() if next_workout_day else 'next workout day'
+    pain_label   = pain_day.capitalize()         if pain_day         else 'today'
     shorter_mins = max(20, round(current_duration * 0.6))
 
     options = []
@@ -312,14 +317,12 @@ def _calculate_points(session):
     Work out how many points a completed session earns.
     Base: 10 pts.  Long session (>= 45 min): +5.  Streak bonus: +2 per day (max 30).
     """
-    points = 10  # every completed workout gives 10 base points
+    points = 10
 
-    # Bonus for longer sessions
     duration = session.duration_minutes or 0
     if duration >= 45:
         points += 5
 
-    # Count how many consecutive completed days lead into this session
     streak = 0
     check_date = session.date - timedelta(days=1)
     past_dates = (
@@ -334,9 +337,9 @@ def _calculate_points(session):
             streak += 1
             check_date = check_date - timedelta(days=1)
         else:
-            break  # gap in streak – stop counting
+            break
 
-    points += min(streak, 30) * 2  # +2 per streak day, capped at 30
+    points += min(streak, 30) * 2
 
     return points, streak
 
@@ -352,7 +355,6 @@ def _award_points(session):
 
     points, streak = _calculate_points(session)
 
-    # Build a human-readable reason string
     reason_parts = ["Completed workout"]
     if (session.duration_minutes or 0) >= 45:
         reason_parts.append("long session bonus")
@@ -378,7 +380,6 @@ def _award_points(session):
 # US 4.2 – Badge definitions + helper
 # ─────────────────────────────────────────────────────────────────────────────
 
-# All badge metadata lives here – no extra DB table needed for the definitions
 BADGE_DEFINITIONS = {
     "first_workout": {
         "name": "First Step",
@@ -449,7 +450,6 @@ def _check_and_award_badges(user, session):
         user=user, is_completed=True
     ).count()
 
-    # Re-compute streak the same way _calculate_points does
     streak = 0
     check_date = session.date - timedelta(days=1)
     past_dates = (
@@ -465,13 +465,11 @@ def _check_and_award_badges(user, session):
             check_date = check_date - timedelta(days=1)
         else:
             break
-    # +1 for the session we just completed
     streak += 1
 
-    # Milestone badges
     milestone_map = {
-        1: "first_workout",
-        5: "five_workouts",
+        1:  "first_workout",
+        5:  "five_workouts",
         10: "ten_workouts",
         25: "twenty_five_workouts",
         50: "fifty_workouts",
@@ -488,10 +486,9 @@ def _check_and_award_badges(user, session):
                     "earned_at": badge_obj.earned_at.isoformat(),
                 })
 
-    # Streak badges
     streak_map = {
-        3: "streak_3",
-        7: "streak_7",
+        3:  "streak_3",
+        7:  "streak_7",
         14: "streak_14",
         30: "streak_30",
     }
@@ -510,7 +507,83 @@ def _check_and_award_badges(user, session):
     return newly_unlocked
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SMELL-001 FIX: Extracted challenge progress helper
+# BUG-002 FIX: Added end_date__gte filter so expired challenges are ignored
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _update_challenge_progress(user, session, newly_unlocked_badges, total_points):
+    """
+    Updates progress for every active, non-expired, non-completed challenge the user
+    has joined. Awards points and badges when all goals are met.
+    Returns the (possibly updated) total_points value.
+    """
+    today = timezone.localdate()
+
+    active_user_challenges = UserChallenge.objects.filter(
+        user=user,
+        challenge__is_active=True,
+        challenge__end_date__gte=today,   # BUG-002 FIX: skip expired challenges
+        is_completed=False,
+    ).select_related('challenge')
+
+    for uc in active_user_challenges:
+        criteria = uc.challenge.goal_criteria
+        updated = False
+
+        if 'workouts' in criteria:
+            uc.current_progress['workouts'] = uc.current_progress.get('workouts', 0) + 1
+            updated = True
+
+        if 'total_time_minutes' in criteria and session.duration_minutes:
+            uc.current_progress['total_time_minutes'] = (
+                uc.current_progress.get('total_time_minutes', 0) + session.duration_minutes
+            )
+            updated = True
+
+        if not updated:
+            continue
+
+        if all(uc.current_progress.get(k, 0) >= v for k, v in criteria.items()):
+            uc.is_completed = True
+            uc.completed_at = timezone.now()
+            uc.save()
+
+            if uc.challenge.reward_points > 0:
+                user_pts, _ = UserPoints.objects.get_or_create(user=user)
+                user_pts.total_points += uc.challenge.reward_points
+                user_pts.save()
+                total_points = user_pts.total_points
+
+                PointTransaction.objects.create(
+                    user=user,
+                    points_awarded=uc.challenge.reward_points,
+                    reason=f"Challenge Completed: {uc.challenge.name}",
+                )
+
+            if uc.challenge.reward_badge:
+                badge_obj, created = UserBadge.objects.get_or_create(
+                    user=user,
+                    badge_id=uc.challenge.reward_badge,
+                )
+                if created:
+                    newly_unlocked_badges.append({
+                        "badge_id": uc.challenge.reward_badge,
+                        "name": uc.challenge.reward_badge,
+                        "description": f"Completed: {uc.challenge.name}",
+                        "icon": "🏆",
+                        "category": "challenge",
+                        "earned_at": badge_obj.earned_at.isoformat(),
+                    })
+        else:
+            uc.save()
+
+    return total_points
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # AUTHENTICATION VIEWS
+# ─────────────────────────────────────────────────────────────────────────────
 
 @ensure_csrf_cookie
 @require_GET
@@ -561,7 +634,9 @@ def me(request):
     return Response({"authenticated": True, "user": UserSerializer(request.user).data})
 
 
+# ─────────────────────────────────────────────────────────────────────────────
 # USER PROFILE VIEWS
+# ─────────────────────────────────────────────────────────────────────────────
 
 @api_view(["POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
@@ -605,7 +680,9 @@ def profile_me_view(request):
         return Response({"errors": format_validation_errors(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
 # PUBLIC PROFILE VIEWS
+# ─────────────────────────────────────────────────────────────────────────────
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -668,7 +745,9 @@ def get_trainer_programs(request, user_id):
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
 # TRAINER PROFILE VIEWS
+# ─────────────────────────────────────────────────────────────────────────────
 
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
@@ -694,10 +773,6 @@ def update_trainer_profile(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def trainer_trainee_count(request):
-    """
-    Members (excluding self) with an active schedule that includes at least one
-    of this trainer's programs — used for the trainer dashboard Total Trainees card.
-    """
     if not request.user.is_trainer:
         return Response(
             {'detail': 'Only trainers can access this'},
@@ -715,7 +790,9 @@ def trainer_trainee_count(request):
     return Response({'trainee_count': trainee_count})
 
 
+# ─────────────────────────────────────────────────────────────────────────────
 # WORKOUT VIEWSETS
+# ─────────────────────────────────────────────────────────────────────────────
 
 class WorkoutProgramViewSet(viewsets.ModelViewSet):
     serializer_class = WorkoutPlanSerializer
@@ -769,6 +846,7 @@ class WorkoutFeedbackViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return WorkoutFeedback.objects.filter(session__user=self.request.user).order_by('-created_at')
+
 
 class ChallengeViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -829,6 +907,7 @@ def get_trainer_challenge_analytics(request):
         )
     out = ChallengeAnalyticsSerializer(rows, many=True)
     return Response(out.data, status=status.HTTP_200_OK)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -915,7 +994,9 @@ def exercise_template_detail(request, template_id):
         return Response({'error': 'Exercise template not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
 # PASSWORD RESET VIEWS
+# ─────────────────────────────────────────────────────────────────────────────
 
 def build_reset_url(request, uid, token):
     base = os.environ.get("FRONTEND_BASE_URL")
@@ -953,56 +1034,52 @@ def password_reset(request):
     return Response({"ok": True})
 
 
+# ─────────────────────────────────────────────────────────────────────────────
 # SCHEDULE VIEWS
+# ─────────────────────────────────────────────────────────────────────────────
 
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def generate_schedule(request):
     program_id = request.data.get('program_id')
-    start_date_str = request.data.get('start_date') 
+    start_date_str = request.data.get('start_date')
     rest_days = request.data.get('rest_days', [])
-    
-    # 1. Validation block
+
     if not program_id:
         return Response({"error": "program_id is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         program = WorkoutPlan.objects.get(id=program_id, is_deleted=False)
     except WorkoutPlan.DoesNotExist:
         return Response({"error": "Program not found"}, status=status.HTTP_404_NOT_FOUND)
-        
+
     try:
         existing_schedule = UserSchedule.objects.get(user=request.user, is_active=True)
         if program in existing_schedule.programs.all():
             return Response({"error": "This program is already in your schedule"}, status=status.HTTP_400_BAD_REQUEST)
     except UserSchedule.DoesNotExist:
         existing_schedule = None
-        
+
     sections = program.sections.filter(is_rest_day=False).order_by('order')
     if sections.count() == 0:
         return Response({"error": "Program has no workout sections"}, status=status.HTTP_400_BAD_REQUEST)
-        
-    # 2. Aggressive Date Handling Block
-    # We force the date to the provided string, ONLY falling back if it's completely missing.
+
     if start_date_str:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         except ValueError:
             return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        # If no date is sent, just start TODAY!
         start_date = datetime.now().date()
-            
-    # 3. Schedule Generation Block
+
     program_schedule = {}
     frequency = min(program.weekly_frequency, 7)
     section_index = 0
     days_scheduled = 0
-    
-    # Calculate offset so we map workouts starting from the correct day
+
     start_weekday = start_date.weekday()
     ordered_days = DAYS_OF_WEEK[start_weekday:] + DAYS_OF_WEEK[:start_weekday]
-    
+
     for day in ordered_days:
         if day in [d.lower() for d in rest_days]:
             program_schedule[day] = []
@@ -1014,8 +1091,7 @@ def generate_schedule(request):
                 section_index = 0
         else:
             program_schedule[day] = []
-            
-    # 4. Save Block
+
     if existing_schedule:
         merged_schedule = existing_schedule.weekly_schedule.copy()
         for day, section_ids in program_schedule.items():
@@ -1023,18 +1099,18 @@ def generate_schedule(request):
                 merged_schedule[day] = []
             elif merged_schedule[day] == 'rest':
                 merged_schedule[day] = []
-                
+
             if isinstance(merged_schedule[day], list):
                 merged_schedule[day].extend(section_ids)
             else:
                 merged_schedule[day] = section_ids
-                
+
         existing_schedule.weekly_schedule = merged_schedule
-        existing_schedule.start_date = start_date # ALWAYS overwrite the old date
-        
+        existing_schedule.start_date = start_date
+
         if not existing_schedule.original_weekly_schedule:
             existing_schedule.original_weekly_schedule = merged_schedule.copy()
-            
+
         existing_schedule.save()
         existing_schedule.programs.add(program)
         schedule = existing_schedule
@@ -1047,7 +1123,7 @@ def generate_schedule(request):
             is_active=True,
         )
         schedule.programs.add(program)
-        
+
     return Response(
         {"message": "Program added to your schedule", "schedule": UserScheduleSerializer(schedule).data},
         status=status.HTTP_201_CREATED,
@@ -1118,12 +1194,10 @@ def get_active_schedule(request):
             offset = int(request.GET.get('offset', '0') or 0)
         except (TypeError, ValueError):
             offset = 0
-        # Clamp so one query cannot scan huge ranges (UI uses Prev/Next in 4-week steps)
         offset = max(-24, min(24, offset))
 
         start_date = schedule.start_date + timedelta(days=offset * 28)
         end_date = start_date + timedelta(days=27)
-        # US 3.5: materialize missed rows for past scheduled days so calendar shows Missed (not only when History loads)
         auto_mark_missed_sessions(request.user, start_date=start_date, end_date=end_date)
         sessions = WorkoutSession.objects.filter(user=request.user, date__range=[start_date, end_date])
         sessions_list = list(sessions)
@@ -1132,13 +1206,13 @@ def get_active_schedule(request):
             WorkoutFeedback.objects.filter(session__in=sessions_list).values_list('session__date', flat=True)
         )
         feedback_by_date = {d.isoformat(): True for d in sessions_with_feedback}
-        # Just looping 28 days flat, calculates the day name dynamically
+
         for day_offset in range(28):
             event_date = start_date + timedelta(days=day_offset)
-            day_name = event_date.strftime('%A').lower() # 'monday', 'tuesday', etc.
-            
+            day_name = event_date.strftime('%A').lower()
+
             section_ids = schedule.weekly_schedule.get(day_name, [])
-            
+
             if not section_ids or section_ids == 'rest':
                 calendar_events.append({
                     'date': event_date.isoformat(),
@@ -1154,7 +1228,7 @@ def get_active_schedule(request):
                 total_exercises = 0
                 if not isinstance(section_ids, list):
                     section_ids = [section_ids] if section_ids != 'rest' else []
-                    
+
                 for section_id in section_ids:
                     try:
                         section = ProgramSection.objects.get(id=section_id)
@@ -1171,7 +1245,7 @@ def get_active_schedule(request):
                         })
                     except ProgramSection.DoesNotExist:
                         pass
-                        
+
                 calendar_events.append({
                     'date': event_date.isoformat(),
                     'day': day_name,
@@ -1252,7 +1326,6 @@ def get_workout_for_date(request, date_str):
     session_status_val = session.status if session else None
     has_feedback = WorkoutFeedback.objects.filter(session=session).exists() if session else False
 
-    # Load feedback details so the frontend can pre-fill the edit form
     feedback_data = None
     if has_feedback:
         try:
@@ -1324,9 +1397,19 @@ def workout_history(request):
         except ValueError:
             return Response({"error": "Invalid end date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # BUG-001 backend guard: reject inverted date ranges
+    if start_date and end_date and end_date < start_date:
+        return Response(
+            {"error": "end date must be after start date"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     auto_mark_missed_sessions(request.user, start_date=start_date, end_date=end_date)
 
-    qs = WorkoutSession.objects.filter(user=request.user, status__in=['completed', 'missed'])
+    qs = WorkoutSession.objects.filter(
+        user=request.user,
+        status__in=[SESSION_STATUS_COMPLETED, SESSION_STATUS_MISSED],  # SMELL-003 FIX
+    )
     if start:
         qs = qs.filter(date__gte=start)
     if end:
@@ -1348,10 +1431,10 @@ def start_workout_session(request, date_str):
         return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
     session, created = WorkoutSession.objects.get_or_create(
         user=request.user, date=target_date,
-        defaults={"status": "in_progress", "is_completed": False},
+        defaults={"status": SESSION_STATUS_IN_PROGRESS, "is_completed": False},  # SMELL-003 FIX
     )
-    if session.status != "completed":
-        session.status = "in_progress"
+    if session.status != SESSION_STATUS_COMPLETED:  # SMELL-003 FIX
+        session.status = SESSION_STATUS_IN_PROGRESS  # SMELL-003 FIX
         session.is_completed = False
         session.save()
     return Response({
@@ -1378,6 +1461,7 @@ def _apply_fallback_schedule_data(session, user, target_date):
     except (UserSchedule.DoesNotExist, ProgramSection.DoesNotExist):
         pass
 
+
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1388,9 +1472,9 @@ def complete_workout_session(request, date_str):
         return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
     session, _ = WorkoutSession.objects.get_or_create(
         user=request.user, date=target_date,
-        defaults={"status": "in_progress", "is_completed": False},
+        defaults={"status": SESSION_STATUS_IN_PROGRESS, "is_completed": False},  # SMELL-003 FIX
     )
-    session.status = "completed"
+    session.status = SESSION_STATUS_COMPLETED  # SMELL-003 FIX
     session.is_completed = True
     notes = request.data.get("notes", "")
     if notes is not None:
@@ -1411,70 +1495,10 @@ def complete_workout_session(request, date_str):
     # US 4.2 – Check and unlock any newly earned badges
     newly_unlocked_badges = _check_and_award_badges(request.user, session)
 
-
-   # --- US 4.4: UPDATE CHALLENGE PROGRESS ---
-    from django.utils import timezone
-    from .models import UserChallenge
-    
-    active_user_challenges = UserChallenge.objects.filter(
-        user=request.user, 
-        challenge__is_active=True,
-        is_completed=False
+    # US 4.4 – Update challenge progress (SMELL-001 FIX: extracted helper; BUG-002 FIX inside)
+    total_points = _update_challenge_progress(
+        request.user, session, newly_unlocked_badges, total_points
     )
-    
-    for uc in active_user_challenges:
-        criteria = uc.challenge.goal_criteria
-        updated = False
-        
-        # Increment workouts count
-        if 'workouts' in criteria:
-            uc.current_progress['workouts'] = uc.current_progress.get('workouts', 0) + 1
-            updated = True
-            
-        # Increment total time
-        if 'total_time_minutes' in criteria and session.duration_minutes:
-            uc.current_progress['total_time_minutes'] = uc.current_progress.get('total_time_minutes', 0) + session.duration_minutes
-            updated = True
-            
-        if updated:
-            # Check if they hit all goals
-            if all(uc.current_progress.get(k, 0) >= v for k, v in criteria.items()):
-                uc.is_completed = True
-                uc.completed_at = timezone.now()
-                uc.save()
-                
-                # --- NEW: Award Points for Challenge ---
-                if uc.challenge.reward_points > 0:
-                    user_pts, _ = UserPoints.objects.get_or_create(user=request.user)
-                    user_pts.total_points += uc.challenge.reward_points
-                    user_pts.save()
-                    
-                    # Update the total_points variable so the React Dashboard instantly updates
-                    total_points = user_pts.total_points 
-                    
-                    PointTransaction.objects.create(
-                        user=request.user,
-                        points_awarded=uc.challenge.reward_points,
-                        reason=f"Challenge Completed: {uc.challenge.name}"
-                    )
-                
-                # --- NEW: Award Badge for Challenge ---
-                if uc.challenge.reward_badge:
-                    badge_obj, created = UserBadge.objects.get_or_create(
-                        user=request.user, 
-                        badge_id=uc.challenge.reward_badge
-                    )
-                    if created:
-                        newly_unlocked_badges.append({
-                            "badge_id": uc.challenge.reward_badge,
-                            "name": uc.challenge.reward_badge,
-                            "description": f"Completed: {uc.challenge.name}",
-                            "icon": "🏆",
-                            "category": "challenge",
-                            "earned_at": badge_obj.earned_at.isoformat(),
-                        })
-            else:
-                uc.save()
 
     return Response({
         "message": "Workout session completed",
@@ -1484,12 +1508,11 @@ def complete_workout_session(request, date_str):
         "duration_minutes": session.duration_minutes,
         "notes": session.notes,
         "plan": session.plan.name if session.plan else None,
-        # US 4.1
         "points_awarded": points_awarded,
         "total_points": total_points,
-        # US 4.2
         "newly_unlocked_badges": newly_unlocked_badges,
     }, status=status.HTTP_200_OK)
+
 
 @api_view(['DELETE'])
 @authentication_classes([CsrfExemptSessionAuthentication])
@@ -1508,10 +1531,9 @@ def undo_workout_session(request, date_str):
     except WorkoutSession.DoesNotExist:
         return Response({"error": "No session found for this date"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Remove feedback first if it exists
     WorkoutFeedback.objects.filter(session=session).delete()
 
-    session.status = "in_progress"
+    session.status = SESSION_STATUS_IN_PROGRESS  # SMELL-003 FIX
     session.is_completed = False
     session.save()
 
@@ -1535,7 +1557,6 @@ def workout_feedback(request, date_str):
     except WorkoutSession.DoesNotExist:
         return Response({"error": "No session found for this date"}, status=status.HTTP_404_NOT_FOUND)
 
-    # ── GET ──────────────────────────────────────────────────────────────────
     if request.method == 'GET':
         try:
             feedback = WorkoutFeedback.objects.get(session=session)
@@ -1543,14 +1564,12 @@ def workout_feedback(request, date_str):
         except WorkoutFeedback.DoesNotExist:
             return Response({"error": "No feedback found for this session"}, status=status.HTTP_404_NOT_FOUND)
 
-    # ── DELETE ───────────────────────────────────────────────────────────────
     if request.method == 'DELETE':
         deleted_count, _ = WorkoutFeedback.objects.filter(session=session).delete()
         if deleted_count == 0:
             return Response({"error": "No feedback found to delete"}, status=status.HTTP_404_NOT_FOUND)
         return Response({"message": "Feedback removed successfully"}, status=status.HTTP_200_OK)
 
-    # ── POST / PATCH ─────────────────────────────────────────────────────────
     if not session.is_completed:
         return Response(
             {"error": "Cannot submit feedback for an incomplete workout session"},
@@ -1589,6 +1608,7 @@ def workout_feedback(request, date_str):
         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
     )
 
+
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -1614,12 +1634,12 @@ def join_challenge(request, challenge_id):
     """Join challenge (create UserChallenge if not exists)."""
     try:
         challenge = Challenge.objects.get(
-            id=challenge_id, 
-            is_active=True, 
+            id=challenge_id,
+            is_active=True,
             end_date__gte=timezone.now().date()
         )
     except Challenge.DoesNotExist:
-        return Response({"error": "Challenge not found or inactive"}, 
+        return Response({"error": "Challenge not found or inactive"},
                         status=status.HTTP_404_NOT_FOUND)
 
     uc, created = UserChallenge.objects.get_or_create(
@@ -1627,29 +1647,30 @@ def join_challenge(request, challenge_id):
         challenge=challenge,
         defaults={'current_progress': {k: 0 for k in challenge.goal_criteria}}
     )
-    
+
     if not created:
         return Response({"message": "Already joined"}, status=status.HTTP_200_OK)
 
     return Response({"message": "Joined challenge"}, status=status.HTTP_201_CREATED)
+
 
 @api_view(['POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def leave_challenge(request, challenge_id):
     """Remove a challenge from the user's dashboard."""
     from django.db.models import Q
-    
-    # Check for BOTH the parent Challenge ID or the specific UserChallenge ID
+
     uc = UserChallenge.objects.filter(
-        Q(id=challenge_id) | Q(challenge_id=challenge_id), 
+        Q(id=challenge_id) | Q(challenge_id=challenge_id),
         user=request.user
     ).first()
-    
+
     if uc:
         uc.delete()
         return Response({"message": "Challenge removed successfully."}, status=status.HTTP_200_OK)
-        
+
     return Response({"error": "You have not joined this challenge."}, status=status.HTTP_404_NOT_FOUND)
+
 
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
@@ -1657,7 +1678,7 @@ def leave_challenge(request, challenge_id):
 def update_challenge_progress(request):
     """Increment progress e.g. {'challenge_id': 1, 'type': 'login' or 'workout'}."""
     challenge_id = request.data.get('challenge_id')
-    inc_type = request.data.get('type')  # 'login', 'workout', 'total_time_minutes'
+    inc_type = request.data.get('type')
 
     try:
         challenge = Challenge.objects.get(id=challenge_id, is_active=True)
@@ -1670,18 +1691,17 @@ def update_challenge_progress(request):
 
     if inc_type in uc.challenge.goal_criteria:
         uc.current_progress[inc_type] = uc.current_progress.get(inc_type, 0) + 1
-        
-        # Auto complete check
+
         if all(uc.current_progress.get(k, 0) >= v for k, v in uc.challenge.goal_criteria.items()):
             uc.is_completed = True
             uc.completed_at = timezone.now()
-            # TODO: Award points/badges to User model (future)
-        
+
         uc.save()
         serializer = UserChallengeSerializer(uc)
         return Response(serializer.data)
 
     return Response({"error": f"Invalid type: {inc_type}"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['DELETE'])
 @authentication_classes([CsrfExemptSessionAuthentication])
@@ -1694,16 +1714,15 @@ def deactivate_schedule(request):
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
 # US2.3 — SHARED ANALYSIS HELPER
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _analyze_feedback(user):
     """
     Analyze the last 7 days of feedback and compute what the new schedule
     should look like. Returns (schedule, suggestion_dict, error_str).
     Does NOT save anything to the database.
-
-    FIXED: Pain day now uses _find_next_workout_day() instead of a hardcoded
-    +2 day offset that always wrongly produced Monday→Wednesday, Tuesday→Thursday.
     """
     try:
         schedule = UserSchedule.objects.get(user=user, is_active=True)
@@ -1714,7 +1733,7 @@ def _analyze_feedback(user):
     recent_feedback = WorkoutFeedback.objects.filter(
         session__user=user,
         session__date__gte=week_ago,
-        session__status='completed',
+        session__status=SESSION_STATUS_COMPLETED,  # SMELL-003 FIX
     ).select_related('session')
 
     if not recent_feedback.exists():
@@ -1728,8 +1747,6 @@ def _analyze_feedback(user):
     avg_fatigue    = sum(fatigue_levels) / len(fatigue_levels)         if fatigue_levels     else avg_difficulty
     stress_score   = (avg_difficulty + avg_fatigue) / 2
 
-    # ── FIXED: find the actual pain day, then walk the schedule for the
-    # correct next workout day (not a hardcoded +2 offset) ──────────────────
     pain_day = None
     pain_session_date      = None
     pain_next_workout_day  = None
@@ -1741,22 +1758,16 @@ def _analyze_feedback(user):
             recent_feedback.filter(pain_reported=True).order_by('-session__date').first()
         )
         if pain_feedback:
-            # Use isoweekday()-based lookup (Monday=1 ... Sunday=7) instead of
-            # strftime('%A').lower() which can be affected by locale/timezone settings
-            # and produce the wrong day name (e.g. "wednesday" for a monday session).
             weekday_to_name = {
                 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
                 5: 'friday', 6: 'saturday', 7: 'sunday',
             }
             pain_day = weekday_to_name[pain_feedback.session.date.isoweekday()]
-            # Also store the raw ISO date so the frontend can re-derive pain_day
-            # client-side using parseLocalDate (zero timezone offset)
             pain_session_date = pain_feedback.session.date.isoformat()
             pain_next_workout_day, pain_next_workout_date = _find_next_workout_day(
                 schedule.weekly_schedule, pain_day
             )
-            # Look up the current session_length for the affected program (if any)
-            current_duration = 45  # sensible default
+            current_duration = 45
             day_sections = schedule.weekly_schedule.get(pain_next_workout_day or '', [])
             if isinstance(day_sections, list) and day_sections:
                 try:
@@ -1768,7 +1779,7 @@ def _analyze_feedback(user):
                 pain_day, pain_next_workout_day, pain_next_workout_date, current_duration
             )
 
-    current  = schedule.weekly_schedule
+    current      = schedule.weekly_schedule
     workout_days = [d for d in DAYS_OF_WEEK if _is_workout_day(current.get(d))]
     rest_days    = [d for d in DAYS_OF_WEEK if d not in workout_days]
     new_schedule = {d: current.get(d, []) for d in DAYS_OF_WEEK}
@@ -1779,7 +1790,6 @@ def _analyze_feedback(user):
         f"— your schedule looks balanced, no changes needed."
     )
 
-    # Pain takes priority — surface the options modal instead of auto-removing
     if pain_reported and pain_day:
         adjustment = "pain"
         reason = (
@@ -1787,7 +1797,6 @@ def _analyze_feedback(user):
             f"{'Your next workout day is ' + pain_next_workout_day.capitalize() + '.' if pain_next_workout_day else ''} "
             f"Choose how you'd like to handle it below."
         )
-    # Stress-score adjustments (only when no pain)
     elif stress_score >= 4.0:
         days_to_remove = min(2, max(0, len(workout_days) - 2))
         removed = []
@@ -1839,9 +1848,7 @@ def _analyze_feedback(user):
         "avg_difficulty":           round(avg_difficulty, 1),
         "avg_fatigue":              round(avg_fatigue, 1),
         "pain_reported":            pain_reported,
-        # Legacy field kept for non-pain paths
         "pain_day_cleared":         pain_next_workout_day,
-        # New explicit fields
         "pain_day":                 pain_day,
         "pain_session_date":        pain_session_date if pain_reported else None,
         "pain_next_workout_day":    pain_next_workout_day,
@@ -1849,13 +1856,10 @@ def _analyze_feedback(user):
         "recovery_options":         recovery_options,
         "workout_days_count":       workout_days_after,
         "reason":                   reason,
-        # Internal — stripped before sending to frontend
         "_new_schedule":            new_schedule,
     }
     return schedule, suggestion, None
 
-
-# US2.3 — PREVIEW: analyze feedback, return suggestion WITHOUT saving
 
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
@@ -1895,16 +1899,11 @@ def regenerate_schedule_preview(request):
     return Response(response_data, status=status.HTTP_200_OK)
 
 
-# US2.3 — APPLY: user accepted the suggestion, now save it
-
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def regenerate_schedule_apply(request):
-    """
-    Re-run the analysis and apply the result (non-pain path only).
-    Called when the user clicks "Accept" for stress-score adjustments.
-    """
+    """Re-run the analysis and apply the result (non-pain path only)."""
     schedule, suggestion, error = _analyze_feedback(request.user)
     if error:
         return Response({"error": error}, status=status.HTTP_404_NOT_FOUND)
@@ -1923,14 +1922,12 @@ def regenerate_schedule_apply(request):
             status=status.HTTP_423_LOCKED,
         )
 
-    # Pain suggestions go through apply_recovery_option instead
     if suggestion.get('adjustment') == 'pain':
         return Response(
             {"error": "Pain recovery requires choosing an option via /schedule/apply-recovery-option/"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Snapshot original before first adjustment
     if not schedule.original_weekly_schedule:
         schedule.original_weekly_schedule = schedule.weekly_schedule.copy()
 
@@ -1941,7 +1938,6 @@ def regenerate_schedule_apply(request):
     response_data = {k: v for k, v in suggestion.items() if not k.startswith('_')}
     response_data["message"] = "Schedule updated based on your feedback"
 
-    # Build next_week_changes for the banner
     original = schedule.original_weekly_schedule or {}
     next_week_changes = []
     for day in DAYS_OF_WEEK:
@@ -1958,22 +1954,11 @@ def regenerate_schedule_apply(request):
     return Response(response_data, status=status.HTTP_200_OK)
 
 
-# PAIN RECOVERY — Apply a specific user-chosen option
-
 @api_view(['POST'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def apply_recovery_option(request):
-    """
-    Apply the specific pain recovery option the user chose in the modal.
-
-    option_id values:
-      rest_next      — make the next workout day a rest day
-      shorter_workout — record a duration override for that day (future-session hint)
-      lighter_focus  — swap that day to a mobility/lighter section
-      rest_same_day  — mark the pain day itself as rest
-      keep_going     — no changes
-    """
+    """Apply the specific pain recovery option the user chose in the modal."""
     try:
         schedule = UserSchedule.objects.get(user=request.user, is_active=True)
     except UserSchedule.DoesNotExist:
@@ -1991,12 +1976,12 @@ def apply_recovery_option(request):
             status=status.HTTP_423_LOCKED,
         )
 
-    option_id      = request.data.get('option_id')
-    affected_day   = request.data.get('affected_day')
-    affected_date  = request.data.get('affected_date')
-    change_type    = request.data.get('change_type')
-    duration_mins  = request.data.get('duration_minutes')
-    pain_day       = request.data.get('pain_day')
+    option_id     = request.data.get('option_id')
+    affected_day  = request.data.get('affected_day')
+    affected_date = request.data.get('affected_date')
+    change_type   = request.data.get('change_type')
+    duration_mins = request.data.get('duration_minutes')
+    pain_day      = request.data.get('pain_day')
 
     valid_option_ids = {'rest_next', 'shorter_workout', 'lighter_focus', 'rest_same_day', 'keep_going'}
     if option_id not in valid_option_ids:
@@ -2012,7 +1997,6 @@ def apply_recovery_option(request):
             "next_week_changes": [],
         }, status=status.HTTP_200_OK)
 
-    # Snapshot original before first adjustment
     if not schedule.original_weekly_schedule:
         schedule.original_weekly_schedule = schedule.weekly_schedule.copy()
 
@@ -2026,10 +2010,6 @@ def apply_recovery_option(request):
         reason = f"{affected_day.capitalize()} switched to a rest day to support your recovery."
 
     elif option_id == 'shorter_workout' and affected_day and affected_day in DAYS_OF_WEEK:
-        # We keep the section IDs intact so exercises still show up;
-        # the duration hint is stored in schedule.duration_overrides (add this
-        # JSON field to your model if you want to persist it, or use a session note).
-        # For now we annotate the schedule with a day-level duration override.
         overrides = schedule.duration_overrides if hasattr(schedule, 'duration_overrides') and schedule.duration_overrides else {}
         overrides[affected_day] = int(duration_mins) if duration_mins else 27
         if hasattr(schedule, 'duration_overrides'):
@@ -2038,8 +2018,6 @@ def apply_recovery_option(request):
         reason = f"{affected_day.capitalize()}'s workout shortened to {overrides[affected_day]} minutes."
 
     elif option_id == 'lighter_focus' and affected_day and affected_day in DAYS_OF_WEEK:
-        # Tag the day in a focus_overrides dict so the frontend/session can
-        # display "mobility day". The section IDs remain so exercises still load.
         focus_overrides = schedule.focus_overrides if hasattr(schedule, 'focus_overrides') and schedule.focus_overrides else {}
         focus_overrides[affected_day] = 'mobility'
         if hasattr(schedule, 'focus_overrides'):
@@ -2068,8 +2046,6 @@ def apply_recovery_option(request):
     }, status=status.HTTP_200_OK)
 
 
-# REVERT schedule to its original (pre-adjustment) state
-
 @api_view(['POST', 'DELETE'])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -2082,25 +2058,11 @@ def schedule_adjustment_lock(request):
 
     if request.method == 'DELETE':
         if not schedule.adjustments_locked_until:
-            return Response(
-                {
-                    "message": "No active adjustment lock found.",
-                    "locked": False,
-                },
-                status=status.HTTP_200_OK,
-            )
-
+            return Response({"message": "No active adjustment lock found.", "locked": False}, status=status.HTTP_200_OK)
         schedule.adjustments_locked_until = None
         schedule.adjustment_lock_note = ''
         schedule.save(update_fields=['adjustments_locked_until', 'adjustment_lock_note', 'updated_at'])
-
-        return Response(
-            {
-                "message": "Plan lock removed. Recommended adjustments can be suggested again.",
-                "locked": False,
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response({"message": "Plan lock removed. Recommended adjustments can be suggested again.", "locked": False}, status=status.HTTP_200_OK)
 
     if _is_adjustment_lock_active(schedule):
         return Response(
@@ -2115,17 +2077,13 @@ def schedule_adjustment_lock(request):
 
     cycle_start, cycle_end = _get_next_cycle_window(schedule)
     note = (request.data.get('note') or 'Current workout plan locked for the next cycle.').strip()
-
     schedule.adjustments_locked_until = cycle_end
     schedule.adjustment_lock_note = note[:255]
     schedule.save(update_fields=['adjustments_locked_until', 'adjustment_lock_note', 'updated_at'])
 
     return Response(
         {
-            "message": (
-                f"Plan locked for the next cycle, from "
-                f"{cycle_start.isoformat()} to {cycle_end.isoformat()}."
-            ),
+            "message": f"Plan locked for the next cycle, from {cycle_start.isoformat()} to {cycle_end.isoformat()}.",
             "reason": "Recommended adjustments will stay off during that cycle unless you unlock the plan.",
             "locked": True,
             "lock_starts_on": cycle_start.isoformat(),
@@ -2140,13 +2098,7 @@ def schedule_adjustment_lock(request):
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def lock_schedule(request, schedule_id: int):
-    """
-    Toggle the schedule's `is_locked` flag for the current cycle.
-
-    Frontend calls:
-      POST /api/schedule/{schedule_id}/lock/
-      body: { "locked": true|false } (but we also support toggling when omitted)
-    """
+    """Toggle the schedule's is_locked flag for the current cycle."""
     try:
         schedule = UserSchedule.objects.get(id=schedule_id, user=request.user, is_active=True)
     except UserSchedule.DoesNotExist:
@@ -2156,10 +2108,8 @@ def lock_schedule(request, schedule_id: int):
     if isinstance(locked, bool):
         schedule.is_locked = locked
     elif locked is None:
-        # Fallback: toggle when no explicit state is provided.
         schedule.is_locked = not schedule.is_locked
     else:
-        # Tolerate string values sent by some clients.
         if isinstance(locked, str):
             v = locked.strip().lower()
             if v in ("true", "1", "yes", "on"):
@@ -2179,10 +2129,7 @@ def lock_schedule(request, schedule_id: int):
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def revert_schedule(request):
-    """
-    Restore weekly_schedule to the original snapshot taken when the
-    schedule was first created / first program was added.
-    """
+    """Restore weekly_schedule to the original snapshot."""
     try:
         schedule = UserSchedule.objects.get(user=request.user, is_active=True)
     except UserSchedule.DoesNotExist:
@@ -2196,7 +2143,6 @@ def revert_schedule(request):
 
     schedule.weekly_schedule = schedule.original_weekly_schedule.copy()
     schedule.is_adjusted = False
-    # Clear any per-day overrides if your model has them
     if hasattr(schedule, 'duration_overrides'):
         schedule.duration_overrides = {}
     if hasattr(schedule, 'focus_overrides'):
@@ -2209,7 +2155,9 @@ def revert_schedule(request):
     }, status=status.HTTP_200_OK)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
 # TRAINER PROGRAM FEEDBACK
+# ─────────────────────────────────────────────────────────────────────────────
 
 @api_view(['GET'])
 @authentication_classes([CsrfExemptSessionAuthentication])
@@ -2222,13 +2170,12 @@ def trainer_program_feedback(request, program_id):
             {"error": "Program not found or you do not own this program"},
             status=status.HTTP_404_NOT_FOUND,
         )
-    enrolled_count = UserSchedule.objects.filter(
-        programs=program, is_active=True
-    ).count()
+    enrolled_count = UserSchedule.objects.filter(programs=program, is_active=True).count()
 
     feedbacks = WorkoutFeedback.objects.filter(
         session__plan=program, session__is_completed=True
     ).select_related('session')
+
     if not feedbacks.exists():
         return Response({
             "program_id": program_id, "program_name": program.name,
@@ -2237,11 +2184,13 @@ def trainer_program_feedback(request, program_id):
             "total_responses": 0, "avg_difficulty": None, "avg_fatigue": None,
             "pain_reported_count": 0, "weekly_trends": [], "entries": [],
         }, status=status.HTTP_200_OK)
+
     total = feedbacks.count()
     avg_difficulty = round(sum(f.difficulty_rating for f in feedbacks) / total, 2)
     fatigue_entries = [f.fatigue_level for f in feedbacks if f.fatigue_level is not None]
     avg_fatigue = round(sum(fatigue_entries) / len(fatigue_entries), 2) if fatigue_entries else None
     pain_count = feedbacks.filter(pain_reported=True).count()
+
     from collections import defaultdict
     weekly_data = defaultdict(list)
     for f in feedbacks:
@@ -2269,6 +2218,7 @@ def trainer_program_feedback(request, program_id):
         "weekly_trends": weekly_trends, "entries": entries,
     }, status=status.HTTP_200_OK)
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # US 4.1 – GET /api/rewards/points/
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2277,10 +2227,6 @@ def trainer_program_feedback(request, program_id):
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def get_user_points(request):
-    """
-    Return the authenticated user's current points total and their
-    last 20 transaction records so the frontend can show a history list.
-    """
     user_pts, _ = UserPoints.objects.get_or_create(user=request.user)
     transactions = (
         PointTransaction.objects
@@ -2306,7 +2252,7 @@ def get_user_badges(request):
     earned_map = {b.badge_id: b.earned_at for b in earned_qs}
 
     result = []
-    
+
     for badge_id, info in BADGE_DEFINITIONS.items():
         is_earned = badge_id in earned_map
         result.append({
@@ -2318,19 +2264,18 @@ def get_user_badges(request):
             "earned": is_earned,
             "earned_at": earned_map[badge_id].isoformat() if is_earned else None,
         })
-        
-    
+
     added_b_ids = set(BADGE_DEFINITIONS.keys())
     challenge_badges = Challenge.objects.exclude(reward_badge='').values('reward_badge', 'name')
-    
+
     for cb in challenge_badges:
         b_id = cb['reward_badge']
         if b_id in added_b_ids:
-            continue 
-            
+            continue
+
         added_b_ids.add(b_id)
         is_earned = b_id in earned_map
-        
+
         result.append({
             "badge_id": b_id,
             "name": b_id,
@@ -2346,9 +2291,11 @@ def get_user_badges(request):
         "badges": result,
     })
 
-# ============================================================================
-# DASHBOARD SUMMARY (Fixing missing feature)
-# ============================================================================
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DASHBOARD SUMMARY
+# ─────────────────────────────────────────────────────────────────────────────
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_progress_summary(request):
@@ -2356,18 +2303,18 @@ def get_progress_summary(request):
     completed_workouts = WorkoutSession.objects.filter(
         user=request.user,
         is_completed=True,
-        status='completed'
+        status=SESSION_STATUS_COMPLETED,  # SMELL-003 FIX
     )
-    
+
     total_workouts = completed_workouts.count()
-    # Sum the duration, defaulting to 0 if None
     total_time = sum(w.duration_minutes for w in completed_workouts if w.duration_minutes) or 0
-    
+
     return Response({
         "total_workouts": total_workouts,
         "total_time_trained": total_time,
-        "chart_data": [] # Placeholder to satisfy the visual data tests
+        "chart_data": [],
     }, status=status.HTTP_200_OK)
+
 
 @api_view(['PATCH'])
 @authentication_classes([CsrfExemptSessionAuthentication])
