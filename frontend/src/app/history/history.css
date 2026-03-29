@@ -161,3 +161,12 @@
 .filter-btn:active {
   transform: scale(0.98);
 }
+
+/* BUG-001 FIX: validation error for inverted date range */
+.filter-error {
+  color: #ef4444;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}

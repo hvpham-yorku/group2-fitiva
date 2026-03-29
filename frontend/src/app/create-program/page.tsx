@@ -71,6 +71,8 @@ const CreateProgramPage = () => {
   const [focuses, setFocuses] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState('beginner');
   const [sessionLength, setSessionLength] = useState(45);
+  const [isPaid, setIsPaid] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Initialize 7 days
   const [daySections, setDaySections] = useState<DaySection[]>(
@@ -375,6 +377,7 @@ const CreateProgramPage = () => {
       difficulty,
       weekly_frequency: workoutDays,
       session_length: sessionLength,
+      is_paid: isPaid,
       sections: daySections.map((section, index) => ({
         format: section.format,
         type: section.type,
@@ -403,15 +406,16 @@ const CreateProgramPage = () => {
       );
 
       if (response.ok) {
-        router.push('/trainer-programs');
+        setSuccessMessage(`"${programName}" has been created successfully!`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         const errorData = await response.json();
         console.error('Error creating program:', errorData);
-        alert('Failed to create program');
+        alert('Failed to create program: ' + (errorData.detail || JSON.stringify(errorData)));
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Network error');
+      alert('Could not reach the server. Make sure the backend is running on localhost:8000.');
     } finally {
       setSaving(false);
     }
@@ -426,6 +430,41 @@ const CreateProgramPage = () => {
   return (
     <ProtectedRoute>
       <div className="create-program-container">
+
+        {/* Success notification */}
+        {successMessage && (
+          <div style={{
+            position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 200, background: '#22c55e', color: '#fff',
+            padding: '0.9rem 1.75rem', borderRadius: '12px',
+            boxShadow: '0 6px 24px rgba(34,197,94,0.35)',
+            fontWeight: 700, fontSize: '0.95rem',
+            display: 'flex', alignItems: 'center', gap: '0.75rem',
+            whiteSpace: 'nowrap',
+          }}>
+            <span>✅</span>
+            <span>{successMessage}</span>
+            <button
+              onClick={() => router.push('/trainer-programs')}
+              style={{
+                background: 'rgba(255,255,255,0.25)', border: 'none',
+                borderRadius: '6px', color: '#fff', fontWeight: 700,
+                padding: '0.3rem 0.75rem', cursor: 'pointer', fontSize: '0.85rem',
+                marginLeft: '0.5rem',
+              }}
+            >
+              View Programs →
+            </button>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              style={{
+                background: 'none', border: 'none', color: '#fff',
+                cursor: 'pointer', fontSize: '1rem', padding: '0', lineHeight: 1,
+              }}
+            >✕</button>
+          </div>
+        )}
+
         {/* Rest Day Confirmation Modal */}
         {showRestDayConfirm && (
           <div className="modal-overlay" onClick={cancelRestDay}>
@@ -727,6 +766,51 @@ const CreateProgramPage = () => {
                     onChange={(e) => setSessionLength(parseInt(e.target.value))}
                     className="form-input"
                   />
+                </div>
+              </div>
+
+              {/* Paid / Free toggle */}
+              <div className="form-group">
+                <label>Access Type</label>
+                <div
+                  onClick={() => setIsPaid(p => !p)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    padding: '1rem 1.25rem',
+                    borderRadius: '10px',
+                    border: `2px solid ${isPaid ? '#f59e0b' : '#22c55e'}`,
+                    background: isPaid ? 'rgba(245,158,11,0.06)' : 'rgba(34,197,94,0.06)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    userSelect: 'none',
+                  }}
+                >
+                  <span style={{ fontSize: '1.5rem' }}>{isPaid ? '🔒' : '🔓'}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: '1rem', color: isPaid ? '#f59e0b' : '#22c55e' }}>
+                      {isPaid ? 'Paid / Subscription' : 'Free'}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
+                      {isPaid
+                        ? 'Users need a subscription to access this program.'
+                        : 'Anyone can add this program to their schedule for free.'}
+                    </div>
+                  </div>
+                  <div style={{
+                    width: '44px', height: '24px', borderRadius: '12px',
+                    background: isPaid ? '#f59e0b' : '#22c55e',
+                    position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                  }}>
+                    <span style={{
+                      position: 'absolute', top: '3px',
+                      left: isPaid ? '22px' : '3px',
+                      width: '18px', height: '18px', borderRadius: '50%',
+                      background: '#fff', transition: 'left 0.2s',
+                      display: 'block',
+                    }} />
+                  </div>
                 </div>
               </div>
             </div>

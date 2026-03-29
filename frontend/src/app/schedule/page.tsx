@@ -22,7 +22,7 @@ interface CalendarEvent {
   }>;
   section_type: string;
   exercise_count: number;
-  session_status?: 'in_progress' | 'completed' | 'missed' | null;
+  session_status?: 'in_progress' | 'completed' | null;
   has_feedback?: boolean;
 }
 
@@ -66,6 +66,16 @@ interface NextWeekChange {
   reason?: string;
 }
 
+interface AdjustmentInfo {
+  scheduleId: number;
+  reason: string;
+  adjustment: string;
+  stress_score: number;
+  avg_difficulty: number;
+  avg_fatigue: number;
+  appliedAt: string;
+}
+
 // Recovery options from the backend
 export interface RecoveryOption {
   id: 'rest_next' | 'shorter_workout' | 'lighter_focus' | 'rest_same_day' | 'keep_going';
@@ -101,21 +111,6 @@ const parseLocalDate = (dateStr: string): Date => {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
-
-const toLocalISODate = (): string => {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
-};
-
-/** US 3.5: completed / missed / in progress, or infer missed for past workout days with no session row yet. */
-function getCalendarWorkoutStatus(event: CalendarEvent, todayIso: string): 'completed' | 'missed' | 'in_progress' | 'none' {
-  if (event.section_type === 'rest') return 'none';
-  if (event.session_status === 'completed') return 'completed';
-  if (event.session_status === 'missed') return 'missed';
-  if (event.session_status === 'in_progress') return 'in_progress';
-  if (event.date < todayIso) return 'missed';
-  return 'none';
-}
 
 const formatShort = (dateStr: string): string =>
   parseLocalDate(dateStr).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
@@ -270,18 +265,25 @@ const SchedulePage = () => {
 
   const [nextWeekChanges, setNextWeekChanges] = useState<NextWeekChange[] | null>(null);
   const [showNextWeekBanner, setShowNextWeekBanner] = useState(false);
+  const [lastAdjustmentInfo, setLastAdjustmentInfo] = useState<AdjustmentInfo | null>(null);
 
   const [monthOffset, setMonthOffset] = useState(0);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [enrolledCounts, setEnrolledCounts] = useState<Record<number, number>>({});
 
   useEffect(() => {
     fetchSchedule();
-  }, [monthOffset]);
+    // Restore persisted adjustment info from localStorage
+    try {
+      const stored = localStorage.getItem('fitiva_last_adjustment');
+      if (stored) setLastAdjustmentInfo(JSON.parse(stored));
+    } catch { /* ignore */ }
+  }, []);
 
-  const fetchSchedule = async (offsetOverride?: number) => {
-    const offset = offsetOverride ?? monthOffset;
+  const fetchSchedule = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/active/?offset=${offset}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/schedule/active/`,
         { credentials: 'include' }
       );
       if (response.ok) {
@@ -291,12 +293,35 @@ const SchedulePage = () => {
           setNextWeekChanges(data.next_week_changes);
           setShowNextWeekBanner(true);
         }
+        // If trainer, fetch enrolled counts for their own programs
+        if (user?.is_trainer && data.schedule?.program_list) {
+          fetchEnrolledCounts(data.schedule.program_list);
+        }
       }
     } catch (error) {
       console.error('Error fetching schedule:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchEnrolledCounts = async (programs: { id: number; trainer_name: string }[]) => {
+    const counts: Record<number, number> = {};
+    await Promise.all(
+      programs.map(async (p) => {
+        try {
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/trainer/programs/${p.id}/feedback/`,
+            { credentials: 'include' }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (data.enrolled_count !== undefined) counts[p.id] = data.enrolled_count;
+          }
+        } catch { /* silent */ }
+      })
+    );
+    setEnrolledCounts(counts);
   };
 
   const showSuccess = (message: string) => setNotification({ type: 'success', message });
@@ -339,7 +364,7 @@ const SchedulePage = () => {
         showSuccess('Start date updated!');
         setEditingStartDate(false);
         setMonthOffset(0);
-        fetchSchedule(0);
+        fetchSchedule();
       } else {
         const err = await response.json();
         showError(err.error || 'Failed to update start date');
@@ -413,6 +438,8 @@ const SchedulePage = () => {
       if (!res.ok) { showError(data.error || 'Failed to revert schedule'); return; }
       showSuccess('Schedule reverted to your original plan! ✅');
       setShowRevertConfirm(false); setShowNextWeekBanner(false); setNextWeekChanges(null);
+      setLastAdjustmentInfo(null);
+      try { localStorage.removeItem('fitiva_last_adjustment'); } catch { /* ignore */ }
       await fetchSchedule();
     } catch { showError('Could not revert schedule.'); }
   };
@@ -526,6 +553,20 @@ const SchedulePage = () => {
         showInfo('Got it — schedule unchanged. Keep an eye on that pain! 💙');
       } else {
         showSuccess(`✅ ${option.label} applied! ${data.reason ?? ''}`);
+        // Persist adjustment info for the explainer card (pain path)
+        if (suggestion && scheduleData?.schedule) {
+          const info: AdjustmentInfo = {
+            scheduleId: scheduleData.schedule.id,
+            reason: suggestion.reason,
+            adjustment: suggestion.adjustment,
+            stress_score: suggestion.stress_score,
+            avg_difficulty: suggestion.avg_difficulty,
+            avg_fatigue: suggestion.avg_fatigue,
+            appliedAt: new Date().toISOString(),
+          };
+          setLastAdjustmentInfo(info);
+          try { localStorage.setItem('fitiva_last_adjustment', JSON.stringify(info)); } catch { /* ignore */ }
+        }
       }
 
       setShowSuggestionModal(false);
@@ -569,6 +610,24 @@ const SchedulePage = () => {
         return;
       }
       showSuccess(`✅ Schedule updated! ${data.reason}`);
+      // Persist adjustment info for the explainer card
+      if (suggestion && scheduleData?.schedule) {
+        const info: AdjustmentInfo = {
+          scheduleId: scheduleData.schedule.id,
+          reason: suggestion.reason,
+          adjustment: suggestion.adjustment,
+          stress_score: suggestion.stress_score,
+          avg_difficulty: suggestion.avg_difficulty,
+          avg_fatigue: suggestion.avg_fatigue,
+          appliedAt: new Date().toISOString(),
+        };
+        setLastAdjustmentInfo(info);
+        try { localStorage.setItem('fitiva_last_adjustment', JSON.stringify(info)); } catch { /* ignore */ }
+      }
+      if (data.next_week_changes && data.next_week_changes.length > 0) {
+        setNextWeekChanges(data.next_week_changes);
+        setShowNextWeekBanner(true);
+      }
       setShowSuggestionModal(false); setSuggestion(null);
       await fetchSchedule();
     } catch { showError('Could not apply schedule changes.'); }
@@ -725,12 +784,26 @@ const SchedulePage = () => {
 
   const getFocusIcon = (focus: string) => ({ strength: '💪', cardio: '❤️', flexibility: '🧘', balance: '⚖️' }[focus?.toLowerCase()] ?? '🏋️');
 
-  /** Split the 28-day list from the API into 4 rows of 7 (server applies ?offset for Prev/Next). */
-  const buildWeeksFromEvents = (events: CalendarEvent[]): CalendarEvent[][] => {
+  const buildWeeksForMonthOffset = (events: CalendarEvent[], startDateStr: string, offset: number): CalendarEvent[][] => {
+    const eventByDate: Record<string, CalendarEvent> = {};
+    events.forEach((e) => { eventByDate[e.date] = e; });
+
+    const base = parseLocalDate(startDateStr);
+    const pageStart = new Date(base);
+    pageStart.setDate(base.getDate() + offset * 28);
+
+    const shifted: CalendarEvent[] = Array.from({ length: 28 }, (_, i) => {
+      const day = new Date(pageStart);
+      day.setDate(pageStart.getDate() + i);
+      const isoDate = [day.getFullYear(), String(day.getMonth() + 1).padStart(2, '0'), String(day.getDate()).padStart(2, '0')].join('-');
+      if (eventByDate[isoDate]) return eventByDate[isoDate];
+      const patternEvent = events[i % events.length];
+      const jsDay = day.getDay();
+      return { ...patternEvent, date: isoDate, day: DAYS_OF_WEEK[jsDay === 0 ? 6 : jsDay - 1], session_status: null, has_feedback: false };
+    });
+
     const weeks: CalendarEvent[][] = [];
-    for (let i = 0; i < events.length; i += 7) {
-      weeks.push(events.slice(i, i + 7));
-    }
+    for (let i = 0; i < 28; i += 7) weeks.push(shifted.slice(i, i + 7));
     return weeks;
   };
 
@@ -742,11 +815,11 @@ const SchedulePage = () => {
 
   const weekRangeLabel = (week: CalendarEvent[]) => `${formatShort(week[0].date)} – ${formatShort(week[week.length - 1].date)}`;
 
-  const monthWindowLabelFromEvents = (events: CalendarEvent[]) => {
-    if (!events.length) return '';
-    const first = parseLocalDate(events[0].date);
-    const last = parseLocalDate(events[events.length - 1].date);
-    return `${first.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()} – ${last.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}`;
+  const monthWindowLabel = (startDateStr: string, offset: number) => {
+    const base = parseLocalDate(startDateStr);
+    const pageStart = new Date(base); pageStart.setDate(base.getDate() + offset * 28);
+    const pageEnd = new Date(pageStart); pageEnd.setDate(pageEnd.getDate() + 27);
+    return `${pageStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()} – ${pageEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}`;
   };
 
   const navBtnStyle: React.CSSProperties = { padding: '0.45rem 1rem', borderRadius: '8px', border: '2px solid var(--border-medium)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', whiteSpace: 'nowrap' };
@@ -773,8 +846,7 @@ const SchedulePage = () => {
     ? parseLocalDate(schedule.adjustments_locked_until).toLocaleDateString()
     : '';
 
-  const weeks = buildWeeksFromEvents(calendar_events);
-  const todayIso = toLocalISODate();
+  const weeks = buildWeeksForMonthOffset(calendar_events, schedule.start_date, monthOffset);
   const allFocuses = schedule.program_list ? [...new Set(schedule.program_list.flatMap((p) => p.focus))] : [];
   const suggestionMeta = suggestion ? (ADJUSTMENT_META[suggestion.adjustment] ?? ADJUSTMENT_META.none) : null;
   const isPainSuggestion = suggestion?.adjustment === 'pain' || (suggestion?.pain_reported && (suggestion?.recovery_options?.length ?? 0) > 0);
@@ -789,26 +861,176 @@ const SchedulePage = () => {
 
         <div className="content">
 
-          {/* ── Next-Week Adjustment Banner ──────────────────────────────── */}
-          {showNextWeekBanner && nextWeekChanges && nextWeekChanges.length > 0 && (
-            <div style={{ background: 'linear-gradient(135deg,#1e3a5f,#1a2e4a)', border: '1.5px solid #3b82f6', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
-              <div style={{ fontSize: '1.5rem', flexShrink: 0 }}>📅</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: '#93c5fd', marginBottom: '0.3rem', fontSize: '0.95rem' }}>Schedule adjusted — effective next week</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.5rem' }}>
-                  {nextWeekChanges.map((change, idx) => (
-                    <span key={idx} style={{ background: change.to === 'rest' ? '#7f1d1d' : '#14532d', color: change.to === 'rest' ? '#fca5a5' : '#86efac', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.8rem', fontWeight: 600 }}>
-                      {change.day.charAt(0).toUpperCase() + change.day.slice(1)}: {change.from === 'workout' ? '🏋️' : '😴'} → {change.to === 'workout' ? '🏋️' : '😴'}
-                    </span>
-                  ))}
+          {/* ── Plan Adjustment Banner (compact) — click to see details ── */}
+          {schedule.is_adjusted && schedule.original_weekly_schedule && (() => {
+            const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+            const orig = schedule.original_weekly_schedule;
+            const curr = schedule.weekly_schedule;
+            const durOverrides: Record<string, number>  = schedule.duration_overrides  ?? {};
+            const focOverrides: Record<string, string>  = schedule.focus_overrides     ?? {};
+
+            const isWorkout = (slot: number[] | string | undefined) =>
+              Array.isArray(slot) ? slot.length > 0 : (slot != null && slot !== 'rest' && slot !== '');
+
+            // A day is "changed" if its type, duration, or focus changed
+            const changedDays = DAYS.filter(d =>
+              isWorkout(orig[d]) !== isWorkout(curr[d]) ||
+              durOverrides[d] != null ||
+              focOverrides[d] != null
+            );
+
+            const adjMeta = lastAdjustmentInfo
+              ? (ADJUSTMENT_META[lastAdjustmentInfo.adjustment] ?? ADJUSTMENT_META.none)
+              : ADJUSTMENT_META.none;
+            const appliedDate = lastAdjustmentInfo?.appliedAt
+              ? new Date(lastAdjustmentInfo.appliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+              : null;
+
+            // Build the "after" cell for a day — shows type change, shorter duration, or focus swap
+            const renderAfterCell = (day: string) => {
+              const nowWorkout = isWorkout(curr[day]);
+              const dur = durOverrides[day];
+              const foc = focOverrides[day];
+              if (!nowWorkout) return <span className="aec-tag aec-tag-rest">😴 Rest day</span>;
+              if (foc) {
+                const focLabel = foc.toLowerCase();
+                const isMobility = focLabel.includes('mobil') || focLabel.includes('stretch') || focLabel.includes('flex');
+                return <span className="aec-tag aec-tag-modified">🧘 Swap to {isMobility ? 'mobility / stretching' : foc}</span>;
+              }
+              if (dur) {
+                const fullDur = 45; // fallback reference duration
+                const ratio = dur / fullDur;
+                const label = ratio <= 0.55 ? `Shorter workout (${dur} min — ~half)` : `Shorter workout (${dur} min)`;
+                return <span className="aec-tag aec-tag-modified">⏱️ {label}</span>;
+              }
+              return <span className="aec-tag aec-tag-workout">🏋️ Workout</span>;
+            };
+
+            // Build the "before" cell for a day
+            const renderBeforeCell = (day: string, changed: boolean) => {
+              const wasWorkout = isWorkout(orig[day]);
+              return (
+                <span className={`aec-tag ${wasWorkout ? 'aec-tag-workout' : 'aec-tag-rest'}${changed ? ' aec-tag-strikethrough' : ''}`}>
+                  {wasWorkout ? '🏋️ Workout' : '😴 Rest'}
+                </span>
+              );
+            };
+
+            return (
+              <>
+                {/* ── Compact banner ── */}
+                <div className="aec-banner" onClick={() => setShowAdjustmentModal(true)}>
+                  <div className="aec-banner-left">
+                    <span className="aec-emoji">{adjMeta.emoji}</span>
+                    <div>
+                      <div className="aec-title">Plan adjusted{appliedDate ? ` · ${appliedDate}` : ''}</div>
+                      <div className="aec-subtitle">
+                        {changedDays.length > 0
+                          ? `${changedDays.length} day${changedDays.length > 1 ? 's' : ''} affected — click to view`
+                          : 'Schedule adjusted — click to view'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="aec-banner-right">
+                    <button className="aec-revert-btn" onClick={(e) => { e.stopPropagation(); setShowRevertConfirm(true); }}>
+                      ↩ Revert
+                    </button>
+                    <span className="aec-banner-chevron">›</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button onClick={() => setShowRevertConfirm(true)} style={{ padding: '0.3rem 0.85rem', borderRadius: '6px', border: '1.5px solid #3b82f6', background: 'transparent', color: '#93c5fd', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}>↩ Revert to Default</button>
-                  <button onClick={() => setShowNextWeekBanner(false)} style={{ padding: '0.3rem 0.85rem', borderRadius: '6px', border: '1.5px solid #475569', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontWeight: 500, fontSize: '0.8rem' }}>Dismiss</button>
-                </div>
-              </div>
-            </div>
-          )}
+
+                {/* ── Adjustment detail modal ── */}
+                {showAdjustmentModal && (
+                  <div className="modal-overlay" onClick={() => setShowAdjustmentModal(false)}>
+                    <div className="modal-content aec-modal" onClick={e => e.stopPropagation()}>
+                      <div className="modal-header">
+                        <h3>{adjMeta.emoji} Plan adjusted{appliedDate ? ` · ${appliedDate}` : ''}</h3>
+                        <button className="modal-close" onClick={() => setShowAdjustmentModal(false)}>✕</button>
+                      </div>
+                      <div className="modal-body">
+
+                        {/* Reason */}
+                        {lastAdjustmentInfo?.reason && (
+                          <div className="aec-reason">
+                            <span className="aec-reason-icon">💡</span>
+                            <p>{lastAdjustmentInfo.reason}</p>
+                          </div>
+                        )}
+
+                        {/* Metrics */}
+                        {lastAdjustmentInfo && (
+                          <div className="aec-metrics" style={{ marginTop: '1rem' }}>
+                            {[
+                              { label: 'Stress score', value: lastAdjustmentInfo.stress_score, icon: '📊' },
+                              { label: 'Avg difficulty', value: lastAdjustmentInfo.avg_difficulty, icon: '💪' },
+                              { label: 'Avg fatigue', value: lastAdjustmentInfo.avg_fatigue, icon: '😓' },
+                            ].map(m => (
+                              <div key={m.label} className="aec-metric-chip">
+                                <span className="aec-metric-icon">{m.icon}</span>
+                                <span className="aec-metric-value">{m.value}</span>
+                                <span className="aec-metric-label">{m.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Before / After grid — includes day-type, duration, and focus changes */}
+                        <div className="aec-diff-section" style={{ marginTop: '1.25rem' }}>
+                          <div className="aec-diff-label">Weekly schedule changes</div>
+                          <div className="aec-diff-grid">
+                            <div className="aec-diff-col-head" />
+                            {['Before', 'After'].map(h => (
+                              <div key={h} className="aec-diff-col-head aec-diff-col-label">{h}</div>
+                            ))}
+                            {DAYS.map(day => {
+                              const wasWorkout = isWorkout(orig[day]);
+                              const nowWorkout = isWorkout(curr[day]);
+                              const typeChanged = wasWorkout !== nowWorkout;
+                              const durChanged  = durOverrides[day] != null;
+                              const focChanged  = focOverrides[day] != null;
+                              const anyChanged  = typeChanged || durChanged || focChanged;
+                              return (
+                                <div key={day} className={`aec-diff-row${anyChanged ? ' aec-diff-row-changed' : ''}`}>
+                                  <div className="aec-diff-day">
+                                    {anyChanged && <span className="aec-changed-dot" />}
+                                    {day.charAt(0).toUpperCase() + day.slice(1, 3)}
+                                  </div>
+                                  <div className={`aec-diff-cell aec-diff-before`}>
+                                    {renderBeforeCell(day, anyChanged)}
+                                  </div>
+                                  <div className={`aec-diff-cell${anyChanged ? ' aec-diff-after-highlight' : ''}`}>
+                                    {renderAfterCell(day)}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {changedDays.length === 0 && (
+                            <p className="aec-no-changes">No changes detected.</p>
+                          )}
+                        </div>
+
+                        <div className="aec-footer-note" style={{ marginTop: '1.25rem' }}>
+                          Changes apply from next week — your current week is unaffected.
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+                          <button className="aec-revert-btn" style={{ padding: '0.6rem 1.1rem', fontSize: '0.875rem' }}
+                            onClick={() => { setShowAdjustmentModal(false); setShowRevertConfirm(true); }}>
+                            ↩ Revert to original
+                          </button>
+                          <button className="btn-submit-feedback" style={{ flex: 1 }}
+                            onClick={() => setShowAdjustmentModal(false)}>
+                            Got it
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
 
 
@@ -837,7 +1059,7 @@ const SchedulePage = () => {
                     disabled={lockingPlan || unlockingPlan}
                     title={isAdjustmentLocked
                       ? `Locked until ${lockedUntilLabel} — click to unlock`
-                      : 'Protect your current plan from AI adjustments for the next week'}
+                      : 'Protect your current plan from adjustments for the next week'}
                     style={{
                       width: '38px', height: '22px', borderRadius: '11px',
                       border: 'none', cursor: (lockingPlan || unlockingPlan) ? 'wait' : 'pointer',
@@ -884,11 +1106,7 @@ const SchedulePage = () => {
                       ? '⏳ Analyzing...'
                       : '🔄 Adjust Schedule'}
                 </button>
-                {schedule.is_adjusted && (
-                  <button className="btn-regenerate" onClick={() => setShowRevertConfirm(true)} style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '2px solid var(--border-medium)' }} title="Revert to your original default schedule">
-                    ↩ Default Schedule
-                  </button>
-                )}
+                {/* Revert button moved to the Plan Changes explainer card below */}
                 <button className="btn-deactivate" onClick={() => setShowDeactivateConfirm(true)}>🗑️ Clear Schedule</button>
               </div>
             </div>
@@ -901,6 +1119,17 @@ const SchedulePage = () => {
                     <div key={program.id} className="program-chip program-chip-clickable" onClick={() => router.push(`/program/${program.id}`)}>
                       <span className="program-chip-name">{program.name}</span>
                       <span className={`program-chip-difficulty difficulty-${program.difficulty}`}>{program.difficulty}</span>
+                      {user?.is_trainer && enrolledCounts[program.id] !== undefined && (
+                        <span style={{
+                          fontSize: '0.7rem', fontWeight: 700,
+                          background: 'rgba(96,165,250,0.12)', color: '#60a5fa',
+                          border: '1px solid rgba(96,165,250,0.3)',
+                          borderRadius: '10px', padding: '0.1rem 0.5rem',
+                          marginLeft: '0.25rem',
+                        }}>
+                          👥 {enrolledCounts[program.id]} enrolled
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -932,7 +1161,7 @@ const SchedulePage = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
               <button style={navBtnStyle} onClick={() => setMonthOffset((o) => o - 1)}>← Prev</button>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{monthWindowLabelFromEvents(calendar_events)}</span>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{monthWindowLabel(schedule.start_date, monthOffset)}</span>
                 {monthOffset === 0 ? (
                   <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-primary,#e07b54)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Current</span>
                 ) : (
@@ -944,12 +1173,13 @@ const SchedulePage = () => {
 
             <h3 className="calendar-title" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               4-Week Schedule
-              {showNextWeekBanner && nextWeekChanges && nextWeekChanges.length > 0 && (
+              {schedule.is_adjusted && (
                 <span style={{
-                  background: '#1d4ed8', color: '#bfdbfe',
+                  background: 'rgba(224,123,84,0.15)', color: '#e07b54',
                   borderRadius: '6px', padding: '0.15rem 0.6rem',
                   fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em',
                   textTransform: 'uppercase', verticalAlign: 'middle',
+                  border: '1px solid rgba(224,123,84,0.3)',
                 }}>
                   ● Adjusted
                 </span>
@@ -968,17 +1198,9 @@ const SchedulePage = () => {
                   </div>
                   <div className="week-grid">
                     {week.map((event) => {
-                      const workoutStatus = getCalendarWorkoutStatus(event, todayIso);
                       return (
-                        <div
-                          key={event.date}
-                          className={`calendar-day ${event.section_type === 'rest' ? 'rest-day' : 'workout-day'} ${selectedDate === event.date ? 'selected' : ''} ${workoutStatus === 'completed' ? 'session-completed' : ''} ${workoutStatus === 'missed' ? 'session-missed' : ''}`}
-                          onClick={() => handleDateClick(event)}
-                        >
+                        <div key={event.date} className={`calendar-day ${event.section_type === 'rest' ? 'rest-day' : 'workout-day'} ${selectedDate === event.date ? 'selected' : ''}`} onClick={() => handleDateClick(event)}>
                           <div className="day-header"><span className="day-name">{event.day.slice(0, 3).toUpperCase()}</span><span className="day-date">{parseLocalDate(event.date).getDate()}</span></div>
-                          {event.section_type === 'workout' && workoutStatus === 'missed' && (
-                            <div className="day-missed-banner" role="status" aria-label="Workout missed">Missed</div>
-                          )}
                           <div className="day-content">
                             {event.section_type === 'rest' ? (
                               <div className="rest-indicator"><span className="rest-icon">😴</span><span className="rest-text">Rest Day</span></div>
@@ -993,8 +1215,7 @@ const SchedulePage = () => {
                                           <div className="program-name-line"><a href={`/program/${section.program_id}`} className="program-link" onClick={(e) => { e.stopPropagation(); router.push(`/program/${section.program_id}`); }}>{section.program_name}</a></div>
                                           <div className="program-focus-line">
                                             <span className="program-focus-text">{typeof section.focus === 'string' ? section.focus : Array.isArray(section.focus) ? (section.focus as string[]).slice(0, 2).join(', ') : 'N/A'}</span>
-                                            {workoutStatus === 'completed' && <span className="program-complete-badge">✅ Complete</span>}
-                                            {workoutStatus === 'missed' && <span className="program-missed-badge">Missed</span>}
+                                            {event.session_status === 'completed' && <span className="program-complete-badge">✅ Complete</span>}
                                             {event.session_status === 'in_progress' && <span className="program-inprogress-badge">In Progress</span>}
                                           </div>
                                         </div>
@@ -1236,7 +1457,7 @@ const SchedulePage = () => {
 
                   <div className="suggestion-impact-note">
                     Rejecting this suggestion keeps your current weekly plan unchanged.
-                    To pause all AI adjustments for the next week, use the{' '}
+                    To pause all adjustments for the next week, use the{' '}
                     <strong>Protect plan</strong> toggle on your schedule card.
                   </div>
 
@@ -1301,7 +1522,7 @@ const SchedulePage = () => {
         )}
 
         {showRevertConfirm && (
-          <ConfirmModal title="Revert to Default Schedule?" message="This will undo all AI-suggested adjustments and restore your original weekly schedule. Your completed workouts and feedback will be kept." confirmText="Revert to Default" cancelText="Keep Adjusted" type="warning"
+          <ConfirmModal title="Revert to Default Schedule?" message="This will undo all suggested adjustments and restore your original weekly schedule. Your completed workouts and feedback will be kept." confirmText="Revert to Default" cancelText="Keep Adjusted" type="warning"
             onConfirm={() => { setShowRevertConfirm(false); handleRevertToDefault(); }} onCancel={() => setShowRevertConfirm(false)} />
         )}
       </div>

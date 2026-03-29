@@ -113,6 +113,10 @@ class WorkoutPlan(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_paid = models.BooleanField(
+        default=False,
+        help_text="If True, this program requires a subscription to use.",
+    )
 
     class Meta:
         db_table = 'workout_plans'

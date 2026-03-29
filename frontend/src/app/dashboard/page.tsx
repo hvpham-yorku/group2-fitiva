@@ -768,7 +768,7 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
       {/* Header */}
       <header className="dashboard-header">
         <div className="dashboard-logo">
-          <Link href="/">
+          <Link href="/dashboard">
             <Logo variant="text" size="sm" />
           </Link>
         </div>
