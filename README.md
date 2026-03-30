@@ -88,13 +88,13 @@ docker-compose exec backend python manage.py migrate
 Run all 40+ unit tests:
 
 ```bash
-docker-compose exec backend python manage.py test api
+docker-compose exec backend python manage.py test
 ```
 
 Or run it with more detailed output:
 
 ```bash
-docker-compose exec backend python manage.py test api --verbosity=2
+docker-compose exec backend python manage.py test --verbosity=2
 ```
 
 ---
