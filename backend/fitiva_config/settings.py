@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os 
 from pathlib import Path
+import sys
 
 # ── Database mode ──────────────────────────────────────────────────────────────
 # Change this ONE LINE to switch between real MySQL and stub (in-memory) database (REQ FROM ITR2)
@@ -184,3 +185,9 @@ LOGGING = {
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = False  # Set to True when the project is ready for "production" with HTTPS
+
+if 'test' in sys.argv:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+    }
