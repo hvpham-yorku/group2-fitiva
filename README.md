@@ -165,9 +165,9 @@ project-group-2-fitiva/
 │   │   ├── views.py      # API endpoints
 │   │   ├── serializers.py
 │   │   ├── urls.py
-│   │   └── tests/        # 40 unit tests
 │   ├── manage.py
 │   └── requirements.txt
+│   ├── tests/             # 121 Tests across 20+ files
 ├── docker-compose.yml     # Container orchestration
 ├── log.md                 # Development log (ITR1 requirement)
 └── README.md
