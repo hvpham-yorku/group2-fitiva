@@ -74,6 +74,7 @@ const TrainerProgramsPage = () => {
     fetchSchedulePrograms();
   }, [isTrainer]);
 
+  // Bug fix BUG-004: added an error notification when the API returns a non-2xx response so users know the empty list is due to a failure, not a genuinely empty database.
   const fetchPrograms = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/programs/`, {
@@ -82,9 +83,12 @@ const TrainerProgramsPage = () => {
       if (response.ok) {
         const data = await response.json();
         setPrograms(data.results || data);
+      } else {
+        showError('Failed to load programs. Please try again.');
       }
     } catch (error) {
       console.error('Error fetching programs:', error);
+      showError('Failed to load programs. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -367,8 +371,9 @@ const TrainerProgramsPage = () => {
       <ProtectedRoute>
         <div className="trainer-programs-container">
           <div className="header">
-            <button className="back-button" onClick={() => router.push('/schedule')}>
-              ← Back to Schedule
+            {/* Bug fix BUG-003: changed back button destination from /schedule to /dashboard to prevent navigation loop. */}
+            <button className="back-button" onClick={() => router.push('/dashboard')}>
+              ← Back to Dashboard
             </button>
             <h1>Workout Programs</h1>
           </div>
@@ -425,8 +430,9 @@ const TrainerProgramsPage = () => {
     <ProtectedRoute>
       <div className="trainer-programs-container">
         <div className="header">
-          <button className="back-button" onClick={() => router.push('/schedule')}>
-            ← Back to Schedule
+          {/* Bug fix BUG-003: changed back button destination from /schedule to /dashboard to prevent navigation loop. */}
+          <button className="back-button" onClick={() => router.push('/dashboard')}>
+            ← Back to Dashboard
           </button>
           <h1>Workout Programs</h1>
         </div>

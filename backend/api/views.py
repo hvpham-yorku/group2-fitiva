@@ -2,7 +2,7 @@ import os
 from urllib.parse import urlencode
 from datetime import datetime, timedelta
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.contrib.auth import login, logout, get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.http import JsonResponse
@@ -457,12 +457,14 @@ def _check_and_award_badges(user, session):
 
     streak = 0
     check_date = session.date - timedelta(days=1)
+    # [FIXED] SMELL-005: Resolved Logic Error (Unhandled Edge Case) by adding .distinct() to prevent multiple daily workouts from breaking the streak
     past_dates = (
         WorkoutSession.objects
         .filter(user=user, is_completed=True)
         .exclude(pk=session.pk)
         .order_by('-date')
         .values_list('date', flat=True)
+        .distinct() # added distinct here
     )
     for d in past_dates:
         if d == check_date:
@@ -2325,7 +2327,9 @@ def get_progress_summary(request):
     )
 
     total_workouts = completed_workouts.count()
-    total_time = sum(w.duration_minutes for w in completed_workouts if w.duration_minutes) or 0
+    
+    # [FIXED] SMELL-006: Resolved Inefficient DB Aggregation (Performance Smell) by replacing Python sum() loop with native Django ORM .aggregate(Sum())
+    total_time = completed_workouts.aggregate(Sum('duration_minutes'))['duration_minutes__sum'] or 0
 
     return Response({
         "total_workouts": total_workouts,

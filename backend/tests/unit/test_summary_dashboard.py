@@ -1,7 +1,9 @@
+import unittest
+
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model
-from api.models import WorkoutSession
+from api.models import WorkoutPlan, WorkoutSession
 from datetime import date
 
 User = get_user_model()
@@ -112,3 +114,110 @@ class ProgressSummaryDashboardTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["total_workouts"], 4)
         self.assertEqual(response.data["total_time_trained"], 100)
+
+
+class DashboardProgressFlowTests(APITestCase):
+    """Tests for viewing the progress summary dashboard through realistic flows."""
+
+    def setUp(self):
+        self.trainer = User.objects.create_user(
+            username="dashtrainer",
+            password="TrainerPass123!",
+            email="dashtrainer@example.com",
+            is_trainer=True,
+        )
+        self.program = WorkoutPlan.objects.create(
+            name="Strength Starter",
+            trainer=self.trainer,
+            focus=["strength"],
+            difficulty="beginner",
+            weekly_frequency=3,
+            session_length=45,
+            is_published=True,
+        )
+        self.user = User.objects.create_user(
+            username="dashflowuser",
+            password="UserPass123!",
+            email="dashflow@example.com",
+            is_trainer=False,
+        )
+        self.user_b = User.objects.create_user(
+            username="dashflowuser_b",
+            password="UserPass123!",
+            email="dashflow_b@example.com",
+            is_trainer=False,
+        )
+        self.other_user = User.objects.create_user(
+            username="dashflowother",
+            password="UserPass123!",
+            email="dashflowother@example.com",
+            is_trainer=False,
+        )
+        self.dashboard_url = "/api/dashboard/summary/"
+
+    def _create_completed_session(self, user, on_date, duration=45):
+        return WorkoutSession.objects.create(
+            user=user,
+            plan=self.program,
+            date=date.fromisoformat(on_date),
+            status="completed",
+            is_completed=True,
+            duration_minutes=duration,
+        )
+
+    def test_user_opens_dashboard_and_sees_progress_metrics(self):
+        """User opens dashboard and sees progress summary metrics."""
+        self.client.force_authenticate(user=self.user)
+        self._create_completed_session(self.user, "2026-01-01", duration=45)
+        response = self.client.get(self.dashboard_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_workouts"], 1)
+        self.assertEqual(response.data["total_time_trained"], 45)
+
+    def test_dashboard_updates_after_user_completes_a_workout(self):
+        """Dashboard updates after the user completes a workout."""
+        self.client.force_authenticate(user=self.user)
+        before_response = self.client.get(self.dashboard_url)
+        self.assertEqual(before_response.status_code, status.HTTP_200_OK)
+        before_total = before_response.data["total_workouts"]
+
+        self._create_completed_session(self.user, "2026-01-02", duration=30)
+
+        after_response = self.client.get(self.dashboard_url)
+        self.assertEqual(after_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(after_response.data["total_workouts"], before_total + 1)
+        self.assertEqual(after_response.data["total_time_trained"], 30)
+
+    def test_new_or_inactive_user_sees_zero_state(self):
+        """New or inactive user sees a valid empty or zero state on the dashboard."""
+        self.client.force_authenticate(user=self.user_b)
+        response = self.client.get(self.dashboard_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_workouts"], 0)
+        self.assertEqual(response.data["total_time_trained"], 0)
+        self.assertEqual(response.data["chart_data"], [])
+
+    def test_dashboard_shows_only_current_users_progress(self):
+        """Dashboard shows only the current user's progress summary."""
+        self._create_completed_session(self.user, "2026-01-03", duration=35)
+        self._create_completed_session(self.other_user, "2026-01-04", duration=60)
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.dashboard_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_workouts"], 1)
+        self.assertEqual(response.data["total_time_trained"], 35)
+
+    @unittest.skip(
+        "Visual indicators are frontend-only. The backend summary endpoint "
+        "returns chart_data but does not render visual elements."
+    )
+    def test_dashboard_includes_simple_visual_indicators_for_progress(self):
+        """Dashboard includes simple visual indicators for progress."""
+
+    @unittest.skip(
+        "Page load speed is a manual usability check. "
+        "Backend response timing does not represent the full rendered dashboard."
+    )
+    def test_dashboard_loads_quickly_for_a_logged_in_user(self):
+        """Dashboard loads quickly for a logged-in user."""
