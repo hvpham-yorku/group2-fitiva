@@ -142,7 +142,7 @@ const ADJUSTMENT_META: Record<string, { emoji: string; label: string; color: str
   none:      { emoji: '✅', label: 'No Changes Needed',    color: '#6b7280' },
 };
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // ============================================================================
 // COMPONENT
@@ -321,9 +321,9 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
       setStatsLoading(true);
       try {
         const [programsRes, exercisesRes, traineesRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/programs/`, { credentials: 'include' }),
-          fetch(`${API_BASE_URL}/exercise-templates/`, { credentials: 'include' }),
-          fetch(`${API_BASE_URL}/trainer/trainee-count/`, { credentials: 'include' }),
+          fetch(`${API_BASE_URL}/api/programs/`, { credentials: 'include' }),
+          fetch(`${API_BASE_URL}/api/exercise-templates/`, { credentials: 'include' }),
+          fetch(`${API_BASE_URL}/api/trainer/trainee-count/`, { credentials: 'include' }),
         ]);
 
         if (programsRes.ok) {

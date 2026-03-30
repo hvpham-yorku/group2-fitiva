@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '@/components/ui/Logo';
 import PasswordRequirements from './PasswordRequirements';
+import { authAPI, ApiError } from '@/library/api';
 import './signup.css';
 
 // ============================================================================
@@ -248,26 +249,17 @@ export default function SignupPage() {
         };
       }
 
-      const response = await fetch('http://localhost:8000/api/auth/signup/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccessMessage('Account created successfully! Redirecting to login...');
-        setTimeout(() => {
-          router.push('/login');
-        }, 2000);
-      } else {
-        setErrors(data.errors || { general: 'Something went wrong. Please try again.' });
-      }
+      await authAPI.signup(submitData);
+      setSuccessMessage('Account created successfully! Redirecting to login...');
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
     } catch (error) {
-      setErrors({ general: 'Failed to connect to server. Please try again.' });
+      if (error instanceof ApiError && error.errors) {
+        setErrors(error.errors);
+      } else {
+        setErrors({ general: 'Failed to connect to server. Please try again.' });
+      }
     } finally {
       setIsLoading(false);
     }
