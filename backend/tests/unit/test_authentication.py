@@ -1,3 +1,5 @@
+import unittest
+
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -307,7 +309,158 @@ class CurrentUserTests(TestCase):
     def test_get_current_user_when_unauthenticated(self):
         """Test that unauthenticated requests are rejected"""
         unauth_client = APIClient()
-        
+
         response = unauth_client.get(self.me_url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class RegisterAndLoginFlowTests(TestCase):
+    """End-to-end tests for registration and login flows"""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.password = "TestPass123!"
+        self.user = CustomUser.objects.create_user(
+            username="existing_user",
+            email="existing@example.com",
+            password=self.password,
+            first_name="Test",
+            last_name="User",
+            is_trainer=False,
+        )
+        UserProfile.objects.create(user=self.user)
+
+    def test_new_regular_user_registers_and_logs_in(self):
+        """New regular user registers successfully and logs in."""
+        signup_payload = {
+            "username": "newreguser",
+            "email": "newreg@example.com",
+            "password": self.password,
+            "password2": self.password,
+            "first_name": "Regular",
+            "last_name": "User",
+            "is_trainer": False,
+        }
+        signup_response = self.client.post(reverse("signup"), signup_payload, format="json")
+        self.assertEqual(signup_response.status_code, status.HTTP_201_CREATED)
+
+        new_user = CustomUser.objects.get(username="newreguser")
+        self.assertEqual(new_user.email, "newreg@example.com")
+        self.assertFalse(new_user.is_trainer)
+        self.assertTrue(UserProfile.objects.filter(user=new_user).exists())
+
+        login_response = self.client.post(
+            reverse("login"),
+            {"login": "newreguser", "password": self.password},
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+        me_response = self.client.get(reverse("me"))
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(me_response.data["user"]["username"], "newreguser")
+
+    def test_new_trainer_registers_and_can_log_in(self):
+        """New trainer registers successfully and can log in."""
+        signup_payload = {
+            "username": "newtrainer",
+            "email": "newtrainer@example.com",
+            "password": self.password,
+            "password2": self.password,
+            "first_name": "Trainer",
+            "last_name": "User",
+            "is_trainer": True,
+            "trainer_profile": {
+                "bio": "Certified coach",
+                "years_of_experience": 5,
+                "specialty_strength": True,
+                "specialty_cardio": True,
+                "certifications": "NASM",
+            },
+        }
+        signup_response = self.client.post(reverse("signup"), signup_payload, format="json")
+        self.assertEqual(signup_response.status_code, status.HTTP_201_CREATED)
+
+        new_user = CustomUser.objects.get(username="newtrainer")
+        self.assertTrue(new_user.is_trainer)
+        self.assertTrue(UserProfile.objects.filter(user=new_user).exists())
+        self.assertTrue(TrainerProfile.objects.filter(user=new_user).exists())
+
+        login_response = self.client.post(
+            reverse("login"),
+            {"login": "newtrainer", "password": self.password},
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+        me_response = self.client.get(reverse("me"))
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(me_response.data["user"]["username"], "newtrainer")
+
+    def test_registration_fails_when_passwords_do_not_match(self):
+        """Registration fails and user cannot log in when passwords don't match."""
+        signup_payload = {
+            "username": "mismatchuser",
+            "email": "mismatch@example.com",
+            "password": self.password,
+            "password2": "DifferentPass123!",
+            "first_name": "Mismatch",
+            "last_name": "User",
+            "is_trainer": False,
+        }
+        signup_response = self.client.post(reverse("signup"), signup_payload, format="json")
+        self.assertEqual(signup_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(CustomUser.objects.filter(username="mismatchuser").exists())
+
+        login_response = self.client.post(
+            reverse("login"),
+            {"login": "mismatchuser", "password": self.password},
+            format="json",
+        )
+        self.assertIn(
+            login_response.status_code,
+            [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED],
+        )
+
+    def test_login_fails_with_incorrect_password(self):
+        """Login fails with incorrect password and no session is created."""
+        response = self.client.post(
+            reverse("login"),
+            {"login": self.user.username, "password": "WrongPass123!"},
+            format="json",
+        )
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED],
+        )
+
+        me_response = self.client.get(reverse("me"))
+        self.assertIn(
+            me_response.status_code,
+            [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN],
+        )
+
+    def test_session_persists_across_requests_until_logout(self):
+        """Logged-in session persists across requests until explicit logout."""
+        login_response = self.client.post(
+            reverse("login"),
+            {"login": self.user.username, "password": self.password},
+            format="json",
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+        me_after_login = self.client.get(reverse("me"))
+        self.assertEqual(me_after_login.status_code, status.HTTP_200_OK)
+
+        schedule_response = self.client.get("/api/schedule/active/")
+        self.assertEqual(schedule_response.status_code, status.HTTP_200_OK)
+
+        logout_response = self.client.post(reverse("logout"))
+        self.assertEqual(logout_response.status_code, status.HTTP_200_OK)
+
+        me_after_logout = self.client.get(reverse("me"))
+        self.assertIn(
+            me_after_logout.status_code,
+            [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN],
+        )
