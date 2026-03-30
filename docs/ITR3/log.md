@@ -150,7 +150,7 @@ This section lists all user stories planned for Iteration 2 — both carried ove
 | US 2.5 | Accept or Lock Recommended Adjustments | Shiah |
 | US 4.3 | View Achievement Gallery | Arshia |
 | US 3.5 | Detect Missed Sessions | Arshia |
-| US 3.1 | Review Workout History | Raha |
+| US 3.2 | Review Workout History | Raha |
 | US 4.1 | Earn Points for Workout Completion | Dawood |
 
 ---
