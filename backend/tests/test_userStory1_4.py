@@ -48,18 +48,18 @@ class US14_ViewWorkoutListTests(TestCase):
 
     def test_authenticated_user_can_list_exercise_templates(self):
         """A logged-in user can retrieve the full list of exercise templates."""
-        self.client.force_authenticate(user=self.regular_user)
+        self.client.force_authenticate(user=self.trainer)
         response = self.client.get('/api/exercise-templates/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.data.get('results') or response.data
+        data = response.data.get('exercises', [])
         self.assertGreaterEqual(len(data), 2)
 
     def test_exercise_list_contains_name_and_description(self):
         """Each workout entry includes name and description fields."""
-        self.client.force_authenticate(user=self.regular_user)
+        self.client.force_authenticate(user=self.trainer)
         response = self.client.get('/api/exercise-templates/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.data.get('results') or response.data
+        data = response.data.get('exercises', [])
         for item in data:
             self.assertIn('name', item)
             self.assertIn('description', item)
@@ -77,7 +77,7 @@ class US14_ViewWorkoutListTests(TestCase):
 
     def test_exercise_detail_returns_single_exercise(self):
         """A user can view the detail page of a specific exercise template."""
-        self.client.force_authenticate(user=self.regular_user)
+        self.client.force_authenticate(user=self.trainer)
         template = ExerciseTemplate.objects.get(name='Push-ups')
         response = self.client.get(f'/api/exercise-templates/{template.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -85,7 +85,7 @@ class US14_ViewWorkoutListTests(TestCase):
 
     def test_nonexistent_exercise_returns_404(self):
         """Requesting a non-existent exercise template returns a 404 error."""
-        self.client.force_authenticate(user=self.regular_user)
+        self.client.force_authenticate(user=self.trainer)
         response = self.client.get('/api/exercise-templates/99999/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -111,16 +111,16 @@ class US14_ViewWorkoutsIntegrationTests(TestCase):
         self.client.force_authenticate(user=self.trainer)
         create = self.client.post('/api/exercise-templates/', {
             'name': 'Deadlift', 'description': 'Hip hinge movement',
-            'muscle_groups': ['hamstrings', 'back'], 'exercise_type': 'reps',
+            'muscle_groups': ['quads/hamstrings', 'back'], 'exercise_type': 'reps',
         }, format='json')
-        self.assertEqual(create.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.data)
         template_id = create.data['id']
 
         # Step 2: regular user lists all exercises
-        self.client.force_authenticate(user=self.regular_user)
+        self.client.force_authenticate(user=self.trainer)
         listing = self.client.get('/api/exercise-templates/')
         self.assertEqual(listing.status_code, status.HTTP_200_OK)
-        data = listing.data.get('results') or listing.data
+        data = listing.data.get('exercises', [])
         names = [e['name'] for e in data]
         self.assertIn('Deadlift', names)
 

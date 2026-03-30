@@ -39,7 +39,7 @@ class US25_LockAdjustmentsTests(TestCase):
             session_length=45,
         )
         ProgramSection.objects.create(
-            plan=self.program, format='Monday', type='Upper Body', is_rest_day=False
+            program=self.program, format='Monday', type='Upper Body', is_rest_day=False
         )
         self.client.force_authenticate(user=self.user)
         # Create a schedule so there is something to lock
@@ -126,7 +126,7 @@ class US25_LockAdjustmentsIntegrationTests(TestCase):
             name='Lock Plan', trainer=self.trainer,
             focus=['strength'], difficulty='beginner', weekly_frequency=3, session_length=45,
         )
-        ProgramSection.objects.create(plan=self.program, format='Monday', type='Upper Body', is_rest_day=False)
+        ProgramSection.objects.create(program=self.program, format='Monday', type='Upper Body', is_rest_day=False)
         self.client.force_authenticate(user=self.user)
 
     def test_full_generate_lock_and_check_flow(self):

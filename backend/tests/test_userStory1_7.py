@@ -40,19 +40,19 @@ class US17_GenerateWeeklyScheduleTests(TestCase):
             session_length=45,
         )
         ProgramSection.objects.create(
-            plan=self.program,
+            program=self.program,
             format='Monday',
             type='Upper Body',
             is_rest_day=False,
         )
         ProgramSection.objects.create(
-            plan=self.program,
+            program=self.program,
             format='Wednesday',
             type='Rest',
             is_rest_day=True,
         )
         ProgramSection.objects.create(
-            plan=self.program,
+            program=self.program,
             format='Friday',
             type='Lower Body',
             is_rest_day=False,
@@ -129,7 +129,7 @@ class US17_GenerateScheduleIntegrationTests(TestCase):
             name='Full Week Plan', trainer=self.trainer,
             focus=['strength'], difficulty='beginner', weekly_frequency=3, session_length=45,
         )
-        ProgramSection.objects.create(plan=self.program, format='Monday', type='Upper Body', is_rest_day=False)
+        ProgramSection.objects.create(program=self.program, format='Monday', type='Upper Body', is_rest_day=False)
         self.client.force_authenticate(user=self.user)
 
     def test_full_select_program_and_get_schedule_flow(self):
@@ -143,7 +143,7 @@ class US17_GenerateScheduleIntegrationTests(TestCase):
         # Step 2: retrieve active schedule
         active = self.client.get('/api/schedule/active/')
         self.assertEqual(active.status_code, status.HTTP_200_OK)
-        self.assertIn('weekly_schedule', active.data)
+        self.assertIn('weekly_schedule', active.data.get('schedule', {}))
 
         # Step 3: verify schedule is stored in DB
         self.assertTrue(UserSchedule.objects.filter(user=self.user).exists())

@@ -38,6 +38,8 @@ class US22_ViewPlanAdjustmentsTests(TestCase):
             weekly_frequency=3,
             session_length=45,
         )
+        ProgramSection.objects.create(program=self.program, format='Monday', type='Upper Body', is_rest_day=False)
+        
         self.client.force_authenticate(user=self.user)
 
     def _create_active_schedule(self):
@@ -86,7 +88,7 @@ class US22_ViewPlanAdjustmentsTests(TestCase):
         self._create_active_schedule()
         response = self.client.get('/api/schedule/active/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('weekly_schedule', response.data)
+        self.assertIn('weekly_schedule', response.data.get('schedule', {}))
 
 # --- INTEGRATION TESTS ---
 
@@ -106,6 +108,8 @@ class US22_PlanAdjustmentsIntegrationTests(TestCase):
             name='Adjust Plan', trainer=self.trainer,
             focus=['strength'], difficulty='beginner', weekly_frequency=3, session_length=45,
         )
+        ProgramSection.objects.create(program=self.program, format='Monday', type='Upper Body', is_rest_day=False)
+        
         self.client.force_authenticate(user=self.user)
 
     def test_full_schedule_preview_and_view_flow(self):
@@ -123,4 +127,4 @@ class US22_PlanAdjustmentsIntegrationTests(TestCase):
         # Step 3: view active schedule to see current plan
         active = self.client.get('/api/schedule/active/')
         self.assertEqual(active.status_code, status.HTTP_200_OK)
-        self.assertIn('weekly_schedule', active.data)
+        self.assertIn('weekly_schedule', active.data.get('schedule', {}))

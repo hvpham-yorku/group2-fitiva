@@ -75,7 +75,7 @@ class US15_BrowseTrainerProgramsTests(TestCase):
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(f'/api/users/{self.trainer_a.id}/programs/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.data.get('results') or response.data
+        data = response.data.get('programs', [])
         for program in data:
             self.assertEqual(program['name'], 'Strength Foundations')
 

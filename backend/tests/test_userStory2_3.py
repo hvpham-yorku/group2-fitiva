@@ -39,13 +39,13 @@ class US23_ScheduleRegenerationTests(TestCase):
             session_length=45,
         )
         ProgramSection.objects.create(
-            plan=self.program, format='Monday', type='Upper Body', is_rest_day=False
+            program=self.program, format='Monday', type='Upper Body', is_rest_day=False
         )
         ProgramSection.objects.create(
-            plan=self.program, format='Wednesday', type='Rest', is_rest_day=True
+            program=self.program, format='Wednesday', type='Rest', is_rest_day=True
         )
         ProgramSection.objects.create(
-            plan=self.program, format='Friday', type='Lower Body', is_rest_day=False
+            program=self.program, format='Friday', type='Lower Body', is_rest_day=False
         )
         self.client.force_authenticate(user=self.user)
         # Generate an initial schedule
@@ -85,7 +85,7 @@ class US23_ScheduleRegenerationTests(TestCase):
 
     def test_schedule_can_be_deactivated(self):
         """User can deactivate their current schedule."""
-        response = self.client.post('/api/schedule/deactivate/', {}, format='json')
+        response = self.client.delete('/api/schedule/deactivate/', format='json')
         self.assertIn(
             response.status_code,
             [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST],
@@ -115,7 +115,7 @@ class US23_RegenerationIntegrationTests(TestCase):
             name='Regen Plan', trainer=self.trainer,
             focus=['strength'], difficulty='beginner', weekly_frequency=3, session_length=45,
         )
-        ProgramSection.objects.create(plan=self.program, format='Monday', type='Upper Body', is_rest_day=False)
+        ProgramSection.objects.create(program=self.program, format='Monday', type='Upper Body', is_rest_day=False)
         self.client.force_authenticate(user=self.user)
 
     def test_full_generate_and_regenerate_flow(self):
