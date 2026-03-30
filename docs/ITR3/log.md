@@ -1,6 +1,6 @@
 # Fitiva — Group 2 — Iteration 3 Log
 
-# To see the ITR3 Source Code, please checkout to the branch called ITR3
+# To see the ITR3 Source Code, please checkout to the branch called ITR3 (or the latest version of main)
 
 ## Team
 - Ege Yesilyurt — 219701739 — [egeyesss@my.yorku.ca](mailto:egeyesss@my.yorku.ca)
@@ -41,13 +41,13 @@ We organized the codebase by layers and features, aligning with a clean separati
 - **Domain models:** `models.py`
   Includes `CustomUser`, `UserProfile`, `TrainerProfile`, and workout program structure:
   `WorkoutPlan` → `ProgramSection` → `Exercise` → `ExerciseSet`, plus `ExerciseTemplate`,
-  `WorkoutSession`, and `WorkoutFeedback`.
+  `WorkoutSession`, `WorkoutFeedback`, and more.
 - **Serialization layer:** `serializers.py`
   Uses nested serializers for structured program creation (sections → exercises → sets).
 - **HTTP/API layer:** `views.py` + `urls.py`
   Implements endpoints for auth, profile CRUD, programs CRUD, exercise template listing/search,
   schedule management, workout completion, feedback, and trainer aggregated feedback.
-- **Automated tests:** `backend/api/tests/` (9 test files — see Section 6).
+- **Automated tests:** `backend/api/tests/` (See Section 6).
 
 ## 1.3 Major Design Decisions (and Why)
 
@@ -156,7 +156,7 @@ This section lists all user stories planned for Iteration 2 — both carried ove
 ---
 
 # 3. Plan Revision (ITR1 → ITR2)
-This section documents what changed from the **Iteration 1 plan** to the **Iteration 2 plan**, and why.
+This section documents what changed across the iterations, from the **Iteration 1 **baseline plan, through the** Iteration 2** updates, and culminating in the **final Iteration 3 **plan.
 
 ## 3.1 Baseline Plan (ITR1 Snapshot)
 **Stories completed in ITR1:**
@@ -185,12 +185,24 @@ This section documents what changed from the **Iteration 1 plan** to the **Itera
 - Dashboard widget layout bug fixed (widgets no longer shift when clicking Recommendations).
 - `recharts` dependency properly resolved via Docker anonymous volume for `/app/node_modules`.
 
+## 3.3 Final Revised Plan (ITR3 Updated)
+**New stories introduced (or finalized) in ITR3:**
+- **US 2.2 – View Plan Adjustments & Explanations:** Added UI explanations to ensure users understand exactly why their schedule was modified based on their past feedback.
+- **US 2.5 – Accept or Lock Recommended Adjustments: **Expanded the user control flow to let trainees seamlessly accept, reject, or lock their schedules against incoming AI adjustments.
+- **US 3.2 – Review Workout History:** Implemented a chronological log view allowing users to browse their past completed workouts.
+- **US 3.5 – Detect Missed Sessions:** Built background logic to automatically detect and mark scheduled workouts as "missed" if the date passes without completion.
+- **US 4.1 – Earn Points for Workout Completion:** Introduced a gamification system awarding base points, length bonuses, and streak multipliers for completing workouts.
+-** US 4.2 – Unlock Achievement Badges: **Added milestone tracking that automatically awards badges when users hit specific targets (e.g., 5 workouts, 3-day streak).
+-** US 4.3 – View Achievement Gallery:** Created a dedicated visual gallery interface for users to browse their earned badges and track their point totals.
+- **US 4.4 – Participate in Weekly Challenges:** Allowed users to opt into time-limited challenges (e.g., complete X workouts in a week) to earn bonus points and exclusive badges.
+- **US 4.5 – Trainer-Hosted Challenges:** Empowered trainers to create custom, themed challenges tied specifically to their published programs to drive trainee engagement.
+
 ## 3.3 Rationale for Plan Changes
 - Post-workout feedback (US 2.1) was needed to feed the regeneration engine (US 2.3) and the trainer feedback dashboard (US 2.4).
 - Training trends (US 3.3) and the progress dashboard (US 3.4) were prioritized early in ITR2 to give users meaningful data visualization while workout history accumulates.
 - US 2.5 (lock/accept adjustments) closes the feedback loop for trainers managing client schedules.
 
-*(Planning docs are maintained at `/docs/ITR0/`, `/docs/ITR1/`, and `/docs/ITR2/`.)*
+*(Planning docs are maintained at `/docs/ITR0/`, `/docs/ITR1/`, `/docs/ITR2/`, and `/docs/ITR3/`.)*
 
 ---
 # 4. Meeting Minutes
@@ -518,27 +530,8 @@ docker-compose exec backend python manage.py test api --verbosity=2
 
 **Commit strategy:** frequent commits across team members throughout the iteration; avoided last-minute "mega commits".
 
-**Tag:** ITR2 branch created on March 6, 2026 from the latest main branch after all ITR2 PRs were merged.
+**Tag:** ITR3 branch created on March 29, 2026 from the latest main branch after all ITR3 PRs were merged.
 
-## Merged PRs for ITR2 (in order):
-
-**PR #13:** US 3.1 — complete/in-progress UI (Raha)
-
-**PR #18: **US 3.1 — test cases (Raha)
-
-**PR #19: **US 3.4 — dashboard widgets + debug (Raha)
-
-**PR #20:** US 2.1 — post-workout feedback system (Ege)
-
-**PR #21 / #24:** US 3.3 — training trends analytics (Arshia)
-
-**PR #23 / #27:** US 2.4 — program feedback dashboard + trends chart (Weiqin)
-
-**PR #25:** US 2.3 — schedule adjustments + test cases (Shiah)
-
-**PR #26: **US 3.4 — additional test coverage (Raha)
-
-**PR #28: **ITR2 branch created (Ege)
 
 ## Repo structure:
 
@@ -550,7 +543,7 @@ backend/ — backend container
 
 backend/api/ — backend source code
 
-backend/api/tests/ — all test files (9 files)
+backend/api/tests/ — all test files
 
 docs/ — planning documents (ITR0, ITR1, ITR2, ITR3)
 
@@ -558,17 +551,11 @@ GitHub Wiki — wiki + architecture sketch references
 
 # 8. Concern / Challenge
 
-All team members delivered their assigned stories with no concerns about group dynamics or project direction.
+All team members successfully delivered their assigned stories for the final iteration. Group dynamics remained strong, and there were no major blockers regarding project direction. However, finalizing the complex gamification and scheduling systems presented a few notable technical challenges that the team successfully navigated:
 
 
-**Plan improvements:**
+**Challenges Overcome in ITR3:**
 
-Expand test coverage for feedback and regeneration edge cases
-
-UI polish: feedback modal spacing, dashboard visual hierarchy
-
-Add rewards/reflection flows tied to streaks and milestones
-
-Improve dashboard UI with richer visual elements
-
-Add trainer-side client management views
+- Edge Case Complexity in Gamification: Implementing the streak logic required precise date handling to ensure users weren't penalized for working out twice in one day, while accurately tracking missed sessions in the background.
+- Database Performance: As the dashboard required more aggregated data (total time, points, badges), we had to refactor Python-level calculations into native Django ORM aggregations to prevent memory leaks and ensure the application scales smoothly.
+- UI/UX Integration: Seamlessly blending Trainer-Hosted Challenges into the existing Weekly Challenges widget required careful frontend state management to prevent visual clutter on the dashboard.
