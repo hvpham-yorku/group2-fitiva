@@ -526,7 +526,7 @@ backend/ — backend container
 
 backend/api/ — backend source code
 
-backend/api/tests/ — all test files
+backend/tests/ — all test files
 
 docs/ — planning documents (ITR0, ITR1, ITR2, ITR3)
 
