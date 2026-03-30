@@ -51,7 +51,7 @@ Fitiva is a web application for personalized workout planning, serving both fitn
 ```bash
 git clone https://github.com/hvpham-yorku/project-group-2-fitiva.git
 cd project-group-2-fitiva
-git checkout ITR1
+git checkout main <OR_ITR3>
 ```
 
 ### 2. Start Application
