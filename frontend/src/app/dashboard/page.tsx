@@ -14,6 +14,9 @@ import {
 import Logo from '@/components/ui/Logo';
 import SettingsModal from '@/components/ui/SettingsModal';
 import Notification from '@/components/Notification';
+import WorkoutFeedbackForm from '@/components/WorkoutFeedbackForm';
+import WorkoutFeedbackSummary from '@/components/WorkoutFeedbackSummary';
+import { useWorkoutFeedback } from '@/hooks/useWorkoutFeedback';
 import './dashboard.css';
 import {
   LineChart,
@@ -188,16 +191,6 @@ export default function DashboardPage() {
   
   const [workoutDetail, setWorkoutDetail] = useState<any>(null);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
-  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
-  const [editingFeedback, setEditingFeedback] = useState(false);
-  
-  // Feedback Form State
-  const [feedbackRating, setFeedbackRating] = useState(0);
-  const [feedbackFatigue, setFeedbackFatigue] = useState<number | null>(null);
-  const [feedbackPain, setFeedbackPain] = useState(false);
-  const [feedbackNotes, setFeedbackNotes] = useState('');
-  const [submittingFeedback, setSubmittingFeedback] = useState(false);
-  const [deletingFeedback, setDeletingFeedback] = useState(false);
   const [undoingComplete, setUndoingComplete] = useState(false);
 
   // Feedback pain reported State
@@ -212,6 +205,22 @@ export default function DashboardPage() {
   const showSuccess = (message: string) => setNotification({ type: 'success', message });
   const showError   = (message: string) => setNotification({ type: 'error', message });
   const showInfo    = (message: string) => setNotification({ type: 'info', message });
+
+  const feedback = useWorkoutFeedback({
+    onSuccess: showSuccess,
+    onError: showError,
+    onAfterSubmit: async (dateStr, painReported, wasEditing) => {
+      setShowWorkoutModal(false);
+      await fetchSchedule();
+      if (!wasEditing || painReported) {
+        await fetchScheduleSuggestion(dateStr);
+      }
+    },
+    onAfterDelete: async (dateStr) => {
+      await fetchSchedule();
+      await fetchWorkoutForDate(dateStr);
+    },
+  });
 
   const toLocalDateString = (d: Date) => {
     const y = d.getFullYear();
@@ -469,8 +478,7 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
     }
   };
 
-  const resetFeedbackForm = () => { setFeedbackRating(0); setFeedbackFatigue(null); setFeedbackPain(false); setFeedbackNotes(''); setEditingFeedback(false); };
-  const handleCloseModal = () => { setShowWorkoutModal(false); setShowFeedbackForm(false); resetFeedbackForm(); };
+  const handleCloseModal = () => { setShowWorkoutModal(false); feedback.setShowFeedbackForm(false); feedback.resetFeedbackForm(); };
 
   const fetchWorkoutForDate = async (dateStr: string, sectionType?: string) => {
     try {
@@ -485,7 +493,7 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
   };
 
   const handleDateClick = (event: CalendarEvent) => {
-    setShowFeedbackForm(false); resetFeedbackForm();
+    feedback.setShowFeedbackForm(false); feedback.resetFeedbackForm();
     fetchWorkoutForDate(event.date, event.section_type);
   };
 
@@ -504,7 +512,7 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
       if (data.newly_unlocked_badges?.length > 0) showSuccess(`Badge unlocked!`);
       else if (data.points_awarded > 0) showSuccess(`Workout completed! +${data.points_awarded} pts ⭐`);
       else showSuccess('Workout completed! 🎉');
-      await fetchSchedule(); await fetchWorkoutForDate(dateStr); setShowFeedbackForm(true);
+      await fetchSchedule(); await fetchWorkoutForDate(dateStr); feedback.setShowFeedbackForm(true);
     } catch { showError('Could not complete workout.'); }
   };
 
@@ -610,35 +618,10 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
     showInfo('Adjustment rejected. Your plan stays unchanged.');
   };
 
-  const submitFeedback = async (dateStr: string) => {
-    if (feedbackRating === 0) { showError('Please rate the difficulty before submitting.'); return; }
-    setSubmittingFeedback(true);
-    try {
-      const body: any = { difficulty_rating: feedbackRating, pain_reported: feedbackPain, notes: feedbackNotes };
-      if (feedbackFatigue !== null) body.fatigue_level = feedbackFatigue;
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/feedback/${dateStr}/`, {
-        method: editingFeedback ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error();
-      showSuccess(editingFeedback ? 'Feedback updated! ✏️' : 'Feedback submitted! 🙌');
-      setShowFeedbackForm(false); setShowWorkoutModal(false); resetFeedbackForm(); await fetchSchedule();
-      // Trigger Suggestion Modal if Pain Reported
-      if (!editingFeedback || feedbackPain) {
-        await fetchScheduleSuggestion(dateStr);
-      }
-    } catch { showError('Could not submit feedback.'); }
-    finally { setSubmittingFeedback(false); }
-  };
-
   const openEditFeedback = () => {
     if (workoutDetail?.feedback) {
-      setFeedbackRating(workoutDetail.feedback.difficulty_rating ?? 0);
-      setFeedbackFatigue(workoutDetail.feedback.fatigue_level ?? null);
-      setFeedbackPain(workoutDetail.feedback.pain_reported ?? false);
-      setFeedbackNotes(workoutDetail.feedback.notes ?? '');
+      feedback.loadExistingFeedback(workoutDetail.feedback);
     }
-    setEditingFeedback(true);
-    setShowFeedbackForm(true);
   };
 
   const undoCompleteSession = async (dateStr: string) => {
@@ -648,21 +631,9 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
       if (!res.ok) throw new Error();
       showSuccess('Workout marked as not completed.');
       await fetchSchedule(); await fetchWorkoutForDate(dateStr);
-      setShowFeedbackForm(false); resetFeedbackForm();
+      feedback.setShowFeedbackForm(false); feedback.resetFeedbackForm();
     } catch { showError('Could not undo workout completion.'); }
     finally { setUndoingComplete(false); }
-  };
-
-  const deleteFeedback = async (dateStr: string) => {
-    setDeletingFeedback(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/feedback/${dateStr}/`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error();
-      showSuccess('Feedback removed.');
-      await fetchSchedule(); await fetchWorkoutForDate(dateStr);
-      setShowFeedbackForm(false); resetFeedbackForm();
-    } catch { showError('Could not remove feedback.'); }
-    finally { setDeletingFeedback(false); }
   };
 
   // ========================================
@@ -1291,7 +1262,7 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
         <div className="dashboard-modal-overlay" onClick={handleCloseModal}>
           <div className="dashboard-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="dashboard-modal-header">
-              <h3>{showFeedbackForm ? (editingFeedback ? '✏️ Edit Feedback' : '📝 Rate Your Workout') : workoutDetail.is_rest_day ? '😴 Rest Day' : '🏋️ Workout Details'}</h3>
+              <h3>{feedback.showFeedbackForm ? (feedback.editingFeedback ? '✏️ Edit Feedback' : '📝 Rate Your Workout') : workoutDetail.is_rest_day ? '😴 Rest Day' : '🏋️ Workout Details'}</h3>
               <button className="dashboard-modal-close" onClick={handleCloseModal}>✕</button>
             </div>
             <div className="dashboard-modal-body">
@@ -1304,7 +1275,7 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
               ) : (
                 <>
                   {/* WORKOUT LIST */}
-                  {!showFeedbackForm && workoutDetail.workouts?.map((workout: any, workoutIdx: number) => (
+                  {!feedback.showFeedbackForm && workoutDetail.workouts?.map((workout: any, workoutIdx: number) => (
                     <div key={workoutIdx} style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
                       <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>{workout.program_name} — {workout.section.format}</h4>
                       {workout.section.exercises?.map((exercise: any, index: number) => (
@@ -1320,58 +1291,54 @@ const weeklyChartData = buildMonSunWeekData(completedHistorySessions);
                   ))}
 
                   {/* DISPLAY EXISTING FEEDBACK */}
-                  {!showFeedbackForm && workoutDetail.has_feedback && workoutDetail.feedback && (
-                    <div style={{ background: 'var(--bg-tertiary)', borderRadius: '8px', padding: '0.75rem 1rem', margin: '0.75rem 0', border: '1px solid var(--border-light)' }}>
-                      <div style={{ fontWeight: 700, marginBottom: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>YOUR FEEDBACK</div>
-                      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.88rem' }}>
-                        <span>💪 Difficulty: <strong>{workoutDetail.feedback.difficulty_rating}/5</strong></span>
-                        {workoutDetail.feedback.fatigue_level && <span>😓 Fatigue: <strong>{workoutDetail.feedback.fatigue_level}/5</strong></span>}
-                        {workoutDetail.feedback.pain_reported && <span>⚠️ <strong>Pain reported</strong></span>}
-                      </div>
-                      {workoutDetail.feedback.notes && <p style={{ marginTop: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>"{workoutDetail.feedback.notes}"</p>}
-                    </div>
+                  {!feedback.showFeedbackForm && workoutDetail.has_feedback && workoutDetail.feedback && (
+                    <WorkoutFeedbackSummary feedback={workoutDetail.feedback} />
                   )}
 
-                  {/* PORTED FEEDBACK FORM */}
-                  {showFeedbackForm && (
-                    <div className="feedback-form">
-                      <div className="feedback-section"><label className="feedback-label">Difficulty <span className="feedback-required">*</span></label><div className="rating-buttons">{[1,2,3,4,5].map((n) => <button key={n} className={`rating-btn ${feedbackRating===n?'rating-btn-active':''}`} onClick={()=>setFeedbackRating(n)}>{n}</button>)}</div><div className="rating-scale-labels"><span>Very Easy</span><span>Very Hard</span></div></div>
-                      <div className="feedback-section"><label className="feedback-label">Fatigue Level <span className="feedback-optional">(optional)</span></label><div className="rating-buttons">{[1,2,3,4,5].map((n) => <button key={n} className={`rating-btn ${feedbackFatigue===n?'rating-btn-active':''}`} onClick={()=>setFeedbackFatigue(feedbackFatigue===n?null:n)}>{n}</button>)}</div><div className="rating-scale-labels"><span>Not Tired</span><span>Exhausted</span></div></div>
-                      <div className="feedback-section feedback-section-inline"><label className="feedback-label">Any pain or discomfort?</label><button className={`toggle-pain-btn ${feedbackPain?'toggle-pain-yes':'toggle-pain-no'}`} onClick={()=>setFeedbackPain(!feedbackPain)}>{feedbackPain?'⚠️ Yes':'No'}</button></div>
-                      <div className="feedback-section"><label className="feedback-label">Notes <span className="feedback-optional">(optional)</span></label><textarea className="feedback-textarea" placeholder="How did it go? Any observations..." value={feedbackNotes} onChange={(e)=>setFeedbackNotes(e.target.value)} rows={3}/></div>
-                      <div className="feedback-actions">
-                        <button className="btn-skip-feedback" onClick={()=>{setShowFeedbackForm(false);resetFeedbackForm();}}>Cancel</button>
-                        <button className="btn-submit-feedback" onClick={()=>submitFeedback(workoutDetail.date)} disabled={feedbackRating===0||submittingFeedback}>{submittingFeedback?'Saving...':editingFeedback?'✏️ Update Feedback':'Submit Feedback'}</button>
-                      </div>
-                    </div>
+                  {/* FEEDBACK FORM */}
+                  {feedback.showFeedbackForm && (
+                    <WorkoutFeedbackForm
+                      feedbackRating={feedback.feedbackRating}
+                      setFeedbackRating={feedback.setFeedbackRating}
+                      feedbackFatigue={feedback.feedbackFatigue}
+                      setFeedbackFatigue={feedback.setFeedbackFatigue}
+                      feedbackPain={feedback.feedbackPain}
+                      setFeedbackPain={feedback.setFeedbackPain}
+                      feedbackNotes={feedback.feedbackNotes}
+                      setFeedbackNotes={feedback.setFeedbackNotes}
+                      onSubmit={() => feedback.submitFeedback(workoutDetail.date)}
+                      onCancel={() => { feedback.setShowFeedbackForm(false); feedback.resetFeedbackForm(); }}
+                      submitting={feedback.submittingFeedback}
+                      isEditing={feedback.editingFeedback}
+                    />
                   )}
 
                   {/* ACTION BUTTONS */}
-                  {!showFeedbackForm && (
+                  {!feedback.showFeedbackForm && (
                     <div className="modal-actions" style={{ flexDirection: 'column', gap: '0.6rem' }}>
                       {workoutDetail.session_status === 'completed' && workoutDetail.has_feedback && (
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                           <div className="workout-completed-label" style={{ flex: 1 }}>✅ Completed · Feedback Given ✓</div>
                           <button className="btn-add-feedback" onClick={openEditFeedback}>✏️ Edit Feedback</button>
-                          <button onClick={()=>deleteFeedback(workoutDetail.date)} disabled={deletingFeedback} style={{ padding: '0.4rem 0.75rem', borderRadius: '7px', border: '1.5px solid #dc2626', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' }}>{deletingFeedback?'...':'🗑️ Remove Feedback'}</button>
+                          <button onClick={()=>feedback.deleteFeedback(workoutDetail.date)} disabled={feedback.deletingFeedback} style={{ padding: '0.4rem 0.75rem', borderRadius: '7px', border: '1.5px solid #dc2626', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem' }}>{feedback.deletingFeedback?'...':'🗑️ Remove Feedback'}</button>
                         </div>
                       )}
-                      
+
                       {workoutDetail.session_status === 'completed' && !workoutDetail.has_feedback && (
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                           <div className="workout-completed-label" style={{ flex: 1 }}>✅ Completed</div>
-                          <button className="btn-add-feedback" onClick={()=>setShowFeedbackForm(true)}>📝 Give a feedback</button>
+                          <button className="btn-add-feedback" onClick={()=>feedback.setShowFeedbackForm(true)}>📝 Give a feedback</button>
                         </div>
                       )}
-                      
+
                       {workoutDetail.session_status === 'completed' && (
                         <button onClick={()=>undoCompleteSession(workoutDetail.date)} disabled={undoingComplete} style={{ padding: '0.4rem 0.75rem', borderRadius: '7px', border: '1.5px solid var(--border-medium)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500, fontSize: '0.82rem', alignSelf: 'flex-start' }}>{undoingComplete?'...':'↩ Undo Completion'}</button>
                       )}
-                      
+
                       {!workoutDetail.session_status && (
                         <button className="btn-start-workout" style={{ width: '100%' }} onClick={() => startSession(workoutDetail.date)}>▶️ Start Workout</button>
                       )}
-                      
+
                       {workoutDetail.session_status === 'in_progress' && (
                         <button className="btn-complete-workout" style={{ width: '100%', margin: 0 }} onClick={() => completeSession(workoutDetail.date)}>✅ Complete Workout</button>
                       )}
