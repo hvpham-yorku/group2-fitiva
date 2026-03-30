@@ -497,25 +497,8 @@ This section documents what changed across the iterations, from the **Iteration 
 
 # 6. Testing Summary (Unit Tests)
 - **Test framework:** Python Django built-in test framework (`django.test`)
-- **Test location:** `backend/api/tests/` (9 separate files)
-- **Result:** All tests passing on latest ITR2 tag.
-
-| Test File | Domain Covered | User Story |
-|-----------|---------------|------------|
-| `test_authentication.py` | Signup, login, logout, session management | US 1.1 |
-| `test_profiles.py` | Profile creation, update, validation | US 1.2 |
-| `test_workout_programs.py` | Program creation, editing, structure constraints | US 1.3 |
-| `test_exercise_templates.py` | Workout template listing, filtering, selection | US 1.4 |
-| `test_recommendations.py` | Recommendation logic based on profile attributes | US 1.6 |
-| `test_schedules.py` | Schedule generation, regeneration, feedback integration | US 1.7, US 3.6, US 2.3 |
-| `test_workout_sessions.py` | Session creation, tracking, and state updates | US 3.1 |
-| `test_workoutcompletion.py` | Workout completion correctness and persistence | US 3.1 |
-| `test_workout_history.py` | Retrieval and filtering of workout history | US 3.2 |
-| `test_training_trends.py` | Trend calculations (streaks, totals, activity) | US 3.3 |
-| `test_summary_dashboard.py` | Dashboard metrics aggregation and display data | US 3.4 |
-| `test_challenges.py` | Challenge creation, participation, and tracking | US 4.4, US 4.5 |
-| `test_rewards.py` | Points system and badge unlocking logic | US 4.1, US 4.2 |
-
+- **Test location:** `backend/api/tests/` (separate files for all user stories)
+- **Result:** All tests passing on latest ITR3 tag.
 
 **To run tests locally:**
 ```bash
@@ -523,7 +506,7 @@ This section documents what changed across the iterations, from the **Iteration 
 docker-compose up -d
 
 # Then run tests
-docker-compose exec backend python manage.py test api --verbosity=2
+docker-compose exec backend python manage.py test --verbosity=2
 ```
 
 # 7. Release & Repository Notes
@@ -543,7 +526,7 @@ backend/ — backend container
 
 backend/api/ — backend source code
 
-backend/api/tests/ — all test files
+backend/tests/ — all test files
 
 docs/ — planning documents (ITR0, ITR1, ITR2, ITR3)
 
